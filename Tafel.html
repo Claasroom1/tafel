@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Tafel-App</title>
+<meta name="theme-color" content="#5b5bd6">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- iPad/iPhone: als App vom Home-Bildschirm (Safari › Teilen › Zum Home-Bildschirm) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tafel">
+<link rel="apple-touch-icon" href="app/icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="app/icons/icon-192.png">
+<link rel="stylesheet" href="app/tafel.css">
+</head>
+<body>
+<canvas id="cMain"></canvas>
+<canvas id="cLive"></canvas>
+<canvas id="cOver"></canvas>
+
+<div id="topbar">
+  <button class="tb" id="bArchiv" title="Tafeln öffnen und verwalten">📁 Tafeln</button>
+  <input id="titel" spellcheck="false" title="Titel der Tafel">
+  <button class="badge" id="ablageInfo" title="Lehrkraft, Fach und Datum ändern"></button>
+  <span class="spacer"></span>
+  <span id="status"></span>
+  <span id="stiftInfo" title="Was zuletzt auf die Tafel getippt hat"></span>
+  <button class="tb" id="bSave" title="Speichern: Tafel speichern · Seite oder Auswahl zu „Meine Aufgaben“ (Strg+S speichert sofort)">💾 Speichern ▾</button>
+  <button class="tb" id="bExport" title="Import: PowerPoint, Word, PDF, Bilder · Export: PNG, PDF, Tafel-Datei">⇅ Import / Export</button>
+  <button class="tb" id="bVideo" title="Video: Anschrieb aufnehmen (Video, Stop-Motion) · Videos abspielen (Datei, YouTube) · Kamera und Fenster als Hintergrund">🎬 Video</button>
+  <button class="tb" id="bAnim" title="Animation: Effekte, Start (Klick/Zeit) und Reihenfolge der Seite – Bereich rechts ein-/ausblenden">✨ Animation</button>
+  <button class="tb" id="bPraes" title="Bildschirmpräsentation starten: Animationen Schritt für Schritt, Seite für Seite">▶ Präsentieren</button>
+  <button class="tb" id="bThema" title="Hell / Dunkel / Automatisch">🌓</button>
+  <button class="tb" id="bSettings" title="Einstellungen">⚙</button>
+  <button class="tb" id="bFull" title="Vollbild">⛶</button>
+</div>
+
+<div id="dock"></div>
+<div id="toolbar"></div>
+<div id="selbar"></div>
+<div id="nav">
+  <button id="navAlles" title="Alles zeigen: zoomt so, dass alles auf dieser Seite sichtbar ist">⤢</button>
+  <button id="navPlus" title="Hineinzoomen">＋</button>
+  <button id="zoomInfo" title="Zoom – antippen: 100 %">100 %</button>
+  <button id="navMinus" title="Herauszoomen">−</button>
+  <button id="navHome" title="Zum Anfang der Seite (100 %)">⌂</button>
+  <button id="navSeite" title="Bedienseite wechseln (Pult links / Mitte / rechts)">⇆</button>
+</div>
+<div id="pop" class="pop"></div>
+<div id="modal"><div class="dlg" id="dlg"></div></div>
+<div id="archiv"></div>
+<div id="toast"></div>
+<div id="wisch"></div>
+<div id="druck"></div>
+
+<script src="app/kern.js"></script>
+<script src="app/werkzeuge.js"></script>
+<script src="app/eingabe.js"></script>
+<script src="app/bausteine.js"></script>
+<script src="app/karten.js"></script>
+<script src="app/flexibel.js"></script>
+<script src="app/karten2.js"></script>
+<script src="app/speicher.js"></script>
+<script src="app/aufgaben.js"></script>
+<script src="app/oberflaeche.js"></script>
+<script src="app/notizen.js"></script>
+<script src="app/rechner.js"></script>
+<script src="app/classroom.js"></script>
+<script src="app/plotter.js"></script>
+<script src="app/uebungen.js"></script>
+<script src="app/gebete.js"></script>
+<script src="app/geogebra.js"></script>
+<script src="app/rechenwege.js"></script>
+<script src="app/teiler.js"></script>
+<script src="app/tastatur.js"></script>
+<script src="app/aufdecken.js"></script>
+<script src="app/zettel.js"></script>
+<script src="app/stiftplus.js"></script>
+<script src="app/classroom2.js"></script>
+<script src="app/dokimport.js"></script>
+<script src="app/minikarte.js"></script>
+<script src="app/palette.js"></script>
+<script src="app/uebeditor.js"></script>
+<script src="app/deutsch.js"></script>
+<script src="app/ablauf.js"></script>
+<script src="app/geruest.js"></script>
+<script src="app/kamera.js"></script>
+<script src="app/pptimport.js"></script>
+<script src="app/aufnahme.js"></script>
+<script src="app/meineaufgaben.js"></script>
+<script src="app/paket3a.js"></script>
+<script src="app/paket3b.js"></script>
+<script src="app/skelettbilder.js"></script>
+<script src="app/figuren.js"></script>
+<script src="app/zuordnen.js"></script>
+<script src="app/koerpergriffe.js"></script>
+<script src="app/puzzle.js"></script>
+<script>
+  // Installierbar/offline nur, wenn die App über eine Web-Adresse läuft (nicht beim Öffnen als Datei)
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
