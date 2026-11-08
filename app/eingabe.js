@@ -77,6 +77,9 @@ function down(e) {
 function move(e) {
   const P = ptrs.get(e.pointerId);
   if (!P) { hover(e); return; }
+  if (e.pointerType === 'pen' && e.buttons === 0 && P.type === 'pen') { /* Pencil schwebt schon wieder über dem Display: Strich ist zu Ende (Schwebepunkt nicht mitnehmen) */
+    if (P.h && P.h.kind === 'stroke') { ptrs.delete(e.pointerId); stiftRuheBis = performance.now() + (IPAD ? 900 : 500); P.h.up(P, null); } else up(e);
+    return; }
   P.x = e.clientX; P.y = e.clientY;
   if (P.h && P.h.move) P.h.move(P, e);
 }
@@ -200,12 +203,18 @@ function stroke(P, e, ueber) { // ueber: { c, w } – eigene Farbe/Stärke (gete
   const tool = !ueber && S.tool === 'marker' ? 'marker' : 'stift', hl = tool === 'marker';
   const laser = !ueber && !hl && S.stiftArt === 'laser';
   let live = { t: 's', m: hl ? 'hl' : laser ? 'line' : S.stiftArt === 'kalli' && !ueber ? 'kalli' : 'pen', c: ueber ? ueber.c : S.farbe[tool], w: ueber ? ueber.w : S.groesse[tool], p: [], ...(laser ? {} : fx(hl)) };
-  let last = null, pr = 0.55, real = false, lastS = null, erkannt = false, ruhe = 0, anker = [P.x, P.y], winkelLabel = false;
+  let last = null, pr = 0.55, real = false, lastS = null, erkannt = false, ruhe = 0, anker = [P.x, P.y], winkelLabel = false, bewegtAm = performance.now(), bild = 0;
   const labelWeg = () => { if (winkelLabel) { winkelLabel = false; T.overlay.label = null; T.renderOver(); } };
+  // Neu zeichnen höchstens einmal pro Bild (der Apple Pencil liefert sehr viele Punkte pro Sekunde)
+  const zeichneBald = () => { if (!bild) bild = requestAnimationFrame(() => { bild = 0; T.renderLive(); }); };
   // Formerkennung: Stift nach dem Zeichnen kurz still halten → saubere Form
   const halten = () => {
-    clearTimeout(ruhe); if (laser || T.opts.formAus || !T.formErkennen) return;
-    ruhe = setTimeout(() => {
+    clearTimeout(ruhe); bewegtAm = performance.now(); if (laser || T.opts.formAus || !T.formErkennen) return;
+    ruhe = setTimeout(erkenne, 650);
+  };
+  const erkenne = () => {
+    if (erkannt || laser || T.opts.formAus || !T.formErkennen) return;
+    {
       const [x, y] = world(P.x, P.y), lp = live.p[live.p.length - 1]; // geglättete Spur hinkt nach: echte Stiftposition als Endpunkt
       const neu = T.formErkennen(lp && Math.hypot(x - lp[0], y - lp[1]) > 0.8 ? { ...live, p: live.p.concat([[T.r1(x), T.r1(y), lp[2]]]) } : live, view().z); if (!neu) return;
       // 📐 Winkel auch bei erkannten Geraden/Dreiecken/Rechtecken aus dem Stift (wie bei den Formen)
@@ -214,7 +223,7 @@ function stroke(P, e, ueber) { // ueber: { c, w } – eigene Farbe/Stärke (gete
         if (neu.p.length === 2) { const [a, b] = neu.p; T.overlay.label = { x: b[0], y: b[1], t: liveWinkel(a[0], a[1], b[0], b[1]) }; winkelLabel = true; T.renderOver(); }
       }
       T.lives.delete(live); live = neu; T.lives.add(live); erkannt = true; T.renderLive();
-    }, 650);
+    }
   };
   const add = ev => {
     const [x, y] = world(ev.clientX, ev.clientY);
@@ -245,18 +254,23 @@ function stroke(P, e, ueber) { // ueber: { c, w } – eigene Farbe/Stärke (gete
       for (const c of evs(ev)) add(c);
       const vor = tempo === 'vorhersage' && ev.getPredictedEvents ? ev.getPredictedEvents() : []; // Vorhersage: die Spitze eilt ein kleines Stück voraus
       if (vor.length) { const q = vor[vor.length - 1]; live.spitze = world(q.clientX, q.clientY); }
-      T.renderLive();
+      zeichneBald();
       if (Math.hypot(Q.x - anker[0], Q.y - anker[1]) > 6) { anker = [Q.x, Q.y]; halten(); }
     },
     up(Q, ev) {
-      clearTimeout(ruhe);
-      if (!erkannt) { const [x, y] = world(ev.clientX, ev.clientY), lp = live.p[live.p.length - 1];
+      clearTimeout(ruhe); if (bild) { cancelAnimationFrame(bild); bild = 0; }
+      if (!erkannt) { const [x, y] = ev ? world(ev.clientX, ev.clientY) : world(Q.x, Q.y), lp = live.p[live.p.length - 1]; /* ohne Ereignis: letzte echte Stiftposition */
         if (lp && Math.hypot(x - lp[0], y - lp[1]) > 0.8) live.p.push([T.r1(x), T.r1(y), lp[2]]); }
       T.lives.delete(live); delete live.spitze; T.renderLive(); labelWeg();
       if (live.p.length) { T.snap(); T.addItem(live); }
-      if (P.type === 'pen' && !ueber) doppeltipp(P, Q, live);
+      if (P.type === 'pen' && !ueber && ev) doppeltipp(P, Q, live);
     },
-    cancel() { clearTimeout(ruhe); T.lives.delete(live); T.renderLive(); labelWeg(); }
+    cancel(Q) {
+      // iPad/Safari bricht einen still gehaltenen Pencil-Strich gern ab (Geste „lange drücken“): Strich behalten –
+      // lag der Stift ruhig, gleich die saubere Form daraus machen (wie beim Halten)
+      if (P.type === 'pen' && live.p.length) { if (performance.now() - bewegtAm > 300) erkenne(); this.up(Q || P, null); return; }
+      clearTimeout(ruhe); if (bild) { cancelAnimationFrame(bild); bild = 0; } T.lives.delete(live); T.renderLive(); labelWeg();
+    }
   };
 }
 const evs = ev => { const c = ev.getCoalescedEvents ? ev.getCoalescedEvents() : []; return c.length ? c : [ev]; };
@@ -271,7 +285,7 @@ const HILFEN = {
 };
 const HILFE_NAME = { lineal: 'Lineal', geodreieck: 'Geodreieck', winkelmesser: 'Winkelmesser', scheinwerfer: 'Scheinwerfer', lupe: 'Lupe', leselineal: 'Leselineal', vorhang: 'Vorhang', schwarz: 'Tafel schwarz', laser: 'Laserpointer' };
 // Auswahl für Einstellungen und Stift-Menü
-T.DOPPEL_ZIELE = [['', 'aus'], ['zuletzt', '🔁 zuletzt benutztes Hilfsmittel'], ['laser', '🔴 Laserpointer'], ['marker', '🖍 Textmarker'],
+T.DOPPEL_ZIELE = [['', 'aus'], ['zuletzt', '🔁 zuletzt benutztes Hilfsmittel'], ['radierer', '🧽 Radierer'], ['laser', '🔴 Laserpointer'], ['marker', '🖍 Textmarker'],
   ['geodreieck', '📐 Geodreieck'], ['lineal', '📏 Lineal'], ['winkelmesser', '◠ Winkelmesser'], ['scheinwerfer', '🔦 Scheinwerfer'], ['lupe', '🔍 Lupe'],
   ['leselineal', '📖 Leselineal'], ['vorhang', '🎭 Vorhang'], ['schwarz', '⬛ Tafel schwarz'], ['#d32f2f', '🔴 Farbe Rot'], ['#1565c0', '🔵 Farbe Blau'], ['#2e7d32', '🟢 Farbe Grün']];
 // „Zuletzt benutzt“ merken: wer in der Stunde das Geodreieck oder den Laser nimmt, hat es danach auf dem Doppeltipp
@@ -295,10 +309,11 @@ function doppeltipp(P, Q, it) {
     vorDoppel = { tool: S.tool, stiftArt: S.stiftArt, farbe: S.farbe.stift };
     if (art === 'laser') { S.tool = 'stift'; S.stiftArt = 'laser'; }
     else if (art === 'marker') S.tool = 'marker';
+    else if (art === 'radierer') S.tool = 'radierer'; /* 🧽 Radierer – nochmals doppelt tippen: zurück zum Stift */
     else { S.tool = 'stift'; if (S.stiftArt === 'laser') S.stiftArt = 'normal'; S.farbe.stift = art; } // eine Farbe
   }
-  T.onInst && T.onInst(); T.renderOver();
-  T.toast && T.toast(vorDoppel ? '✌ Doppeltipp: Werkzeug gewechselt – nochmals doppelt tippen = zurück' : '✌ Zurück zum vorherigen Werkzeug', 1500);
+  T.onInst && T.onInst(); T.renderOver(); T.updateToolbar && T.updateToolbar(); /* Werkzeugleiste zeigt das neue Werkzeug */
+  T.toast && T.toast(vorDoppel ? (art === 'radierer' ? '✌ Radierer – nochmals doppelt tippen = zurück zum Stift' : '✌ Doppeltipp: Werkzeug gewechselt – nochmals doppelt tippen = zurück') : '✌ Zurück zum vorherigen Werkzeug', 1500);
 }
 
 // ---------- Am Lineal/Geodreieck entlang ----------
@@ -441,7 +456,9 @@ function erase(P, e, diam) {
     last = [x, y]; T.overlay.cursor = { x, y, r: r() }; T.renderOver();
   };
   go(P);
-  return { kind: 'erase', move: go, up() { T.overlay.cursor = null; T.renderOver(); }, cancel() { T.overlay.cursor = null; T.renderOver(); } };
+  return { kind: 'erase', move: go, up(Q) { T.overlay.cursor = null; T.renderOver();
+      if (P.type === 'pen' && S.tool === 'radierer' && !diam && Q) doppeltipp(P, Q, { id: null }); }, /* ✌ auch mit dem Radierer: doppelt tippen = zurück zum Stift */
+    cancel() { T.overlay.cursor = null; T.renderOver(); } };
 }
 
 // ---------- Formen ----------
