@@ -18,6 +18,10 @@ T.initInput = () => {
   cvs.addEventListener('pointercancel', cancel);
   cvs.addEventListener('lostpointercapture', e => { if (ptrs.has(e.pointerId)) cancel(e); });
   cvs.addEventListener('contextmenu', e => e.preventDefault());
+  /* iPad: Pencil-Berührungen nicht an Safari weitergeben (Scribble/Gestenerkennung hält sonst den nächsten Strich zurück) – Finger bleiben unberührt */
+  const nurStift = e => { for (const t of e.changedTouches) if (t.touchType === 'stylus') { e.preventDefault(); return; } };
+  if (STIFTTEST) document.addEventListener('pointerdown', e => { if (e.target !== cvs) stiftLog('daneben ' + String(e.target.id || e.target.tagName).slice(0, 14), e); }, true);
+  cvs.addEventListener('touchstart', nurStift, { passive: false }); cvs.addEventListener('touchmove', nurStift, { passive: false });
   cvs.addEventListener('wheel', e => {
     e.preventDefault();
     // Mausrad über Lineal, Geodreieck oder Winkelmesser: Werkzeug vergrößern/verkleinern (um die Mausstelle)
@@ -41,8 +45,20 @@ T.initInput = () => {
 const IPAD = /iPad|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
 T.istIpad = IPAD;
 let stiftRuheBis = 0;
+/* Stift-Prüfanzeige (nur mit „?stifttest“ hinter der Adresse): zeigt, was der Stift meldet – zur Fehlersuche am iPad */
+const STIFTTEST = /stifttest/.test(location.search + location.hash);
+let stiftBox = null; const stiftZahl = {}, stiftZeilen = [];
+function stiftLog(art, e) {
+  if (!STIFTTEST || (e && e.pointerType !== 'pen')) return;
+  stiftZahl[art] = (stiftZahl[art] || 0) + 1;
+  if (e) { stiftZeilen.unshift(art + ' #' + e.pointerId + ' b' + e.buttons + ' p' + (+e.pressure || 0).toFixed(2)); stiftZeilen.length = Math.min(stiftZeilen.length, 8); }
+  if (!stiftBox) { stiftBox = document.createElement('div'); stiftBox.style.cssText = 'position:fixed;left:10px;bottom:90px;z-index:99999;background:rgba(0,0,0,.78);color:#fff;font:13px/1.35 monospace;padding:8px 10px;border-radius:10px;pointer-events:none;white-space:pre'; document.body.append(stiftBox); }
+  stiftBox.textContent = '✒ Stifttest\n' + Object.entries(stiftZahl).map(([k, v]) => k + ': ' + v).join('  ') + '\n' + stiftZeilen.join('\n');
+}
+T.stiftLog = stiftLog;
 const stiftAktiv = () => [...ptrs.values()].some(q => q.type === 'pen') || performance.now() < stiftRuheBis;
 function down(e) {
+  stiftLog(S.board ? 'down' : 'down-ohne-tafel', e);
   if (!S.board) return;
   e.preventDefault();
   if (!T.teilung && T.opts.finger !== 'schreiben') {
@@ -78,11 +94,15 @@ function down(e) {
 }
 function move(e) {
   const P = ptrs.get(e.pointerId);
-  if (!P) { hover(e); return; }
+  if (!P) {
+    /* Pencil liegt auf, aber Safari hat kein „Aufsetzen“ gemeldet (oder der Strich wurde zu früh beendet): Strich hier beginnen statt ihn zu verlieren */
+    if (e.pointerType === 'pen' && (e.buttons & 1) && e.pressure > 0 && S.board) { stiftLog('neu', e); down(e); return; }
+    hover(e); return; }
   if (e.pointerType === 'pen' && e.buttons === 0 && !(e.pressure > 0) && P.type === 'pen') { /* Pencil schwebt schon wieder über dem Display: Strich ist zu Ende (Schwebepunkt nicht mitnehmen) */
     /* Safari meldet beim schnellen, leichten Schreiben einzelne Punkte ohne Druck – erst mehrere solche Punkte hintereinander beenden den Strich */
     P.schwebt = (P.schwebt || 0) + 1; if (P.schwebt === 1) P.schwebtAb = performance.now();
     if (P.schwebt < 4 || performance.now() - P.schwebtAb < 60) return;
+    stiftLog('schwebt-ende', e);
     if (P.h && P.h.kind === 'stroke') { ptrs.delete(e.pointerId); stiftRuheBis = performance.now() + (IPAD ? 900 : 500); P.h.up(P, null); } else up(e);
     return; }
   if (P.type === 'pen') P.schwebt = 0;
@@ -90,12 +110,14 @@ function move(e) {
   if (P.h && P.h.move) P.h.move(P, e);
 }
 function up(e) {
+  stiftLog('up', e);
   const P = ptrs.get(e.pointerId); if (!P) return;
   P.x = e.clientX; P.y = e.clientY; ptrs.delete(e.pointerId);
   if (P.type === 'pen') stiftRuheBis = performance.now() + (IPAD ? 900 : 500); /* Hand hebt meist erst nach dem Stift ab */
   if (P.h && P.h.up) P.h.up(P, e);
 }
 function cancel(e) {
+  stiftLog('cancel', e);
   const P = ptrs.get(e.pointerId); if (!P) return; ptrs.delete(e.pointerId);
   if (P.h && P.h.cancel) P.h.cancel(P); else if (P.h && P.h.up) P.h.up(P, e);
 }
