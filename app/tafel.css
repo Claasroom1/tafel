@@ -1106,3 +1106,9 @@ body.seite-links .nrand { left: auto; right: -7px; }
 html, body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
 canvas, img, button { -webkit-touch-callout: none; -webkit-user-drag: none; }
 #topbar { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
+
+/* Tablets und schmale Bildschirme: obere Leiste kompakt (nur Symbole), notfalls seitlich wischen – ⚙ bleibt erreichbar */
+#topbar { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+#topbar::-webkit-scrollbar { display: none; }
+@media (max-width: 1400px) { #topbar .tbtxt { display: none; } #topbar .tb { padding: 0 11px; } #topbar > #titel { max-width: 22vw; } }
+@media (max-width: 900px) { #topbar { gap: 5px; } #topbar .tb { padding: 0 9px; } #topbar > #titel { max-width: 18vw; } #stiftInfo { display: none; } }

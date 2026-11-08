@@ -49,6 +49,8 @@ function down(e) {
     if (e.pointerType === 'pen') for (const q of ptrs.values()) if (q.type === 'touch' && q.h && q.h.kind !== 'idle') { if (q.h.cancel) q.h.cancel(q); q.h = idle(); } /* Hand lag schon auf: deren Verschieben abbrechen */
     if (e.pointerType === 'touch' && stiftAktiv()) { ptrs.set(e.pointerId, { id: e.pointerId, type: 'touch', sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), h: idle() }); return; }
   }
+  if (e.pointerType === 'pen') for (const q of [...ptrs.values()]) if (q.type === 'pen') { /* vorheriger Strich hat kein Ende gemeldet: erst sichern, dann den neuen beginnen */
+    ptrs.delete(q.id); if (q.h && q.h.up) q.h.up(q, null); }
   T.closePops && T.closePops();
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   try { cvs.setPointerCapture(e.pointerId); } catch (x) {}
@@ -77,9 +79,13 @@ function down(e) {
 function move(e) {
   const P = ptrs.get(e.pointerId);
   if (!P) { hover(e); return; }
-  if (e.pointerType === 'pen' && e.buttons === 0 && P.type === 'pen') { /* Pencil schwebt schon wieder über dem Display: Strich ist zu Ende (Schwebepunkt nicht mitnehmen) */
+  if (e.pointerType === 'pen' && e.buttons === 0 && !(e.pressure > 0) && P.type === 'pen') { /* Pencil schwebt schon wieder über dem Display: Strich ist zu Ende (Schwebepunkt nicht mitnehmen) */
+    /* Safari meldet beim schnellen, leichten Schreiben einzelne Punkte ohne Druck – erst mehrere solche Punkte hintereinander beenden den Strich */
+    P.schwebt = (P.schwebt || 0) + 1; if (P.schwebt === 1) P.schwebtAb = performance.now();
+    if (P.schwebt < 4 || performance.now() - P.schwebtAb < 60) return;
     if (P.h && P.h.kind === 'stroke') { ptrs.delete(e.pointerId); stiftRuheBis = performance.now() + (IPAD ? 900 : 500); P.h.up(P, null); } else up(e);
     return; }
+  if (P.type === 'pen') P.schwebt = 0;
   P.x = e.clientX; P.y = e.clientY;
   if (P.h && P.h.move) P.h.move(P, e);
 }
