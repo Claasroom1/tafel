@@ -1,5 +1,5 @@
 // Tafel-App – Service Worker: macht die installierte App offline lauffähig (nur bei Aufruf über https)
-const VERSION = 'tafel-2026-11-10o';
+const VERSION = 'tafel-2026-11-10q';
 const DATEIEN = ['./', './Tafel.html', './manifest.webmanifest', './app/tafel.css', './app/kern.js', './app/werkzeuge.js', './app/eingabe.js', './app/bausteine.js',
   './app/karten.js', './app/flexibel.js', './app/karten2.js', './app/karten/welt.js', './app/karten/de.js',
   './app/karten/relief-welt.js', './app/karten/relief-eu.js', './app/karten/relief-af.js', './app/karten/relief-as.js', './app/karten/relief-na.js',
