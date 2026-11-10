@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <!-- iPad/iPhone: als App vom Home-Bildschirm (Safari › Teilen › Zum Home-Bildschirm) -->
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black"><!-- nicht „translucent“: sonst liegt die obere Leiste (⚙) unter Uhr/Akku und ist nicht antippbar -->
 <meta name="apple-mobile-web-app-title" content="Tafel">
 <link rel="apple-touch-icon" href="app/icons/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -21,8 +21,9 @@
 <canvas id="cOver"></canvas>
 
 <div id="topbar">
-  <button class="tb" id="bArchiv" title="Tafeln öffnen und verwalten">📁<span class="tbtxt"> Tafeln</span></button>
-  <input id="titel" spellcheck="false" title="Titel der Tafel">
+  <button class="tb" id="bArchiv" title="Tafel: Startseite, neue Tafel, beenden, sperren, abmelden">📁<span class="tbtxt"> Tafel</span> ▾</button>
+  <label class="tblabel" for="titel">Dateiname:</label>
+  <input id="titel" spellcheck="false" title="Name der Tafel – antippen zum Ändern" placeholder="z. B. Brüche 7b">
   <button class="badge" id="ablageInfo" title="Lehrkraft, Fach und Datum ändern"></button>
   <span class="spacer"></span>
   <span id="status"></span>
@@ -97,6 +98,9 @@
 <script src="app/zuordnen.js"></script>
 <script src="app/koerpergriffe.js"></script>
 <script src="app/puzzle.js"></script>
+<script src="app/bruchstuecke.js"></script>
+<script src="app/geodreieck_erkl.js"></script>
+<script src="app/feiern.js"></script>
 <script>
   // Installierbar/offline nur, wenn die App über eine Web-Adresse läuft (nicht beim Öffnen als Datei)
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
