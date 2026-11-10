@@ -24,7 +24,7 @@ T.INSTR = {
   lineal: {
     name: 'Lineal',
     edges: [{ t: 'l', a: [0, 0], b: [LL, 0] }, { t: 'l', a: [0, LH], b: [LL, LH] }],
-    center: [LL / 2, LH / 2], knob: [LL - 70, LH / 2 + 8], close: [44, LH - 30],
+    center: [LL / 2, LH / 2], knob: [LL - 70, LH / 2 + 8], close: [44, LH - 30], gear: [104, LH - 30],
     contains: (x, y) => x >= 0 && x <= LL && y >= 0 && y <= LH,
     draw(ctx, px) {
       ctx.fillStyle = 'rgba(255,248,205,.86)'; ctx.strokeStyle = '#8a7a2a'; ctx.lineWidth = 1.5 * px;
@@ -42,7 +42,7 @@ T.INSTR = {
   geodreieck: {
     name: 'Geodreieck',
     edges: [{ t: 'l', a: [-GR, 0], b: [GR, 0] }, { t: 'l', a: [-GR, 0], b: [0, -GR] }, { t: 'l', a: [0, -GR], b: [GR, 0] }],
-    center: [0, -GR / 3], knob: [0, -GR + 62], close: [-GR + 82, -40],
+    center: [0, -GR / 3], knob: [0, -GR + 62], close: [-GR + 82, -40], gear: [GR - 82, -40],
     contains: (x, y) => y <= 0 && Math.abs(x) - y <= GR,
     draw(ctx, px) {
       ctx.fillStyle = 'rgba(214,236,255,.80)'; ctx.strokeStyle = '#3a6d99'; ctx.lineWidth = 1.5 * px;
@@ -73,7 +73,7 @@ T.INSTR = {
   winkelmesser: {
     name: 'Winkelmesser',
     edges: [{ t: 'l', a: [-WR, 0], b: [WR, 0] }, { t: 'c', c: [0, 0], r: WR }],
-    center: [0, -WR / 2], knob: [0, -150], close: [0, -88],
+    center: [0, -WR / 2], knob: [0, -150], close: [0, -88], gear: [-70, -120],
     contains: (x, y) => y <= 0 && Math.hypot(x, y) <= WR,
     draw(ctx, px) {
       ctx.fillStyle = 'rgba(225,245,225,.82)'; ctx.strokeStyle = '#3c7a3c'; ctx.lineWidth = 1.5 * px;
@@ -150,9 +150,9 @@ function drawInstrument(ctx, I, px) {
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p[0], p[1], hr, 0, 2 * PI); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = `600 ${hr}px Segoe UI`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, p[0], p[1] + 1);
   };
-  btn(D.knob, 'rgba(30,111,217,.9)', '↻'); btn(D.close, 'rgba(200,50,50,.85)', '×');
+  btn(D.knob, 'rgba(30,111,217,.9)', '↻'); btn(D.close, 'rgba(200,50,50,.85)', '×'); if (D.gear) btn(D.gear, 'rgba(70,80,100,.85)', '⚙'); /* ⚙ Winkel, Größe, 🔒 fixieren */
   ctx.font = `600 ${15 * px}px Segoe UI`; ctx.fillStyle = '#123'; ctx.textAlign = 'center';
-  ctx.fillText(degText(-I.a) + (k !== 1 ? '  ·  ' + Math.round(k * 100) + ' %' : ''), D.knob[0], D.knob[1] + hr + 14 * px);
+  ctx.fillText(degText(-I.a) + (k !== 1 ? '  ·  ' + Math.round(k * 100) + ' %' : '') + (I.groesseFest || (I.groesseFest == null && T.opts.instFest && T.opts.instFest[I.kind]) ? '  🔒' : ''), D.knob[0], D.knob[1] + hr + 14 * px);
   ctx.restore();
 }
 
@@ -204,6 +204,7 @@ T.instHit = (x, y, px) => {
     const D = T.INSTR[I.kind], [lx, ly] = T.toLocal(I, x, y), lr = hr / (I.s || 1);
     if (Math.hypot(lx - D.close[0], ly - D.close[1]) <= lr) return { I, part: 'close' };
     if (Math.hypot(lx - D.knob[0], ly - D.knob[1]) <= lr) return { I, part: 'knob' };
+    if (D.gear && Math.hypot(lx - D.gear[0], ly - D.gear[1]) <= lr) return { I, part: 'gear' };
     if (D.contains(lx, ly)) return { I, part: 'body' };
   }
   return null;
@@ -246,6 +247,11 @@ T.drawOverlay = () => {
         ctx.fillStyle = '#1e6fd9'; ctx.beginPath(); ctx.arc(p[0], p[1], hr, 0, 2 * PI); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.font = `600 ${hr * 1.1}px Segoe UI`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, p[0], p[1] + px);
       }
+      if (T.seitenGriffe && !S.drag) for (const q of T.seitenGriffe(sb.obj, px)) { /* ▭ Abdeckung: Balken an den Seiten zum Ziehen */
+        const a = (sb.obj.r || 0) * PI / 180 + (q.s === 'o' || q.s === 'u' ? 0 : PI / 2), L = 30 * px, t = 9 * px;
+        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(a); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1e6fd9'; ctx.lineWidth = 3 * px;
+        ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-L / 2, -t / 2, L, t, t / 2); else ctx.rect(-L / 2, -t / 2, L, t); ctx.fill(); ctx.stroke(); ctx.restore();
+      }
       if (T.koerperGriffe && !S.drag) for (const q of T.koerperGriffe(sb.obj)) { // 🧊 Maße ziehen (orange)
         ctx.setLineDash([]); ctx.beginPath(); ctx.arc(q.x, q.y, 14 * px, 0, 2 * PI); ctx.fillStyle = '#ffedd5'; ctx.fill(); ctx.lineWidth = 4 * px; ctx.strokeStyle = '#ea580c'; ctx.stroke();
         ctx.fillStyle = '#c2410c'; ctx.font = `italic 700 ${15 * px}px Segoe UI`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(q.name, q.x, q.y + px);
@@ -270,7 +276,9 @@ T.drawOverlay = () => {
       if (T.overlay.rotDeg != null) { ctx.fillStyle = '#123'; ctx.font = `600 ${16 * px}px Segoe UI`; ctx.fillText(T.overlay.rotDeg + '°', h.rot[0], h.rot[1] - 34 * px); }
       const ef = !fest && T.eckForm && T.eckForm(); /* ◉ Eckgriffe: anfassen und ziehen */
       if (ef) T.eckGriffe(ef).forEach((q, i) => { const fb = T.eckGriffFarbe ? T.eckGriffFarbe(ef, i) : '#1e6fd9'; /* Kreiswinkel: orange = Winkel verstellen */
-        ctx.beginPath(); ctx.arc(q[0], q[1], 13 * px, 0, 2 * PI); ctx.fillStyle = fb === '#ea580c' ? '#ffedd5' : '#fff'; ctx.fill(); ctx.lineWidth = 4 * px; ctx.strokeStyle = fb; ctx.stroke(); ctx.beginPath(); ctx.arc(q[0], q[1], (fb === '#ea580c' ? 6 : 4) * px, 0, 2 * PI); ctx.fillStyle = fb; ctx.fill(); });
+        /* nur ein Außenring (innen durchsichtig), damit Ecke bzw. Linienende sichtbar bleibt und genau gesetzt werden kann; heller Rand für dunkle Tafeln */
+        const r = 17 * px; ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, 2 * PI); ctx.lineWidth = 6 * px; ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.stroke();
+        ctx.lineWidth = 3 * px; ctx.strokeStyle = fb; ctx.stroke(); });
       anchor = { x0: sb.x0 + dx, x1: sb.x1 + dx, y0: (fest ? sb.y0 : h.rot[1] - hr) + dy, y1: sb.y1 + dy };
     }
     ctx.restore();

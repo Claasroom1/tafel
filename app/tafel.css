@@ -1,4 +1,4 @@
-/* ---------- Farben (hell) ---------- */
+﻿/* ---------- Farben (hell) ---------- */
 :root {
   --bg: #f4f5fa; --surface: #ffffff; --surface2: #f0f2f8; --line: #e2e5ee; --field: #c9cedb;
   --text: #1b1f2a; --muted: #636b7e; --acc: #5b5bd6; --acc2: #8e5bd6; --acc-soft: #ececfe; --acc-ink: #3c3cb4;
@@ -1112,3 +1112,257 @@ canvas, img, button { -webkit-touch-callout: none; -webkit-user-drag: none; }
 #topbar::-webkit-scrollbar { display: none; }
 @media (max-width: 1400px) { #topbar .tbtxt { display: none; } #topbar .tb { padding: 0 11px; } #topbar > #titel { max-width: 22vw; } }
 @media (max-width: 900px) { #topbar { gap: 5px; } #topbar .tb { padding: 0 9px; } #topbar > #titel { max-width: 18vw; } #stiftInfo { display: none; } }
+
+/* iPad als Home-Bildschirm-App: nichts unter Uhr/Akku legen (dort kommen Tipper nicht an) */
+#topbar { top: env(safe-area-inset-top, 0px); }
+#archiv { padding-top: calc(22px + env(safe-area-inset-top, 0px)); }
+
+/* ◇ Formenleiste oben (Test): nur beim Werkzeug Formen */
+#formLeiste { position: fixed; top: calc(64px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 12; max-width: calc(100vw - 20px); }
+#formLeiste .fl-zeile { display: flex; gap: 4px; padding: 5px; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow-x: auto; scrollbar-width: none; }
+#formLeiste .fl-k { flex: none; min-height: 44px; padding: 0 14px; border: none; border-radius: 10px; background: transparent; color: var(--text); font-size: 16px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+#formLeiste .fl-k.on, #formLeiste .fl-k:hover { background: var(--surface2, rgba(91,91,214,.12)); }
+#formLeiste .fl-pf { opacity: .55; font-weight: 400; }
+#formLeiste .fl-auf { position: absolute; top: calc(100% + 6px); min-width: 260px; max-width: min(520px, calc(100vw - 20px)); max-height: calc(100vh - 200px); overflow-y: auto; padding: 10px 12px; background: var(--surface); color: var(--text);
+  border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-lg, var(--shadow)); display: flex; flex-direction: column; gap: 4px; }
+#formLeiste .fl-auf.fm-links { border-right: 1px solid var(--line); padding-right: 12px; min-width: 240px; }
+#formLeiste .fl-auf h4 { margin: 6px 0 2px; }#formLeiste .fl-griff { flex: none; width: 34px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--muted); cursor: move; touch-action: none; border-radius: 10px; }
+/* Formenleiste in der Pastellfarbe des Knopfs „Formen“ */
+#formLeiste .fl-zeile { background: color-mix(in srgb, var(--fl-farbe, var(--surface)) 45%, var(--surface)); border-color: color-mix(in srgb, var(--fl-farbe, var(--line)) 70%, var(--line)); }
+#formLeiste .fl-auf { background: color-mix(in srgb, var(--fl-farbe, var(--surface)) 22%, var(--surface)); border-color: color-mix(in srgb, var(--fl-farbe, var(--line)) 70%, var(--line)); }
+#formLeiste .fl-k.on, #formLeiste .fl-k:hover { background: color-mix(in srgb, var(--fl-farbe, var(--surface2)) 75%, var(--surface)); }#selbar .chipzeile button.chip.breit { width: auto; padding: 0 14px; font-size: 17px; font-weight: 600; white-space: nowrap; } /* Symbol mit Text, z. B. 📏 Bemaßung */
+/* 📏 Bemaßung als Tabelle: Angabe · an/aus · verdeckt */
+.bm { display: flex; flex-direction: column; gap: 6px; }
+.bm-titel { font-weight: 700; font-size: 16px; margin: 2px 0 2px; }
+.bm-tab { display: grid; grid-template-columns: minmax(0, 1fr) 54px 62px; align-items: center; column-gap: 8px; row-gap: 4px; }
+.bm-kopf { font-size: 13px; color: var(--muted); text-align: center; }
+.bm-name { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bm-k { width: 48px; height: 42px; justify-self: center; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 2px solid var(--line); background: var(--surface); cursor: pointer; padding: 0; }
+.bm-k.on { border-color: var(--acc, #5b5bd6); background: var(--acc-soft, rgba(91,91,214,.14)); }
+.bm-leer { width: 48px; height: 42px; justify-self: center; }
+.bm-alle { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid var(--line); }
+.bm-alle .big { min-height: 40px; padding: 0 12px; font-size: 15px; }/* 🏠 Startseite: großer Knopf „Leere Tafel“ (nicht über die ganze Breite) und „Anmelden“ */
+#archiv .start-mitte { display: flex; flex-direction: column; align-items: center; gap: 16px; margin: 4vh auto 20px; max-width: 560px; }
+#archiv .start-mitte.klein { margin: 0 auto 18px; }
+#archiv .loslegen.gross { width: min(520px, 100%); min-height: 170px; margin: 0; justify-content: center; border-left-width: 1px; border-radius: 24px; box-shadow: var(--shadow); }
+#archiv .start-mitte.klein .loslegen.gross { min-height: 110px; }
+#archiv .loslegen.gross .ico { width: 84px; height: 84px; font-size: 50px; border-radius: 22px; }
+#archiv .loslegen.gross b { font-size: 34px; }
+#archiv .anmelden-k { display: flex; align-items: center; gap: 16px; width: min(520px, 100%); min-height: 84px; padding: 12px 24px; border: 2px solid var(--acc, #5b5bd6); border-radius: 20px; background: var(--surface); color: var(--text); cursor: pointer; text-align: left; font: inherit; }
+#archiv .anmelden-k:hover { background: var(--surface2); }
+#archiv .anmelden-k .ico { font-size: 34px; }
+#archiv .anmelden-k b { display: block; font-size: 24px; }
+#archiv .anmelden-k small { display: block; font-size: 15px; color: var(--muted); }
+#archiv .chips.klassen .chip { min-height: 64px; min-width: 96px; font-size: 22px; font-weight: 600; border-radius: 16px; }/* „Dateiname:“ vor dem Tafelnamen; das Feld sieht wie ein Eingabefeld aus */
+#topbar .tblabel { flex: none; font-size: 14px; color: var(--muted); margin-right: -4px; white-space: nowrap; }
+#topbar > #titel { border-color: var(--line); background: var(--surface2, rgba(0,0,0,.03)); }
+@media (max-width: 1000px) { #topbar .tblabel { display: none; } }
+/* Name auf der Startseite: antippen › Abmelden */
+#archiv .name-k { font: inherit; font-size: 28px; font-weight: 700; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); padding: 6px 16px; cursor: pointer; }
+#archiv .name-k:hover { background: var(--surface2); }
+/* Menüfarben auf hellem Grund dezenter und einheitlicher (auf Schwarz bleiben sie kräftiger) */
+:root:not([data-theme="dark"]) { --schimmer: 58%; } /* kräftiger, aber einheitlich (Farben stark in Richtung Lavendel gemischt) */
+:root:not([data-theme="dark"]) #toolbar .tool:not(.on), :root:not([data-theme="dark"]) #topbar .tb:not(.on) { --pastell-ruhig: color-mix(in srgb, var(--pastell, #c7d2fe) 30%, #c4cdf5); background: radial-gradient(ellipse 75% 80% at 50% 55%, color-mix(in srgb, var(--pastell-ruhig) var(--schimmer), transparent) 0%, color-mix(in srgb, var(--pastell-ruhig) calc(var(--schimmer) * .45), transparent) 55%, transparent 80%); }:root:not([data-theme="dark"]) #topbar .tb:not(.on) { background-color: var(--surface); }
+/* 📱 Tablet / schmale Bildschirme: untere Leiste passt ganz auf den Bildschirm – nur die gewählte Farbe und Stärke
+   (antippen öffnet alle), „Tafel verschieben“ entfällt (geht mit dem Finger) */
+@media (max-width: 1400px) {
+  #toolbar #farben .sw:not(.on), #toolbar #groessen .sz:not(.on) { display: none; }
+  #toolbar #t_hand { display: none; }
+  #toolbar { gap: 2px; }
+}
+@media (max-width: 1100px) { #toolbar .tool { width: 42px; min-width: 42px; } }
+@media (max-width: 900px) { #toolbar .tool { width: 40px; min-width: 40px; } #toolbar .sep { display: none; } } /* Hochformat: notfalls seitlich wischen *//* Name-Menü auf der Startseite: unter dem Namen Abmelden und Einstellungen */
+#archiv .name-wahl { position: relative; }
+#archiv .name-menue { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; flex-direction: column; gap: 6px; min-width: 230px; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+#archiv .name-menue .big { width: 100%; justify-content: flex-start; text-align: left; }/* ▤ Schnellleisten unten (Werkzeuge, Einfügen, Classroom) – Aussehen wie die Formenleiste */
+#schnellLeiste { position: fixed; left: 50%; transform: translateX(-50%); z-index: 12; max-width: calc(100vw - 20px); }
+#schnellLeiste .fl-zeile { display: flex; align-items: center; gap: 4px; padding: 5px; background: color-mix(in srgb, var(--fl-farbe, var(--surface)) 45%, var(--surface)); color: var(--text); border: 1px solid color-mix(in srgb, var(--fl-farbe, var(--line)) 70%, var(--line)); border-radius: 14px; box-shadow: var(--shadow); overflow-x: auto; scrollbar-width: none; }
+#schnellLeiste .fl-k { flex: none; display: flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 12px; border: none; border-radius: 10px; background: transparent; color: var(--text); font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+#schnellLeiste .fl-k.on, #schnellLeiste .fl-k:hover { background: color-mix(in srgb, var(--fl-farbe, var(--surface2)) 75%, var(--surface)); }
+#schnellLeiste .fl-pf { opacity: .55; font-weight: 400; }
+#schnellLeiste .fl-griff { flex: none; width: 34px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--muted); cursor: move; touch-action: none; }
+#schnellLeiste .sl-titel { flex: none; font-size: 14px; color: var(--muted); padding: 0 6px; white-space: nowrap; }
+#schnellLeiste .sl-sym { width: 26px; height: 26px; object-fit: contain; font-size: 22px; line-height: 26px; flex: none; }
+#schnellLeiste svg.sl-sym { width: 24px; height: 24px; }
+#schnellLeiste .sl-hinweis { font-size: 14px; color: var(--muted); padding: 0 8px; white-space: normal; max-width: 360px; }
+#schnellLeiste .fl-auf { position: absolute; top: calc(100% + 6px); min-width: 260px; max-width: min(460px, calc(100vw - 20px)); overflow-y: auto; padding: 8px; background: color-mix(in srgb, var(--fl-farbe, var(--surface)) 22%, var(--surface)); color: var(--text); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-lg, var(--shadow)); display: flex; flex-direction: column; gap: 2px; }
+#schnellLeiste .sl-eintrag { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 4px 10px; border: none; border-radius: 10px; background: transparent; color: var(--text); font: inherit; font-size: 16px; text-align: left; cursor: pointer; }
+#schnellLeiste .sl-eintrag:hover { background: var(--surface2); }
+/* ☆ Favoriten-Stern in der Seitenleiste */
+#dock .tile, #dock .kats .kat { position: relative; }
+#dock .fav-stern { position: absolute; top: 2px; right: 4px; font-size: 20px; line-height: 1; color: var(--muted); cursor: pointer; padding: 4px; z-index: 2; opacity: .7; }
+#dock .fav-stern.an { color: #f59e0b; opacity: 1; }
+#dock .kats .kat .fav-stern { top: 50%; transform: translateY(-50%); }/* kleine Ausbuchtung mit dem Namen der Leiste, mittig über der Leiste */
+#schnellLeiste .sl-reiter, #formLeiste .sl-reiter { position: absolute; left: 50%; bottom: calc(100% - 1px); transform: translateX(-50%); padding: 2px 14px 3px; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; pointer-events: none;
+  background: color-mix(in srgb, var(--fl-farbe, var(--surface)) 45%, var(--surface)); border: 1px solid color-mix(in srgb, var(--fl-farbe, var(--line)) 70%, var(--line)); border-bottom: none; border-radius: 10px 10px 0 0; }/* Ausbuchtung weich mit der Leiste verbunden: größerer Radius oben, geschwungene Übergänge links und rechts */
+#schnellLeiste .sl-reiter, #formLeiste .sl-reiter { --sl-bg: color-mix(in srgb, var(--fl-farbe, var(--surface)) 45%, var(--surface)); --sl-bd: color-mix(in srgb, var(--fl-farbe, var(--line)) 70%, var(--line));
+  border-radius: 16px 16px 0 0; padding: 3px 18px 4px; }
+#schnellLeiste .sl-reiter::before, #schnellLeiste .sl-reiter::after, #formLeiste .sl-reiter::before, #formLeiste .sl-reiter::after { content: ''; position: absolute; bottom: -1px; width: 16px; height: 16px; }
+#schnellLeiste .sl-reiter::before, #formLeiste .sl-reiter::before { left: -16px; background: radial-gradient(circle at 0 0, transparent 14.5px, var(--sl-bd) 15px, var(--sl-bd) 16px, var(--sl-bg) 16.5px); }
+#schnellLeiste .sl-reiter::after, #formLeiste .sl-reiter::after { right: -16px; background: radial-gradient(circle at 100% 0, transparent 14.5px, var(--sl-bd) 15px, var(--sl-bd) 16px, var(--sl-bg) 16.5px); }#schnellLeiste .sl-klapp { flex-direction: row; flex-wrap: wrap; gap: 6px; max-width: min(640px, calc(100vw - 20px)); } /* Stift: Aufklappliste mit den bisherigen Knöpfen */
+#dock .aufliste button[data-k] { position: relative; padding-right: 34px; }
+/* ═ Lasche unten an allen Fenstern (auch Classroom: dort skaliert sie den Inhalt) */
+.widget .wz-griff.b, .widget .wz-griff.lasche { left: 50%; right: auto; bottom: -15px; width: 72px; height: 16px; transform: translateX(-50%); cursor: ns-resize; touch-action: none; z-index: 2;
+  background: var(--surface); border: 1px solid var(--line); border-top: none; border-radius: 0 0 12px 12px; box-shadow: 0 4px 10px rgba(0,0,0,.12); }
+.widget .wz-griff.b::after, .widget .wz-griff.lasche::after { content: ''; position: absolute; left: 22px; right: 22px; top: 4px; height: 6px; border-top: 2px solid var(--muted); border-bottom: 2px solid var(--muted); opacity: .7; }
+.widget .wz-griff.lasche { position: absolute; cursor: nwse-resize; }
+.widget.groesse { display: flex; flex-direction: column; max-height: none; }
+.widget.groesse > .wb { flex: 1; min-height: 0; overflow: auto; max-height: none; }
+.widget.mini .wz-griff.lasche { display: none; }/* Classroom: ☰ Alle ▾ als Liste mit Bereichen und ☆ */
+#schnellLeiste .sl-klapp:has(.sl-zeile2) { flex-direction: column; flex-wrap: nowrap; gap: 0; min-width: 300px; }
+#schnellLeiste .sl-gruppe { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 8px 10px 2px; }
+#schnellLeiste .sl-zeile2 { display: flex; align-items: center; }
+#schnellLeiste .sl-zeile2 .sl-eintrag { flex: 1; }
+#schnellLeiste .sl-stern { flex: none; width: 44px; height: 44px; border: none; background: transparent; font-size: 22px; color: var(--muted); cursor: pointer; border-radius: 10px; }
+#schnellLeiste .sl-stern.an { color: #f59e0b; }
+#schnellLeiste .sl-stern:hover { background: var(--surface2); }/* Stift-Leiste: Aufklapplisten (Stiftart, Effekt, Doppeltipp) untereinander – nichts rutscht in eine zweite Spalte */
+#schnellLeiste .sl-klapp > .row { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 6px; max-width: none; }
+#schnellLeiste .sl-klapp > .row > .big { min-width: 240px !important; width: 100%; }
+#schnellLeiste .sl-klapp { flex-direction: column; flex-wrap: nowrap; }/* Stift-Leiste: Aufklapplisten nebeneinander in einer Zeile */
+#schnellLeiste .sl-klapp > .row { flex-direction: row !important; flex-wrap: nowrap !important; gap: 6px; }
+#schnellLeiste .sl-klapp > .row > .big { min-width: 0 !important; width: auto !important; flex: none; }
+#schnellLeiste .sl-klapp { max-width: calc(100vw - 20px); overflow-x: auto; }
+#schnellLeiste .sl-trenner { flex: none; width: 1px; align-self: stretch; background: var(--line); margin: 0 6px; }
+#schnellLeiste .sl-klapp .big > span[style*="13px"] { display: none; } /* kompakt: nur die Namen, nebeneinander */
+#schnellLeiste .sl-klapp .big { padding: 0 12px; min-height: 46px; }
+/* Stift-Leiste (endgültig): Stifte bzw. Effekte untereinander, Liste klappt nach oben auf, nichts wird abgeschnitten */
+#schnellLeiste .sl-klapp > .row { flex-direction: column !important; align-items: stretch !important; flex-wrap: nowrap !important; gap: 4px; }
+#schnellLeiste .sl-klapp > .row > .big { width: 100% !important; min-width: 220px !important; justify-content: flex-start; }
+#schnellLeiste .sl-klapp { overflow-y: auto; overflow-x: hidden; }
+/* 🎉 Feiern: Konfetti über allem (durchklickbar), Banner in der Mitte */
+#konfetti { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 99990; pointer-events: none; }
+#feierBanner { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%); z-index: 99991; padding: 26px 46px; border-radius: 28px; text-align: center; cursor: pointer;
+  background: linear-gradient(135deg, #fff8e1, #fce4ec 50%, #e3f2fd); color: #4a148c; box-shadow: 0 20px 60px rgba(0,0,0,.35); border: 4px solid #ffd54f; animation: fb-auf .6s cubic-bezier(.2,1.6,.4,1) both; }
+#feierBanner .fb-text { font-size: clamp(30px, 5.5vw, 72px); font-weight: 800; line-height: 1.15; }
+#feierBanner .fb-unter { font-size: clamp(18px, 2.4vw, 30px); margin-top: 8px; color: #6a1b9a; }
+@keyframes fb-auf { from { transform: translate(-50%, -50%) scale(.3); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }/* Fenster an der Lasche größer gezogen: Inhalt wächst mit (z. B. Einfügen: Kategorien und Kacheln nutzen die ganze Höhe/Breite) */
+.widget.groesse > .wb > .schwebe-inhalt { height: 100%; max-width: none !important; display: flex; flex-direction: column; }
+.widget.groesse.dock-schwebe .dbody.zweiteilig, .widget.groesse.dock-schwebe .dbody:not(.zweiteilig) { width: 100%; height: auto; flex: 1; min-height: 0; }
+.widget.groesse.dock-schwebe .dbody:not(.zweiteilig) { overflow-y: auto; }.widget.dock-schwebe .zw-links .kat { min-height: 40px; } .widget.dock-schwebe .zw-links .kats { gap: 3px; } .widget.dock-schwebe .zw-links { padding-bottom: 10px; } /* schwebendes Einfügen: alle Kategorien ohne Scrollen */
+
+/* eingeklapptes Fenster ('–'): gezogene Größe gilt nicht – nur die Kopfleiste */
+.widget.mini { height: auto !important; }
+.widget.mini .wz-griff { display: none; }
+
+/* ▾ Schnellleisten als schmale Aufklappliste direkt am Knopf unten (Formen behält die eigene Leiste) */
+#schnellLeiste.dd { display: flex; flex-direction: column; width: max-content; min-width: 220px; max-width: min(320px, calc(100vw - 16px)); }
+#schnellLeiste.dd .fl-zeile { flex-direction: column; align-items: stretch; gap: 2px; overflow-x: hidden; overflow-y: auto; max-height: inherit; min-height: 0; scrollbar-width: thin; }
+#schnellLeiste.dd .fl-zeile > .sl-gruppe { padding: 6px 10px 4px; }
+#schnellLeiste.dd .fl-k { width: 100%; justify-content: flex-start; min-height: 46px; white-space: normal; text-align: left; }
+#schnellLeiste.dd .fl-k .fl-pf { margin-left: auto; }
+#schnellLeiste.dd .sl-reihe { display: flex; gap: 2px; }
+#schnellLeiste.dd .sl-reihe .fl-k { flex: 1; justify-content: center; }
+#schnellLeiste.dd .sl-hinweis { padding: 6px 10px; max-width: none; }
+#schnellLeiste.dd .sl-innen { position: static; display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px 12px; padding: 4px 0 4px 8px; border-left: 3px solid color-mix(in srgb, var(--fl-farbe, var(--line)) 80%, var(--line)); overflow: visible; max-height: none; min-width: 0; max-width: none; }
+#schnellLeiste.dd .sl-innen.sl-klapp > .row > .big { min-width: 0 !important; }
+#schnellLeiste.dd .sl-innen .sl-eintrag { min-height: 42px; }
+
+/* ▾ Aufklapplisten farblos (neutral wie die übrigen Menüs) – Formen behält seine Farbe */
+#schnellLeiste.dd .fl-zeile { background: var(--surface); border-color: var(--line); }
+#schnellLeiste.dd .fl-k.on { background: var(--surface2); box-shadow: inset 3px 0 0 var(--acc); }
+#schnellLeiste.dd .fl-k:hover { background: var(--surface2); }
+#schnellLeiste.dd .sl-innen { border-left-color: var(--line); }
+#schnellLeiste.dd .fl-k:disabled { opacity: .4; cursor: default; }
+
+/* Scrollleisten in Menüs, Listen und Fenstern breit – gut mit Finger und Stift zu greifen */
+.pop::-webkit-scrollbar, .dlg::-webkit-scrollbar, #dock ::-webkit-scrollbar, .widget ::-webkit-scrollbar, #schnellLeiste ::-webkit-scrollbar, #formLeiste ::-webkit-scrollbar, #archiv ::-webkit-scrollbar { width: 22px; height: 22px; }
+.pop::-webkit-scrollbar-track, .dlg::-webkit-scrollbar-track, #dock ::-webkit-scrollbar-track, .widget ::-webkit-scrollbar-track, #schnellLeiste ::-webkit-scrollbar-track, #formLeiste ::-webkit-scrollbar-track, #archiv ::-webkit-scrollbar-track { background: var(--surface2); border-radius: 11px; }
+.pop::-webkit-scrollbar-thumb, .dlg::-webkit-scrollbar-thumb, #dock ::-webkit-scrollbar-thumb, .widget ::-webkit-scrollbar-thumb, #schnellLeiste ::-webkit-scrollbar-thumb, #formLeiste ::-webkit-scrollbar-thumb, #archiv ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--muted) 55%, transparent); border-radius: 11px; border: 4px solid var(--surface2); min-height: 48px; }
+.pop::-webkit-scrollbar-thumb:hover, .dlg::-webkit-scrollbar-thumb:hover, #dock ::-webkit-scrollbar-thumb:hover, .widget ::-webkit-scrollbar-thumb:hover, #schnellLeiste ::-webkit-scrollbar-thumb:hover, #formLeiste ::-webkit-scrollbar-thumb:hover, #archiv ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+#schnellLeiste.dd .fl-zeile, #formLeiste .fl-auf { scrollbar-width: auto; }
+
+
+/* ◇ Formenleiste pastellgrau */
+#formLeiste { --fl-farbe: #c9ced8; }
+:root[data-theme="dark"] #formLeiste { --fl-farbe: #6b7282; }
+
+/* ▾ Menüs oben (Tafel, Speichern, Import/Export, Video, Präsentieren): schmale, schlichte Liste – wie die Aufklapplisten unten */
+.pop.liste { padding: 5px; min-width: 250px; max-width: min(360px, calc(100vw - 20px)); border-radius: 14px; }
+.pop.liste h4 { margin: 0; padding: 8px 10px 4px; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+.pop.liste h4[style] { margin-top: 6px !important; border-top: 1px solid var(--line); padding-top: 10px; }
+.pop.liste .row, .pop.liste > div:not([class]) { flex-direction: column !important; align-items: stretch !important; flex-wrap: nowrap !important; gap: 2px !important; min-width: 0 !important; max-width: none !important; }
+.pop.liste .big { width: 100%; min-height: 46px; padding: 0 12px; border: none; border-radius: 10px; background: transparent; box-shadow: none; color: var(--text); font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; justify-content: flex-start; text-align: left; }
+.pop.liste .big:hover { background: var(--surface2); }
+.pop.liste .big.on { background: var(--surface2); color: var(--text); box-shadow: inset 3px 0 0 var(--acc); }
+.pop.liste .big.prim { color: var(--acc-ink); }
+.pop.liste .big.warn { color: var(--danger); }
+.pop.liste .big:disabled { opacity: .4; cursor: default; background: transparent; }
+.pop.liste .sp-kasten, .pop.liste .ma-kasten { padding: 0; border: none; background: none !important; border-radius: 0; }
+.pop.liste .ma-kasten { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 4px; }
+.pop.liste .ma-kasten .row[style] { margin-top: 0 !important; }
+.pop.liste .hint { font-size: 13px; padding: 4px 10px 6px; margin: 0; max-width: none !important; }
+.pop.liste label.big input { flex: none; }
+
+/* Unterlisten in den Aufklapplisten (Stiftart, Effekt, Doppeltipp, Fach): flache Einträge wie die übrigen */
+#schnellLeiste.dd .sl-innen .row { gap: 2px !important; }
+#schnellLeiste.dd .sl-innen .big { width: 100% !important; min-width: 0 !important; min-height: 44px; padding: 0 12px; border: none; border-radius: 10px; background: transparent; box-shadow: none; color: var(--text); font-size: 15px; font-weight: 600; display: flex !important; flex-direction: row !important; align-items: center !important; gap: 8px; justify-content: flex-start; text-align: left; }
+#schnellLeiste.dd .sl-innen .big b { font-weight: 600; }
+#schnellLeiste.dd .sl-innen .big:hover { background: var(--surface2); }
+#schnellLeiste.dd .sl-innen .big.on { background: var(--surface2); color: var(--text); box-shadow: inset 3px 0 0 var(--acc); }
+#schnellLeiste.dd .sl-innen .big svg { width: 22px; height: 22px; flex: none; }
+#schnellLeiste.dd .sl-innen .big { min-height: 46px; }
+/* Namensmenü auf der Startseite: dieselbe schlichte Liste */
+#archiv .name-menue { gap: 2px; padding: 5px; }
+#archiv .name-menue .big { min-height: 46px; padding: 0 12px; border: none; border-radius: 10px; background: transparent; box-shadow: none; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+#archiv .name-menue .big:hover { background: var(--surface2); }
+
+/* ◇ Formenleiste: Linienart, Füllung, Winkelfarbe als Liste untereinander – gleiches Layout wie die übrigen Listen */
+#formLeiste .fl-auf:not(.fm-links) .row { flex-direction: column !important; align-items: stretch !important; flex-wrap: nowrap !important; gap: 2px !important; max-width: none !important; }
+#formLeiste .fl-auf:not(.fm-links) .row > .big, #formLeiste .fl-auf:not(.fm-links) > label.big { width: 100%; min-width: 0 !important; min-height: 46px; padding: 0 12px; border: none; border-radius: 10px; background: transparent; box-shadow: none; color: var(--text); font-size: 15px; font-weight: 600; display: flex !important; align-items: center; gap: 8px; justify-content: flex-start; text-align: left; margin-top: 0 !important; }
+#formLeiste .fl-auf:not(.fm-links) .row > .big:hover, #formLeiste .fl-auf:not(.fm-links) > label.big:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+#formLeiste .fl-auf:not(.fm-links) .row > .big.on { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: inset 3px 0 0 var(--acc); }
+#formLeiste .fl-auf:not(.fm-links) h4 { margin: 8px 0 2px !important; padding: 0 10px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+#formLeiste .fl-auf:not(.fm-links) { min-width: 240px; max-width: min(340px, calc(100vw - 20px)); }
+/* 🎨 Farbe des Formelkastens */
+.fk-farben { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.fk-farben .bm-name { margin-right: 4px; }
+.fk-f { width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(0,0,0,.2); cursor: pointer; padding: 0; }
+.fk-f.on { outline: 3px solid var(--acc); outline-offset: 1px; }
+.fk-zurueck { height: 30px; min-width: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; font-size: 16px; }
+
+#formLeiste .fl-auf:has(.bm) { min-width: 330px; max-width: min(520px, calc(100vw - 20px)); } /* Bemaßung: Tabelle braucht Platz */
+
+/* 🔍 Größere Symbole (⚙ › Darstellung › Größe der Symbole): Faktor --gk */
+:root[data-gross="1"] { --gk: 1.2; --btn: clamp(60px, 4.1vw, 82px); }
+:root[data-gross="2"] { --gk: 1.4; --btn: clamp(70px, 4.8vw, 95px); }
+:root[data-gross] .tool { font-size: calc(11px * var(--gk)); border-radius: calc(15px * var(--gk)); }
+:root[data-gross] .tool svg { width: calc(30px * var(--gk)); height: calc(30px * var(--gk)); }
+:root[data-gross] .tool .ico { font-size: calc(26px * var(--gk)); line-height: calc(30px * var(--gk)); }
+:root[data-gross] .sw { width: calc(40px * var(--gk)); height: calc(40px * var(--gk)); }
+:root[data-gross] .sz { width: calc(46px * var(--gk)); }
+:root[data-gross] .sep { height: calc(40px * var(--gk)); }
+:root[data-gross] .tb { height: min(52px, calc(42px * var(--gk))); min-width: min(52px, calc(42px * var(--gk))); font-size: calc(16px * var(--gk)); }
+:root[data-gross] #nav button { width: calc(52px * var(--gk)); height: calc(52px * var(--gk)); font-size: calc(24px * var(--gk)); }
+:root[data-gross] .big { min-height: calc(56px * var(--gk)); font-size: calc(17px * var(--gk)); }
+:root[data-gross] #schnellLeiste .fl-k, :root[data-gross] #formLeiste .fl-k, :root[data-gross] .pop.liste .big, :root[data-gross] #schnellLeiste.dd .sl-innen .big,
+:root[data-gross] #formLeiste .fl-auf:not(.fm-links) .row > .big, :root[data-gross] #archiv .name-menue .big { min-height: calc(46px * var(--gk)); font-size: calc(15px * var(--gk)); }
+:root[data-gross] #schnellLeiste .sl-sym, :root[data-gross] #schnellLeiste svg.sl-sym { width: calc(26px * var(--gk)); height: calc(26px * var(--gk)); font-size: calc(22px * var(--gk)); line-height: calc(26px * var(--gk)); }
+:root[data-gross] #schnellLeiste.dd { min-width: calc(220px * var(--gk)); max-width: min(calc(320px * var(--gk)), calc(100vw - 16px)); }
+:root[data-gross] .pop.liste { min-width: calc(250px * var(--gk)); max-width: min(calc(360px * var(--gk)), calc(100vw - 20px)); }
+:root[data-gross] .bm-k { width: calc(48px * var(--gk)); height: calc(42px * var(--gk)); }
+
+.bm-name.bm-gesamt { font-weight: 700; } /* erste Zeile: alles an/aus, alles verdeckt */
+
+/* ✏️ Schreibweise der Formeln */
+.fk-schreib { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.fk-schreib .bm-name { min-width: 52px; font-style: italic; }
+.fk-sw { min-height: 38px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 15px; cursor: pointer; white-space: nowrap; }
+.fk-sw.on { border-color: var(--acc); background: var(--acc-soft); color: var(--acc-ink); font-weight: 600; }
+:root[data-gross] .fk-sw { min-height: calc(38px * var(--gk)); font-size: calc(15px * var(--gk)); }
+
+/* ⟳ Favoriten waagerecht (gedreht) */
+#palette.quer { flex-direction: row; flex-wrap: wrap; max-width: calc(100vw - 16px); max-height: none; align-items: center; }
+#palette.quer .pa-trenn { width: 0; height: 36px; border-top: 0; border-left: 2px solid var(--line, rgba(128,128,128,.35)); margin: 0 2px; }
+#palette.quer .pa-griff { width: 38px; height: 48px; }
+#palette.quer .pa-plus, #palette.quer .pa-zu, #palette.quer .pa-fertig { width: 36px; height: 48px; }
+#palette.quer .pa-leer { width: auto; padding: 0 6px; }
+
+#palette.quer { width: max-content; } /* waagerecht: eine Reihe, dann ins Fenster schieben */
+
+/* Favoriten: oben ✥ verschieben und ⟳ drehen nebeneinander */
+#palette .pa-kopf { display: flex; gap: 2px; flex: none; }
+#palette .pa-kopf .pa-griff { width: 28px; }
+#palette .pa-dreh { width: 28px; height: 38px; font-size: 18px; background: transparent; color: var(--muted); border-radius: 10px; }
+#palette .pa-dreh:hover { background: var(--surface2); }
+#palette.quer .pa-kopf { flex-direction: column; }
+#palette.quer .pa-kopf .pa-griff, #palette.quer .pa-dreh { width: 38px; height: 24px; }

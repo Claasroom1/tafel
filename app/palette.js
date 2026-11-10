@@ -73,7 +73,7 @@ function aktuell() { // das gerade eingestellte Werkzeug als Favorit
   if (S.tool === 'radierer') return { tool: 'radierer', w: S.groesse.radierer };
   const t = S.tool === 'marker' ? 'marker' : 'stift'; return { tool: t, c: S.farbe[t], w: S.groesse[t], art: t === 'stift' ? S.stiftArt : undefined };
 }
-const titel = f => f.aktion ? (AKTIONEN[f.aktion] || ['', f.aktion])[1] : f.tool === 'laser' ? 'Laserpointer' : f.tool === 'radierer' ? 'Radierer' : (f.tool === 'marker' ? 'Marker ' : f.art === 'kalli' ? 'Feder ' : 'Stift ') + f.c;
+const titel = f => f.aktion ? (AKTIONEN[f.aktion] || ['', f.aktion])[1] : f.tool === 'laser' ? 'Laserpointer' : f.tool === 'radierer' ? 'Schwamm' : (f.tool === 'marker' ? 'Marker ' : f.art === 'kalli' ? 'Feder ' : 'Stift ') + f.c;
 // Stifte ohne feste Art folgen der eingestellten Stiftart – ihr Symbol auch (Feder an → Federsymbol)
 const ikon = f => f.tool === 'marker' ? 'marker' : (f.art || (S.stiftArt === 'laser' ? S.vorLaser : S.stiftArt)) === 'kalli' ? 'feder' : 'stift';
 function knopf(f, i) {
@@ -150,8 +150,9 @@ function zeichne() {
   box.style.display = an ? 'flex' : 'none'; if (!an) return;
   box.innerHTML = '';
   const griff = h('div', { class: 'pa-griff', title: 'Ziehen: Favoriten verschieben' }, '✥');
-  box.classList.toggle('bearbeiten', bearbeiten);
-  box.append(griff, ...favs().map(knopf), h('div', { class: 'pa-trenn' }), // Trennlinie: darunter nur Verwaltung, keine Favoriten
+  box.classList.toggle('bearbeiten', bearbeiten); box.classList.toggle('quer', !!T.opts.paletteQuer); /* ⟳ gedreht: waagerecht */
+  const dreh = h('button', { class: 'pa-k pa-dreh', title: T.opts.paletteQuer ? 'Drehen: Favoriten senkrecht' : 'Drehen: Favoriten waagerecht', onclick: () => { T.opts.paletteQuer = !T.opts.paletteQuer; if (!T.opts.paletteQuer) delete T.opts.paletteQuer; T.saveOpts(); zeichne(); } }, '⟳');
+  box.append(h('div', { class: 'pa-kopf' }, griff, dreh), ...favs().map(knopf), /* oben: ✥ verschieben · ⟳ drehen */ h('div', { class: 'pa-trenn' }), // Trennlinie: darunter nur Verwaltung, keine Favoriten
     h('button', { class: 'pa-k pa-plus', title: 'Hinzufügen: aktueller Stift oder Geodreieck, Timer, Würfel …', onclick: e => hinzufuegen(e.currentTarget) }, '＋'),
     ...(bearbeiten
       ? [h('button', { class: 'pa-k pa-plus', title: 'Zurück zu den Standard-Favoriten', onclick: async () => { if (await T.frage('Favoriten auf die Standard-Stifte zurücksetzen?', { ok: 'Zurücksetzen' })) { delete T.opts.favoriten; T.saveOpts(); zeichne(); } } }, '↺'),
@@ -161,7 +162,7 @@ function zeichne() {
   if (!favs().length && !bearbeiten) box.insertBefore(h('span', { class: 'pa-leer' }, 'leer – ＋'), box.children[1]);
   // Position (gespeichert)
   const p = T.opts.palettePos || { x: innerWidth - 120, y: 140 };
-  if (!zieh) { box.style.left = T.clamp(p.x, 0, innerWidth - 60) + 'px'; box.style.top = T.clamp(p.y, 56, Math.max(56, innerHeight - box.offsetHeight - 10)) + 'px'; }
+  if (!zieh) { box.style.left = T.clamp(p.x, 0, Math.max(0, innerWidth - box.offsetWidth - 6)) + 'px'; box.style.top = T.clamp(p.y, 56, Math.max(56, innerHeight - box.offsetHeight - 10)) + 'px'; }
   griff.addEventListener('pointerdown', ziehStart);
 }
 // Verschieben am ✥ (oder am Rand der Leiste): Bewegung wird am ganzen Fenster verfolgt –

@@ -156,6 +156,12 @@ T.buildPath = it => {
 const pathCache = new WeakMap();
 T.strokePath = it => { let p = pathCache.get(it); if (!p) { p = T.buildPath(it); pathCache.set(it, p); } return p; };
 
+/* Bewusst gewählte Farbe festhalten: Schwarz auf dunkler Seite (z. B. auf ein weißes Bild schreiben) bzw. Weiß auf heller Seite
+   wird sonst automatisch umgekehrt – diese Werte sehen gleich aus, werden aber nicht umgeschaltet */
+T.echteFarbe = c => { const pg = T.S.board && T.page(), dark = pg && T.isDark(pg);
+  if (dark && (c === '#1a1a1a' || c === '#000000')) return '#111111';
+  if (pg && !dark && (c === '#ffffff' || c === '#f4f4f0')) return '#fefefe';
+  return c; };
 T.inkColor = (c, dark) => {
   if (dark && (c === '#1a1a1a' || c === '#000000')) return '#f4f4f0';
   if (!dark && (c === '#ffffff' || c === '#f4f4f0')) return '#1a1a1a';
@@ -228,26 +234,49 @@ T.winkelMalen = (ctx, pg, dark, px) => {
 };
 // 📐 Winkel unter dem Finger finden (Zahl oder Bogen) und einzeln umschalten: Zahl → „?“ → leer → Zahl
 T.winkelAt = (wx, wy, px) => {
-  const pg = T.page(); if (!pg || !T._wkOrte || !(pg.items.some(i => i.kw || i.ms || i.mu || i.mf) || (!pg.winkelAus && pg.items.some(i => i.wk && !i.wkAus)))) return null;
+  const pg = T.page(); if (!pg || !T._wkOrte || !(pg.items.some(i => i.kw || i.ms || i.mu || i.mf || i.mo || i.fz === 'winkel') || (!pg.winkelAus && pg.items.some(i => i.wk && !i.wkAus)))) return null;
   const orte = T._wkOrte.get(pg) || [], tol = 6 * (px || 1);
   return orte.find(o => Math.hypot(wx - o.x, wy - o.y) < o.r * 0.7 + tol || Math.hypot(wx - o.vx, wy - o.vy) < o.r * 0.45 + tol) || null;
 };
 // Zustand eines Winkels: 'zahl' | 'frage' | 'leer' – ohne Eintrag gilt der Start der Seite (neue Seiten mit Formen: zuerst „?“)
-T.winkelZustand = (pg, key) => { const v = (pg.wkVerdeckt || {})[key]; return v || (/#[muf]/.test(key) ? 'zahl' : pg.wkStart || 'zahl'); }; /* Maße (#m, #u, #f) zuerst mit Wert */
+/* Reihenfolge: einzeln angetippt (wkVerdeckt) › an der Form je Sorte (it.vs: w Winkel, m Längen, u Umfang, f Fläche) › Seite › Voreinstellung (zuerst verdeckt) */
+T.startVerdeckt = art => { const o = T.opts || {}, n = o.verdecktNeu && o.verdecktNeu[art]; return (n != null ? n : o.winkelFrage !== false) ? 'frage' : 'zahl'; }; /* alles zuerst „?“ – auch Formel, Rechnung, Ergebnis */
+T.winkelZustand = (pg, key) => {
+  const v = (pg.wkVerdeckt || {})[key]; if (v) return v;
+  const id = key.split('#')[0].split(/[|,+~]/)[0], it = id && pg.items.find(i => i.id === id), s = it && it.vs && it.vs[T.wertSorte(key)];
+  return s || pg.wkStart || T.startVerdeckt(T.wertSorte(key));
+}; /* Winkel und Maße zuerst verdeckt („?“), damit die Klasse die Werte nicht sieht – je Angabe abschaltbar */
 T.winkelUmschalten = o => {
+  if (/#F/.test(o.key)) { /* 🧮 Formel antippen: Formel → mit Zahlen → mit Ergebnis → Formel */
+    const pg = T.page(); T.snap(); const f = { ...(pg.formelStufe || {}) }; f[o.key] = ((f[o.key] || 0) + 1) % 3; pg.formelStufe = f; T.render(); T.renderOver && T.renderOver();
+    T.toast(['Formel – antippen: Zahlen einsetzen', 'Zahlen eingesetzt – antippen: Ergebnis', 'Ergebnis – antippen: wieder die Formel'][f[o.key]], 1600); return;
+  }
   const pg = T.page(); T.snap(); const v = { ...(pg.wkVerdeckt || {}) }, z = T.winkelZustand(pg, o.key);
   const n = z === 'frage' ? 'zahl' : z === 'zahl' ? 'leer' : 'frage'; v[o.key] = n; /* „?“ → Wert → nur Bogen → „?“ */
   pg.wkVerdeckt = v; T.render(); T.renderOver && T.renderOver();
   T.toast(n === 'zahl' ? 'Winkel aufgedeckt – nochmals antippen: nur der Bogen' : n === 'leer' ? 'Nur der Bogen – nochmals antippen: „?“' : 'Winkel als „?“ – antippen deckt ihn auf', 1800);
 };
 // Alle Winkel (der gewählten Formen oder der ganzen Seite) zeigen bzw. als „?“
-T.winkelAlle = (zust, ids) => {
-  const pg = T.page(), orte = (T._wkOrte && T._wkOrte.get(pg)) || []; T.snap();
-  const v = { ...(pg.wkVerdeckt || {}) };
-  if (!ids) { for (const k of Object.keys(v)) delete v[k]; pg.wkStart = zust; }
-  else for (const o of orte) if (!/#[muf]/.test(o.key) && ids.some(id => o.key.includes(id))) v[o.key] = zust;
+/* art (optional): nur eine Sorte – 'w' Winkel, 'm' Seitenlängen/Radius, 'u' Umfang, 'f' Flächeninhalt */
+const sorte = key => { const s = key.slice(key.lastIndexOf('#') + 1); return /^m\d/.test(s) ? 'm' : s === 'u' ? 'u' : s === 'f' ? 'f' : s === 'wa' ? 'a' : /^F[fre]/.test(s) ? s.slice(0, 2) : /^F/.test(s) ? 'F' : 'w'; }; /* Ff Formel · Fr Rechnung · Fe Ergebnis im Formelkasten */ /* a = Winkelart (∠ drehbarer Winkel) */
+T.wertSorte = sorte;
+T.winkelAlle = (zust, ids, art) => {
+  const pg = T.page(); T.snap();
+  const v = { ...(pg.wkVerdeckt || {}) }, arten = Array.isArray(art) ? art : art ? [art] : ['w', 'm', 'u', 'f', 'a', 'Ff', 'Fr', 'Fe']; /* art auch als Liste (🧮 Formeln: Ff, Fr, Fe) */
+  if (!ids) { /* ganze Seite: alles auf einmal, auch was an den Formen eingestellt war */
+    for (const k of Object.keys(v)) if (arten.includes(sorte(k))) delete v[k];
+    if (!art) { pg.wkStart = zust; pg.items = pg.items.map(i => i.vs ? (({ vs, ...r }) => r)(i) : i); }
+    else pg.items = pg.items.map(i => i.t === 's' && i.m === 'line' ? { ...i, vs: { ...(i.vs || {}), ...Object.fromEntries(arten.map(a => [a, zust])) } } : i);
+  } else { /* gewählte Formen: Start je Sorte an der Form merken (gilt auch für gerade ausgeblendete Werte), einzeln Angetipptes zurücksetzen */
+    for (const k of Object.keys(v)) if (arten.includes(sorte(k)) && ids.some(id => k.startsWith(id + '#') || k.includes(id))) delete v[k];
+    pg.items = pg.items.map(i => ids.includes(i.id) ? { ...i, vs: { ...(i.vs || {}), ...Object.fromEntries(arten.map(a => [a, zust])) } } : i);
+  }
   pg.wkVerdeckt = v; T.changed && T.changed(); T.render(); T.renderOver && T.renderOver();
 };
+/* Verdeckt-Stand einer Sorte an den gewählten Formen (für das Auge im Menü): true = als „?“ */
+T.verdecktAn = (ids, art) => { const pg = T.page(), v = pg.wkVerdeckt || {}, sel = pg.items.filter(i => ids.includes(i.id)); if (!sel.length) return false;
+  const start = i => (i.vs && i.vs[art]) || pg.wkStart || T.startVerdeckt(art);
+  return sel.every(i => start(i) === 'frage') && !Object.keys(v).some(k => sorte(k) === art && v[k] !== 'frage' && sel.some(i => k.startsWith(i.id + '#'))); };
 // ◔ Kreiswinkel (Formen): Kreis mit zwei Radien; p = [B, M, A, Kreispunkte ab A gegen den Uhrzeigersinn], kw.th = Winkel von A nach B
 T.kreisWinkelPunkte = (M, r, aA, th, ry) => { // aA: Richtung von A in Grad (mathematisch, gegen den Uhrzeigersinn); ry: Ellipse (r = waagerechte Halbachse)
   const pt = g => { const c = Math.cos(g * Math.PI / 180), s = Math.sin(g * Math.PI / 180), q = ry == null ? r : r * ry / Math.hypot(ry * c, r * s); return [M[0] + q * c, M[1] - q * s]; };
@@ -294,6 +323,40 @@ T.kreisWinkelMalen = (ctx, pg, dark, px, teil, drag) => {
     ctx.restore();
   }
 };
+// ∠ Drehbarer Winkel (Formen): p = [A, S, B] – Schenkel S→A und S→B, Winkel gegen den Uhrzeigersinn von SA nach SB (0° … 360°)
+T.winkelFormGrad = it => { const [A, V, B] = it.p, a = Math.atan2(V[1] - A[1], A[0] - V[0]), b = Math.atan2(V[1] - B[1], B[0] - V[0]); let g = (b - a) * 180 / Math.PI; g = ((g % 360) + 360) % 360; return Math.round(g); };
+T.winkelArt = g => g === 0 ? 'Nullwinkel' : g < 90 ? 'spitzer Winkel' : g === 90 ? 'rechter Winkel' : g < 180 ? 'stumpfer Winkel' : g === 180 ? 'gestreckter Winkel' : g < 360 ? 'überstumpfer Winkel' : 'Vollwinkel';
+T.winkelFormMalen = (ctx, pg, dark, px, drag) => {
+  const orte = (T._wkOrte || (T._wkOrte = new WeakMap())).get(pg) || []; T._wkOrte.set(pg, orte);
+  for (const it of pg.items) {
+    if (it.t !== 's' || it.fz !== 'winkel' || !it.p || it.p.length !== 3) continue;
+    const aus = it.wkAus || pg.winkelAus; /* 📏 Bemaßung › Winkel aus: nur noch die beiden Schenkel (Winkelart eigens schaltbar) */
+    if (aus && it.wa === false) continue;
+    const [A, V, B] = it.p, g = T.winkelFormGrad(it), aA = Math.atan2(V[1] - A[1], A[0] - V[0]), lA = Math.hypot(A[0] - V[0], A[1] - V[1]), lB = Math.hypot(B[0] - V[0], B[1] - V[1]);
+    ctx.save(); if (drag && T.S.sel && T.S.sel.ids.has(it.id)) ctx.translate(drag.dx, drag.dy);
+    const rr = Math.max(26 * px, Math.min(Math.min(lA, lB) * 0.3, 90 * px)), a0 = -aA, a1 = -aA - g * Math.PI / 180, mid = -aA - g * Math.PI / 360;
+    const wcol = it.wc || (dark ? '#fcd34d' : '#b45309');
+    if (!aus && g > 0) { /* Winkelfeld leicht getönt, Bogen bzw. Zeichen für den rechten Winkel */
+      ctx.beginPath(); ctx.moveTo(V[0], V[1]); ctx.arc(V[0], V[1], rr, a0, a1, true); ctx.closePath(); ctx.fillStyle = dark ? 'rgba(250,204,21,.22)' : 'rgba(253,230,138,.55)'; ctx.fill();
+      ctx.strokeStyle = wcol; ctx.fillStyle = wcol; ctx.lineWidth = Math.max(2.5 * px, it.w * 0.6);
+      if (g === 90) { const q = rr * 0.62, u = [Math.cos(a0), Math.sin(a0)], v = [Math.cos(a1), Math.sin(a1)];
+        ctx.beginPath(); ctx.moveTo(V[0] + u[0] * q, V[1] + u[1] * q); ctx.lineTo(V[0] + (u[0] + v[0]) * q, V[1] + (u[1] + v[1]) * q); ctx.lineTo(V[0] + v[0] * q, V[1] + v[1] * q); ctx.stroke();
+        ctx.beginPath(); ctx.arc(V[0] + Math.cos(mid) * q * 0.72, V[1] + Math.sin(mid) * q * 0.72, Math.max(3 * px, it.w * 0.5), 0, 2 * Math.PI); ctx.fill(); }
+      else { ctx.beginPath(); ctx.arc(V[0], V[1], rr, a0, a1, true); ctx.stroke(); }
+    }
+    ctx.beginPath(); ctx.arc(V[0], V[1], Math.max(4 * px, it.w * 0.8), 0, 2 * Math.PI); ctx.fillStyle = T.inkColor(it.c, dark); ctx.fill(); /* Scheitelpunkt */
+    const fs = Math.max(20 * px, Math.min(rr * 0.42, 36 * px)), d = g > 300 || g === 0 ? -fs * 1.6 : rr + fs * 1.3, tx = V[0] + Math.cos(mid) * (g > 300 || g === 0 ? 0 : d), ty = V[1] + Math.sin(mid) * (g > 300 || g === 0 ? 0 : d) + (g > 300 || g === 0 ? -fs * 1.6 : 0);
+    const schreib = (t, x, y, size, fett) => { ctx.font = `${fett ? 700 : 600} ${size}px Segoe UI`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5 * px; ctx.strokeStyle = dark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.92)'; ctx.strokeText(t, x, y); ctx.fillStyle = wcol; ctx.fillText(t, x, y); };
+    const kG = it.id + '#wf', zG = T.winkelZustand(pg, kG), tG = zG === 'frage' ? '?' : zG === 'leer' ? '' : g + '°';
+    if (!aus) { if (tG) schreib(tG, tx, ty, fs, true); orte.push({ key: kG, x: tx, y: ty, vx: tx, vy: ty, r: fs * 1.4 }); }
+    if (it.wa !== false) { /* Winkelart unter dem Scheitel – eigens aufdeckbar */
+      const kA = it.id + '#wa', zA = T.winkelZustand(pg, kA), tA = zA === 'frage' ? 'Winkelart: ?' : zA === 'leer' ? '' : T.winkelArt(g), ay = Math.max(A[1], V[1], B[1]) + fs * 1.6;
+      if (tA) schreib(tA, V[0], ay, fs * 0.8, false);
+      orte.push({ key: kA, x: V[0], y: ay, vx: V[0], vy: ay, r: fs * 2.2 });
+    }
+    ctx.restore();
+  }
+};
 // 📏 Maße an Formen (je Form einzeln zuschaltbar): ms = Seitenlängen/Radius/Halbachsen, mu = Umfang, mf = Flächeninhalt
 T.formMasse = it => { // Werte in cm bzw. cm²; null, wenn für diese Form nicht sinnvoll
   const P = it.p, cm = v => v / T.CM, d = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -314,45 +377,160 @@ T.formMasse = it => { // Werte in cm bzw. cm²; null, wenn für diese Form nicht
   if (!it.closed && P.length === 2) return { art: 'strecke', s: [cm(d(P[0], P[1]))] };
   return null;
 };
+// 🧮 Formeln zu einer Form: je Zeile drei Stufen (Formel · Zahlen eingesetzt · mit Ergebnis), Namen der Seiten, Hilfslinien (h, Diagonalen)
+// Eingesetzt werden die auf 1 Nachkommastelle gerundeten Werte; das Ergebnis ist genau damit gerechnet (sonst „≈“)
+T.formFormeln = (it, W) => {
+  if (!W) return null;
+  const P = it.p, cm = v => v / T.CM, d = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), r1 = v => Math.round(v * 10) / 10, z = v => T.zahl(v, 1) + ' cm';
+  const erg = (v, pi) => { const g = Math.round(v * 100) / 100; return (pi || Math.abs(g - v) > 1e-9 ? ' ≈ ' : ' = ') + T.zahl(g, 2); };
+  const zeile = (l, formel, zahlen, wert, einh, pi) => [l + ' = ' + formel, l + ' = ' + zahlen, l + ' = ' + zahlen + erg(wert, pi) + ' ' + einh, { l, formel, zahlen, erg: erg(wert, pi).trim() + ' ' + einh }]; /* [3]: Teile für den Formelkasten */
+  const fuss = (p, a, b) => { const vx = b[0] - a[0], vy = b[1] - a[1], t = ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / (vx * vx + vy * vy || 1); return [a[0] + t * vx, a[1] + t * vy]; };
+  const par = (a, b, c, e) => { const u = [b[0] - a[0], b[1] - a[1]], v = [e[0] - c[0], e[1] - c[1]]; return Math.abs(u[0] * v[1] - u[1] * v[0]) / ((Math.hypot(u[0], u[1]) * Math.hypot(v[0], v[1])) || 1) < 0.02; };
+  const rw = (a, b, c) => { const u = [a[0] - b[0], a[1] - b[1]], v = [c[0] - b[0], c[1] - b[1]]; return Math.abs(u[0] * v[0] + u[1] * v[1]) / ((Math.hypot(u[0], u[1]) * Math.hypot(v[0], v[1])) || 1) < 0.02; };
+  const Z = [], H = [], V = {}; let namen = null;
+  /* ✏️ Schreibweisen: wahl(l, [[Formel, Zahlen], …]) – gewählt je Form in it.fv[l] */
+  const wahl = (l, vs, wert, einh, pi) => { V[l] = vs.map(v => v[0]); const i = Math.min(vs.length - 1, (it.fv && it.fv[l]) || 0); return zeile(l, vs[i][0], vs[i][1], wert, einh, pi); };
+  if (W.art === 'vieleck') {
+    const s = W.s.map(r1);
+    if (P.length === 3) {
+      namen = ['a', 'b', 'c']; const F = fuss(P[0], P[1], P[2]), h = r1(cm(d(P[0], F))); H.push({ a: P[0], b: F, t: 'h' });
+      Z.push(zeile('u', 'a + b + c', `${z(s[0])} + ${z(s[1])} + ${z(s[2])}`, s[0] + s[1] + s[2], 'cm'));
+      Z.push(wahl('A', [['b · h : 2', `${z(s[1])} · ${z(h)} : 2`], ['½ · b · h', `½ · ${z(s[1])} · ${z(h)}`], ['(b · h) : 2', `(${z(s[1])} · ${z(h)}) : 2`]], s[1] * h / 2, 'cm²'));
+    } else {
+      const gleich = Math.max(...s) - Math.min(...s) <= Math.max(0.1, Math.max(...s) * 0.02);
+      if (it.fz === 'raute' && gleich && par(P[0], P[1], P[3], P[2])) {
+        namen = ['a', 'a', 'a', 'a']; const e = r1(cm(d(P[0], P[2]))), f = r1(cm(d(P[1], P[3]))); H.push({ a: P[0], b: P[2], t: 'e' }, { a: P[1], b: P[3], t: 'f' });
+        Z.push(wahl('u', [['4 · a', `4 · ${z(s[0])}`], ['a + a + a + a', [0, 0, 0, 0].map(() => z(s[0])).join(' + ')]], 4 * s[0], 'cm'));
+        Z.push(wahl('A', [['e · f : 2', `${z(e)} · ${z(f)} : 2`], ['½ · e · f', `½ · ${z(e)} · ${z(f)}`]], e * f / 2, 'cm²'));
+      } else if (rw(P[3], P[0], P[1]) && rw(P[0], P[1], P[2]) && rw(P[1], P[2], P[3])) {
+        namen = ['a', 'b', 'c', 'd'];
+        Z.push(wahl('u', [['2 · a + 2 · b', `2 · ${z(s[0])} + 2 · ${z(s[1])}`], ['2 · (a + b)', `2 · (${z(s[0])} + ${z(s[1])})`], ['a + b + a + b', `${z(s[0])} + ${z(s[1])} + ${z(s[0])} + ${z(s[1])}`]], 2 * s[0] + 2 * s[1], 'cm'));
+        Z.push(zeile('A', 'a · b', `${z(s[0])} · ${z(s[1])}`, s[0] * s[1], 'cm²'));
+      } else if (par(P[0], P[1], P[3], P[2]) && par(P[1], P[2], P[0], P[3])) {
+        namen = ['a', 'b', 'c', 'd']; const F = fuss(P[3], P[0], P[1]), h = r1(cm(d(P[3], F))); H.push({ a: P[3], b: F, t: 'h' });
+        Z.push(wahl('u', [['2 · a + 2 · b', `2 · ${z(s[0])} + 2 · ${z(s[1])}`], ['2 · (a + b)', `2 · (${z(s[0])} + ${z(s[1])})`], ['a + b + a + b', `${z(s[0])} + ${z(s[1])} + ${z(s[0])} + ${z(s[1])}`]], 2 * s[0] + 2 * s[1], 'cm'));
+        Z.push(zeile('A', 'a · h', `${z(s[0])} · ${z(h)}`, s[0] * h, 'cm²'));
+      } else if (par(P[0], P[1], P[3], P[2])) {
+        namen = ['a', 'b', 'c', 'd']; const F = fuss(P[3], P[0], P[1]), h = r1(cm(d(P[3], F))); H.push({ a: P[3], b: F, t: 'h' });
+        Z.push(zeile('u', 'a + b + c + d', `${z(s[0])} + ${z(s[1])} + ${z(s[2])} + ${z(s[3])}`, s[0] + s[1] + s[2] + s[3], 'cm'));
+        Z.push(wahl('A', [['(a + c) : 2 · h', `(${z(s[0])} + ${z(s[2])}) : 2 · ${z(h)}`], ['(a + c) · h : 2', `(${z(s[0])} + ${z(s[2])}) · ${z(h)} : 2`], ['½ · (a + c) · h', `½ · (${z(s[0])} + ${z(s[2])}) · ${z(h)}`]], (s[0] + s[2]) / 2 * h, 'cm²'));
+      } else { namen = ['a', 'b', 'c', 'd']; Z.push(zeile('u', 'a + b + c + d', `${z(s[0])} + ${z(s[1])} + ${z(s[2])} + ${z(s[3])}`, s[0] + s[1] + s[2] + s[3], 'cm')); } /* allgemeines Viereck: Fläche nur über Zerlegen */
+    }
+  } else if (W.art === 'kreis') {
+    const r = r1(W.r);
+    Z.push(wahl('u', [['2 · π · r', `2 · π · ${z(r)}`], ['π · d', `π · ${z(2 * r)}`]], 2 * Math.PI * r, 'cm', true));
+    Z.push(wahl('A', [['π · r²', `π · (${z(r)})²`], ['π · r · r', `π · ${z(r)} · ${z(r)}`]], Math.PI * r * r, 'cm²', true));
+  } else if (W.art === 'kreiswinkel' && it.kw) {
+    const r = r1(W.r), al = Math.round(it.kw.th), b = Math.round(2 * Math.PI * r * al / 360 * 100) / 100;
+    Z.push(zeile('b', '2 · π · r · α : 360°', `2 · π · ${z(r)} · ${al}° : 360°`, 2 * Math.PI * r * al / 360, 'cm', true));
+    Z.push(zeile('u', '2 · r + b', `2 · ${z(r)} + ${T.zahl(b, 2)} cm`, 2 * r + b, 'cm'));
+    Z.push(zeile('A', 'π · r² · α : 360°', `π · (${z(r)})² · ${al}° : 360°`, Math.PI * r * r * al / 360, 'cm²', true));
+  } else if (W.art === 'ellipse' && !W.sektor) {
+    const a = r1(W.a), b = r1(W.b);
+    Z.push(zeile('A', 'π · a · b', `π · ${z(a)} · ${z(b)}`, Math.PI * a * b, 'cm²', true));
+  }
+  return { Z, H, namen, V };
+};
 T.masseMalen = (ctx, pg, dark, px, drag) => {
   const orte = (T._wkOrte || (T._wkOrte = new WeakMap())).get(pg) || []; T._wkOrte.set(pg, orte);
+  const fk = []; (T._fkOrte || (T._fkOrte = new WeakMap())).set(pg, fk); /* 🧮 Formelkästen zum Antippen/Verschieben */
   const z = v => T.zahl(v, 1), col = dark ? '#93c5fd' : '#1d4ed8', fs = 19 * px;
   const schreibe = (txt, x, y, key, fett) => {
-    const zust = T.winkelZustand(pg, key), t = zust === 'frage' ? '?' : zust === 'leer' ? '' : txt;
+    const m = /^(.*?) [=≈] /.exec(txt), zust = T.winkelZustand(pg, key), t = zust === 'frage' ? (m ? m[1] + ' = ?' : '?') : zust === 'leer' ? '' : txt; /* verdeckt: „u = ?“, „A = ?“, „a = ?“ */
     if (t) { ctx.font = `${fett ? 700 : 600} ${fs}px Segoe UI`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5 * px; ctx.strokeStyle = dark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.92)'; ctx.strokeText(t, x, y); ctx.fillStyle = col; ctx.fillText(t, x, y); }
     orte.push({ key, x, y, vx: x, vy: y, r: Math.max(fs * 1.6, ctx.measureText(txt).width / 2) });
   };
   const strich = (a, b) => { ctx.save(); ctx.setLineDash([7 * px, 5 * px]); ctx.strokeStyle = col; ctx.lineWidth = 2.5 * px; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.restore(); };
   for (const it of pg.items) {
-    if (it.t !== 's' || !(it.ms || it.mu || it.mf) || !it.p) continue;
+    if (it.t !== 's' || !(it.ms || it.mu || it.mf || it.mo) || !it.p) continue;
     const W = T.formMasse(it); if (!W) continue;
+    const FF = it.mo ? T.formFormeln(it, W) : null, nm = FF && FF.namen; /* 🧮 mit Formeln: Seiten heißen a, b, c … */
     ctx.save(); if (drag && T.S.sel && T.S.sel.ids.has(it.id)) ctx.translate(drag.dx, drag.dy);
     const P = it.p, mx = P.reduce((s, q) => s + q[0], 0) / P.length, my = P.reduce((s, q) => s + q[1], 0) / P.length;
-    if (it.ms) {
+    const name = (t, x, y) => { ctx.font = `italic 700 ${fs}px Segoe UI`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5 * px; ctx.strokeStyle = dark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.92)'; ctx.strokeText(t, x, y); ctx.fillStyle = col; ctx.fillText(t, x, y); };
+    const mitName = (i, wert) => (nm && nm[i] ? nm[i] + ' = ' : '') + wert;
+    if (it.ms || nm || (it.mo && W.art !== 'strecke')) {
       if (W.art === 'vieleck' || W.art === 'strecke') {
         const n = W.art === 'strecke' ? 1 : P.length;
         for (let i = 0; i < n; i++) {
           const a = P[i], b = P[(i + 1) % P.length], cx = (a[0] + b[0]) / 2, cy = (a[1] + b[1]) / 2; let nx = -(b[1] - a[1]), ny = b[0] - a[0]; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
           if (W.art === 'vieleck' ? (cx - mx) * nx + (cy - my) * ny < 0 : ny > 0) { nx = -nx; ny = -ny; } /* nach außen bzw. über die Strecke */
-          schreibe(z(W.s[i]) + ' cm', cx + nx * (fs * 1.1 + it.w), cy + ny * (fs * 1.1 + it.w), it.id + '#m' + i);
+          const x = cx + nx * (fs * 1.1 + it.w), y = cy + ny * (fs * 1.1 + it.w);
+          if (it.ms) schreibe(mitName(i, z(W.s[i]) + ' cm'), x, y, it.id + '#m' + i); else if (nm) name(nm[i], x, y);
         }
       } else if (W.art === 'kreis' || W.art === 'kreiswinkel') {
         const M = W.M, R = W.r * T.CM, g = W.art === 'kreiswinkel' ? Math.atan2(W.A[1] - M[1], W.A[0] - M[0]) : -Math.PI / 6, E = [M[0] + R * Math.cos(g), M[1] + R * Math.sin(g)];
         if (W.art === 'kreis' || it.wkAus || pg.winkelAus) strich(M, E);
-        const nx = Math.sin(g), ny = -Math.cos(g); schreibe('r = ' + z(W.r) + ' cm', (M[0] + E[0]) / 2 + nx * fs * 1.1, (M[1] + E[1]) / 2 + ny * fs * 1.1, it.id + '#m0');
+        const nx = Math.sin(g), ny = -Math.cos(g), x = (M[0] + E[0]) / 2 + nx * fs * 1.1, y = (M[1] + E[1]) / 2 + ny * fs * 1.1;
+        if (it.ms) schreibe('r = ' + z(W.r) + ' cm', x, y, it.id + '#m0'); else name('r', x, y);
       } else if (W.art === 'ellipse') {
         const M = W.M, Ea = [M[0] + W.a * T.CM, M[1]], Eb = [M[0], M[1] - W.b * T.CM]; strich(M, Ea); strich(M, Eb);
-        schreibe('a = ' + z(W.a) + ' cm', (M[0] + Ea[0]) / 2, M[1] + fs * 1.1, it.id + '#m0'); schreibe('b = ' + z(W.b) + ' cm', M[0] - fs * 3.2, (M[1] + Eb[1]) / 2, it.id + '#m1');
+        if (it.ms) { schreibe('a = ' + z(W.a) + ' cm', (M[0] + Ea[0]) / 2, M[1] + fs * 1.1, it.id + '#m0'); schreibe('b = ' + z(W.b) + ' cm', M[0] - fs * 3.2, (M[1] + Eb[1]) / 2, it.id + '#m1'); }
+        else { name('a', (M[0] + Ea[0]) / 2, M[1] + fs * 1.1); name('b', M[0] - fs * 1.2, (M[1] + Eb[1]) / 2); }
       }
     }
+    if (FF) for (const L of FF.H) { strich(L.a, L.b); name(L.t, (L.a[0] + L.b[0]) / 2 + fs * 0.8, (L.a[1] + L.b[1]) / 2); } /* Höhe h bzw. Diagonalen e, f */
+    let yU = Math.max(...P.map(q => q[1])) + fs * 1.6 + it.w + ((it.ms || nm) && W.art === 'vieleck' ? fs * 1.8 : 0); /* unter den Seitenlängen */
     if ((it.mu && W.u != null) || (it.mf && W.f != null)) { // Umfang und Flächeninhalt unter der Form
-      const y1 = Math.max(...P.map(q => q[1])) + fs * 1.6 + it.w + (it.ms && W.art === 'vieleck' ? fs * 1.8 : 0), ca = W.ca ? '≈ ' : '= '; /* unter den Seitenlängen */
+      const ca = W.ca ? '≈ ' : '= ';
       const teile = [it.mu && W.u != null ? ['u ' + ca + z(W.u) + ' cm', '#u'] : null, it.mf && W.f != null ? ['A ' + ca + z(W.f) + ' cm²', '#f'] : null].filter(Boolean);
       ctx.font = `700 ${fs}px Segoe UI`; const br = teile.map(t => ctx.measureText(t[0]).width), luecke = fs * 1.5, ges = br.reduce((a, b) => a + b, 0) + luecke * (teile.length - 1);
-      let x = mx - ges / 2; teile.forEach((t, i) => { schreibe(t[0], x + br[i] / 2, y1, it.id + t[1], true); x += br[i] + luecke; });
+      let x = mx - ges / 2; teile.forEach((t, i) => { schreibe(t[0], x + br[i] / 2, yU, it.id + t[1], true); x += br[i] + luecke; });
+      yU += fs * 1.8;
     }
+    if (FF && FF.Z.length) T.formelKasten(ctx, pg, it, FF, dark, px, fk, drag && T.S.sel && T.S.sel.ids.has(it.id) ? drag : null);
     ctx.restore();
   }
+};
+// 🧮 Formelkasten neben der Form: je Formel Überschrift · Formel · Rechnung · Ergebnis (jede Zeile ein-/ausblendbar, antippen = „?“ ↔ offen)
+/* eingefärbt (it.fkc), am Kasten verschiebbar (it.fk = Versatz), Zeilen aus: it.fa = { f, r, e } */
+T.FK_FARBEN = ['#fef3c7', '#dcfce7', '#dbeafe', '#fce7f3', '#ede9fe', '#e5e7eb'];
+const FK_TITEL = { u: 'Umfang', A: 'Flächeninhalt', b: 'Bogenlänge' };
+T.formelKasten = (ctx, pg, it, FF, dark, px, fk, drag) => {
+  const fs = 18 * px, lh = fs * 1.55, pad = fs * 0.75, aus = it.fa || {}, gruppen = [];
+  FF.Z.forEach((zl, j) => {
+    const t = zl[3]; if (!t || (it.fh && it.fh[t.l])) return; /* it.fh: abgewählte Formeln (u, A, b) */
+    const zu = s => T.winkelZustand(pg, it.id + '#F' + s + j) === 'frage', zeilen = [];
+    if (!aus.f) zeilen.push({ key: it.id + '#Ff' + j, txt: t.l + ' = ' + (zu('f') ? '?' : t.formel) });
+    if (!aus.r) zeilen.push({ key: it.id + '#Fr' + j, l: aus.f ? '' : t.l, txt: (aus.f ? t.l + ' ' : '') + (zu('r') ? '= ?' : '= ' + t.zahlen) });
+    if (!aus.e) zeilen.push({ key: it.id + '#Fe' + j, l: aus.f && aus.r ? '' : t.l, txt: (aus.f && aus.r ? t.l + ' ' : '') + (zu('e') ? '= ?' : t.erg), fett: true });
+    if (zeilen.length) gruppen.push({ titel: FK_TITEL[t.l] || '', zeilen });
+  });
+  if (!gruppen.length) return;
+  const fT = `700 ${fs * 0.72}px Segoe UI`, fZ = `600 ${fs}px Segoe UI`, fE = `700 ${fs}px Segoe UI`;
+  let br = 0, ho = 0;
+  for (const g of gruppen) {
+    ctx.font = fT; br = Math.max(br, ctx.measureText(g.titel.toUpperCase()).width); ho += fs * 1.05;
+    for (const z of g.zeilen) { ctx.font = fZ; z.ein = z.l ? ctx.measureText(z.l + ' ').width : 0; ctx.font = z.fett ? fE : fZ; br = Math.max(br, z.ein + ctx.measureText(z.txt).width); ho += lh; }
+    ho += fs * 0.45;
+  }
+  ho -= fs * 0.45;
+  const P = it.p, v = it.fk || [0, 0], w = br + pad * 2, hh = ho + pad * 2;
+  const x0 = Math.max(...P.map(q => q[0])) + it.w + fs * 3.2 + v[0], y0 = Math.min(...P.map(q => q[1])) + v[1];
+  const farbe = it.fkc || T.FK_FARBEN[0], r = fs * 0.6;
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(x0 + r, y0); ctx.arcTo(x0 + w, y0, x0 + w, y0 + hh, r); ctx.arcTo(x0 + w, y0 + hh, x0, y0 + hh, r); ctx.arcTo(x0, y0 + hh, x0, y0, r); ctx.arcTo(x0, y0, x0 + w, y0, r); ctx.closePath();
+  ctx.globalAlpha = dark ? 0.3 : 1; ctx.fillStyle = farbe; ctx.fill(); ctx.globalAlpha = 1;
+  ctx.lineWidth = 1.5 * px; ctx.strokeStyle = dark ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.18)'; ctx.stroke();
+  ctx.font = `700 ${fs * 0.8}px Segoe UI`; ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.fillStyle = dark ? 'rgba(255,255,255,.45)' : 'rgba(0,0,0,.3)'; ctx.fillText('⠿', x0 + w - fs * 0.35, y0 + fs * 0.25); /* Griff: hier ziehen */
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const zeilen = []; let y = y0 + pad;
+  for (const g of gruppen) {
+    ctx.font = fT; ctx.fillStyle = dark ? '#cbd5e1' : '#64748b'; ctx.fillText(g.titel.toUpperCase(), x0 + pad, y + fs * 0.45); y += fs * 1.05;
+    for (const z of g.zeilen) {
+      ctx.font = z.fett ? fE : fZ; ctx.fillStyle = z.fett ? (dark ? '#fcd34d' : '#9a3412') : (dark ? '#f1f5f9' : '#1e293b'); ctx.fillText(z.txt, x0 + pad + z.ein, y + lh / 2);
+      zeilen.push({ key: z.key, y0: y + (drag ? drag.dy : 0), y1: y + lh + (drag ? drag.dy : 0) }); y += lh;
+    }
+    y += fs * 0.45;
+  }
+  ctx.restore();
+  fk.push({ id: it.id, x: x0 + (drag ? drag.dx : 0), y: y0 + (drag ? drag.dy : 0), w, h: hh, zeilen });
+};
+T.formelKastenAt = (wx, wy) => { const pg = T.page(), fk = pg && T._fkOrte && T._fkOrte.get(pg); if (!fk) return null; for (let i = fk.length - 1; i >= 0; i--) { const k = fk[i]; if (wx >= k.x && wx <= k.x + k.w && wy >= k.y && wy <= k.y + k.h) return k; } return null; };
+/* Zeile im Formelkasten antippen: „?“ ↔ offen */
+T.formelZeileUmschalten = key => {
+  const pg = T.page(); T.snap(); const v = { ...(pg.wkVerdeckt || {}) }, n = T.winkelZustand(pg, key) === 'frage' ? 'zahl' : 'frage'; v[key] = n; pg.wkVerdeckt = v;
+  T.changed && T.changed(); T.render(); T.renderOver && T.renderOver();
 };
 const kwRingPfade = new WeakMap(); /* ◔ Kreiswinkel mit ausgeblendetem Winkel: nur der Rand, ohne Radien */
 const kwRing = it => { let p = kwRingPfade.get(it); if (!p) { p = new Path2D(); it.p.slice(2).forEach((q, k) => k ? p.lineTo(q[0], q[1]) : p.moveTo(q[0], q[1])); p.closePath(); kwRingPfade.set(it, p); } return p; };
@@ -384,6 +562,41 @@ T.drawStroke = (ctx, it, dark, path) => {
       if (flaeche) { // Glanzlicht: heller Rand oben links, darüber die Farbe leicht versetzt
         ctx.save(); ctx.clip(path); const ga = ctx.globalAlpha; ctx.globalAlpha = ga * 0.5; male('#ffffff'); ctx.globalAlpha = ga; ctx.translate(w * 0.3, w * 0.3); male(col); ctx.restore();
       }
+    } else if (it.fx === 'regenbogen' || it.fx === 'gold') { /* 🌈 Farben über den Strich verteilt · 🥇 metallischer Glanz */
+      const xs = it.p.map(q => q[0]), ys = it.p.map(q => q[1]), x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs) + 1, y1 = Math.max(...ys) + 1;
+      const g = ctx.createLinearGradient(x0, y0, x1, it.fx === 'gold' ? y1 : y0 + (y1 - y0) * 0.25);
+      if (it.fx === 'regenbogen') ['#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5', '#5e35b1', '#d81b60'].forEach((c, i, a) => g.addColorStop(i / (a.length - 1), c));
+      else { [['#8a6d1d', 0], ['#f7e08a', 0.25], ['#c9a227', 0.45], ['#fff3c4', 0.6], ['#b8901c', 0.8], ['#7a5c12', 1]].forEach(([c, s]) => g.addColorStop(s, c)); ctx.shadowColor = 'rgba(0,0,0,.3)'; ctx.shadowBlur = w * 1.2 * k; ctx.shadowOffsetY = w * 0.5 * k; }
+      male(g);
+    } else if (it.fx === 'glitzer') { /* 💫 Farbe plus funkelnde Sternchen entlang des Strichs (fest verteilt, flackert nicht) */
+      male(col); const n = it.p.length, s = Math.max(2.5, w * 0.9);
+      for (let i = 2; i < n; i += 5) { const q = it.p[i], z = Math.sin(i * 12.9898 + q[0] * 0.01) * 43758.5453, r = z - Math.floor(z);
+        const x = q[0] + (r - 0.5) * w * 3, y = q[1] + (((r * 7) % 1) - 0.5) * w * 3, gr = s * (0.6 + r);
+        const GL = dark ? ['#ffffff', '#ffd54f', '#ff80ab', '#80deea'] : ['#f9a825', '#ec407a', '#26c6da', '#ab47bc']; /* auf hell kräftige Funken, auf dunkel auch weiß */
+        ctx.fillStyle = GL[Math.floor(r * GL.length) % GL.length]; ctx.globalAlpha = 0.95; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = gr * 0.8 * k; ctx.beginPath();
+        for (let j = 0; j < 8; j++) { const a = j * Math.PI / 4, rr = j % 2 ? gr * 0.28 : gr; ctx[j ? 'lineTo' : 'moveTo'](x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
+    } else if (it.fx === 'galaxie') { /* 🌌 Nachthimmel: Lila-Blau-Verlauf mit kleinen leuchtenden Sternen */
+      const xs = it.p.map(q => q[0]), ys = it.p.map(q => q[1]), g = ctx.createLinearGradient(Math.min(...xs), Math.min(...ys), Math.max(...xs) + 1, Math.max(...ys) + 1);
+      [['#0b0630', 0], ['#3a0ca3', 0.2], ['#7209b7', 0.4], ['#b5179e', 0.55], ['#4361ee', 0.75], ['#4cc9f0', 1]].forEach(([c, s]) => g.addColorStop(s, c));
+      const zz = (i, a) => { const z = Math.sin(i * a) * 43758.5453; return z - Math.floor(z); }, n = it.p.length;
+      ctx.shadowColor = '#b388ff'; ctx.shadowBlur = w * 1.4 * k; male(g); ctx.shadowBlur = 0;
+      ctx.save(); /* Nebel: weiche, bunte Wolken im Strich (bei Handschrift genau im Strich, sonst leicht darüber) */
+      if (flaeche) ctx.clip(path);
+      for (let i = 0; i < n; i += 4) { const q = it.p[i], r = zz(i + 1, 91.7), rr = w * (0.9 + r * 1.4);
+        const neb = ctx.createRadialGradient(q[0], q[1], 0, q[0], q[1], rr), farbe = ['rgba(247,37,133,', 'rgba(76,201,240,', 'rgba(114,9,183,', 'rgba(255,255,255,'][Math.floor(r * 4)];
+        neb.addColorStop(0, farbe + (flaeche ? 0.55 : 0.28) + ')'); neb.addColorStop(1, farbe + '0)'); ctx.fillStyle = neb; ctx.beginPath(); ctx.arc(q[0], q[1], rr, 0, 2 * Math.PI); ctx.fill(); }
+      /* Sterne: viele kleine Punkte, dazwischen helle Funkelsterne */
+      for (let i = 0; i < n; i += 2) { const q = it.p[i], r = zz(i + 3, 78.233); if (r < 0.25) continue;
+        const x = q[0] + (zz(i, 12.9898) - 0.5) * w * 0.8, y = q[1] + (zz(i, 39.346) - 0.5) * w * 0.8;
+        ctx.globalAlpha = 0.65 + r * 0.35; ctx.fillStyle = r > 0.9 ? '#fff9c4' : '#ffffff';
+        if (r > 0.93) { const s = Math.max(2, w * 0.55); ctx.beginPath(); for (let j = 0; j < 8; j++) { const a = j * Math.PI / 4, l = j % 2 ? s * 0.18 : s; ctx[j ? 'lineTo' : 'moveTo'](x + l * Math.cos(a), y + l * Math.sin(a)); } ctx.closePath(); ctx.shadowColor = '#ffffff'; ctx.shadowBlur = s * 1.5 * k; ctx.fill(); ctx.shadowBlur = 0; }
+        else { ctx.beginPath(); ctx.arc(x, y, Math.max(0.7, w * 0.07 * (0.6 + r)), 0, 2 * Math.PI); ctx.fill(); } }
+      ctx.restore();
+    } else if (it.fx === 'umriss') { /* 🔲 hohle Schrift: kräftiger Rand, innen Tafelfarbe */
+      const innen = dark ? '#1f2328' : '#ffffff';
+      ctx.strokeStyle = col; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = flaeche ? w * 1.4 : w * 1.9; ctx.stroke(path); /* außen: Rand in der Stiftfarbe */
+      if (flaeche) { ctx.fillStyle = innen; ctx.fill(path); ctx.lineWidth = w * 0.5; } else ctx.lineWidth = w * 0.9;
+      ctx.strokeStyle = innen; ctx.stroke(path); /* innen: Tafelfarbe */
     } else male(col);
     ctx.restore();
   }
@@ -483,7 +696,8 @@ T.paintPage = (ctx, pg, rect, px, o = {}) => {
   if (T._wkOrte) T._wkOrte.set(pg, []); /* Lage der antippbaren Winkel jedes Mal neu */
   if (!pg.winkelAus && pg.items.some(i => i.wk)) T.winkelMalen(ctx, pg, dark, px); // 📐 Winkel zwischen Linien (auf der Seite ausblendbar)
   if (mitKw) T.kreisWinkelMalen(ctx, pg, dark, px, 'text', drag);
-  if (pg.items.some(i => i.ms || i.mu || i.mf)) T.masseMalen(ctx, pg, dark, px, drag); /* 📏 Maße, Umfang, Flächeninhalt */
+  if (pg.items.some(i => i.fz === 'winkel')) T.winkelFormMalen(ctx, pg, dark, px, drag); /* ∠ drehbarer Winkel: Bogen, Gradzahl, Winkelart */
+  if (pg.items.some(i => i.ms || i.mu || i.mf || i.mo)) T.masseMalen(ctx, pg, dark, px, drag); /* 📏 Maße, Umfang, Flächeninhalt */
   if (T.zellSchatten) each(it => it.t === 'o' && T.hatZellSchatten(it), it => T.zellSchatten(ctx, it, dark)); // Zellenschatten liegt auch über Handschrift
   each(it => it.t === 'o' && it.k === 'abdeckung', it => T.drawObj(ctx, it, dark, px)); // Abdeckung liegt über allem
 };

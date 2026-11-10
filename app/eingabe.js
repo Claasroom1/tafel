@@ -29,6 +29,7 @@ T.initInput = () => {
       const [wx, wy] = world(e.clientX, e.clientY);
       for (let i = S.inst.length - 1; i >= 0; i--) {
         const I = S.inst[i], D = T.INSTR[I.kind]; if (!D) continue; // Zirkel: Radius wird gezogen
+        if (I.groesseFest || (I.groesseFest == null && T.opts.instFest && T.opts.instFest[I.kind])) continue; /* 🔒 Größe fixiert */
         const [lx, ly] = T.toLocal(I, wx, wy); if (!D.contains(lx, ly)) continue;
         T.setScaleAbout(I, (I.s || 1) * Math.exp(-e.deltaY * 0.0015), lx, ly); T.renderOver(); return;
       }
@@ -156,6 +157,14 @@ function choose(P, e, wx, wy) {
   if (uhr && uhr.k === 'uhr') { const g = uhrGriff(P, uhr, wx, wy); if (g) return g; }
   // Auswahl-Griffe
   const sh = selHit(wx, wy); if (sh) return sh(P);
+  // 🧮 Formelkasten: ziehen = verschieben, Zeile antippen = „?“ ↔ offen
+  const fkh = S.tool !== 'radierer' && T.formelKastenAt && T.formelKastenAt(wx, wy);
+  if (fkh) { let bewegt = false; const o = T.page().items.find(i => i.id === fkh.id), v0 = (o && o.fk) || [0, 0];
+    return {
+      move(Q) { if (!o || (!bewegt && Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 8)) return; if (!bewegt) { T.snap(); bewegt = true; }
+        const [x, y] = world(Q.x, Q.y), cur = T.page().items.find(i => i.id === o.id); if (cur) { T.replaceItem({ ...cur, fk: [v0[0] + x - wx, v0[1] + y - wy] }); T.render(); } },
+      up() { if (bewegt) { T.changed && T.changed(); return; } const z = fkh.zeilen.find(z => wy >= z.y0 && wy <= z.y1); if (z) T.formelZeileUmschalten(z.key); }
+    }; }
   // 📐 Einzelnen Winkel antippen: Zahl → „?“ → leerer Bogen → Zahl
   const wo = S.tool !== 'radierer' && T.winkelAt && T.winkelAt(wx, wy, px());
   if (wo) return { up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 16) T.winkelUmschalten(wo); } };
@@ -180,13 +189,15 @@ function choose(P, e, wx, wy) {
       return { kind: 'idle', up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 10 && performance.now() - Q.t0 < 600) select([o.id]); } };
     }
     // Standard: Finger greift das Element direkt – antippen = auswählen (Menü erscheint), ziehen = verschieben, zweiter Finger = drehen/vergrößern
-    if (o) { const war = !!(S.sel && S.sel.ids.size === 1 && S.sel.ids.has(o.id)); if (war && T.selMenueZu) T.selMenueZu(); if (nurGriffeAn()) return tippen(P, o, wx, wy, war); if (!war) select([o.id]); return greif(moveSel(P, wx, wy, o, war)); }
+    if (o) { const war = !!(S.sel && S.sel.ids.size === 1 && S.sel.ids.has(o.id)); if (war && T.selMenueZu) T.selMenueZu(); if (war && T.istKoerper && T.istKoerper(o)) return koerperDrehen(P, o, wx, wy); if (nurGriffeAn()) return tippen(P, o, wx, wy, war); if (!war) select([o.id]); return greif(moveSel(P, wx, wy, o, war)); }
     if (T.opts.finger === 'radieren') return erase(P, e);
     const st = itemAt(wx, wy); if (st && st.t === 's') { // Handschrift: schon gewählt → ziehen verschiebt; sonst antippen wählt das Wort, kurz halten + ziehen verschiebt
       if (S.sel && S.sel.ids.has(st.id) && !nurGriffeAn()) { T.selMenueZu && T.selMenueZu(); return greif(moveSel(P, wx, wy)); }
       return langDruck(P, st, wx, wy);
     }
-    return pan(P);
+    /* Freie Fläche kurz antippen: Auswahl aufheben (Markierung und Menü weg); ziehen verschiebt die Tafel */
+    const pn = pan(P);
+    return { kind: 'pan', move: pn.move, up(Q) { if (S.sel && Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 12 && performance.now() - Q.t0 < 500) { S.sel = null; T.selMenueZu && T.selMenueZu(); T.renderOver(); } } };
   }
   if (S.tool !== 'auswahl' && S.sel) { S.sel = null; T.renderOver(); }
   return werkzeug(P, e, wx, wy);
@@ -203,8 +214,8 @@ function tippen(P, o, wx, wy, war) {
 }
 // Nach dem Einfügen einer Form, eines Körpers oder Emojis: wieder der Stift – der nächste Stiftstrich schreibt; mit dem Finger greift man das Objekt
 /* Am PC (Maus): danach „Auswahl“ und das neue Objekt ist markiert; am Board (Stift/Finger): Stift */
-const zumStift = (P, id) => {
-  const pc = P && P.type === 'mouse', ziel = pc ? 'auswahl' : 'stift';
+const zumStift = (P, id, immerStift) => { /* immerStift: nach einer gezeichneten Form – auswählen geht am Board ohnehin mit dem Finger */
+  const pc = P && P.type === 'mouse' && !immerStift, ziel = pc ? 'auswahl' : 'stift';
   if (T.setTool) T.setTool(ziel); else S.tool = ziel;
   if (pc && id) T.select([id]);
 };
@@ -230,7 +241,7 @@ function werkzeug(P, e, wx, wy) {
 function stroke(P, e, ueber) { // ueber: { c, w } – eigene Farbe/Stärke (geteilte Tafel)
   const tool = !ueber && S.tool === 'marker' ? 'marker' : 'stift', hl = tool === 'marker';
   const laser = !ueber && !hl && S.stiftArt === 'laser';
-  let live = { t: 's', m: hl ? 'hl' : laser ? 'line' : S.stiftArt === 'kalli' && !ueber ? 'kalli' : 'pen', c: ueber ? ueber.c : S.farbe[tool], w: ueber ? ueber.w : S.groesse[tool], p: [], ...(laser ? {} : fx(hl)) };
+  let live = { t: 's', m: hl ? 'hl' : laser ? 'line' : S.stiftArt === 'kalli' && !ueber ? 'kalli' : 'pen', c: ueber ? ueber.c : hl ? S.farbe[tool] : T.echteFarbe(S.farbe[tool]), w: ueber ? ueber.w : S.groesse[tool], p: [], ...(laser ? {} : fx(hl)) };
   let last = null, pr = 0.55, real = false, lastS = null, erkannt = false, ruhe = 0, anker = [P.x, P.y], winkelLabel = false, bewegtAm = performance.now(), bild = 0;
   const labelWeg = () => { if (winkelLabel) { winkelLabel = false; T.overlay.label = null; T.renderOver(); } };
   // Neu zeichnen höchstens einmal pro Bild (der Apple Pencil liefert sehr viele Punkte pro Sekunde)
@@ -250,6 +261,8 @@ function stroke(P, e, ueber) { // ueber: { c, w } – eigene Farbe/Stärke (gete
         neu.wk = 1;
         if (neu.p.length === 2) { const [a, b] = neu.p; T.overlay.label = { x: b[0], y: b[1], t: liveWinkel(a[0], a[1], b[0], b[1]) }; winkelLabel = true; T.renderOver(); }
       }
+      if (neu.m === 'line') neu.vs = { w: T.startVerdeckt('w'), m: T.startVerdeckt('m'), u: T.startVerdeckt('u'), f: T.startVerdeckt('f'), a: T.startVerdeckt('a') }; /* verdeckt je Angabe – Voreinstellung */
+      if (neu.m === 'line' && (S.masse || T.opts.neuMasse || {}).ms) neu.ms = 1; /* 📏 Längen anzeigen gilt auch für erkannte Linien und Formen */
       T.lives.delete(live); live = neu; T.lives.add(live); erkannt = true; T.renderLive();
     }
   };
@@ -313,7 +326,7 @@ const HILFEN = {
 };
 const HILFE_NAME = { lineal: 'Lineal', geodreieck: 'Geodreieck', winkelmesser: 'Winkelmesser', scheinwerfer: 'Scheinwerfer', lupe: 'Lupe', leselineal: 'Leselineal', vorhang: 'Vorhang', schwarz: 'Tafel schwarz', laser: 'Laserpointer' };
 // Auswahl für Einstellungen und Stift-Menü
-T.DOPPEL_ZIELE = [['', 'aus'], ['zuletzt', '🔁 zuletzt benutztes Hilfsmittel'], ['radierer', '🧽 Radierer'], ['laser', '🔴 Laserpointer'], ['marker', '🖍 Textmarker'],
+T.DOPPEL_ZIELE = [['', 'aus'], ['zuletzt', '🔁 zuletzt benutztes Hilfsmittel'], ['radierer', '🧽 Schwamm'], ['laser', '🔴 Laserpointer'], ['marker', '🖍 Textmarker'],
   ['geodreieck', '📐 Geodreieck'], ['lineal', '📏 Lineal'], ['winkelmesser', '◠ Winkelmesser'], ['scheinwerfer', '🔦 Scheinwerfer'], ['lupe', '🔍 Lupe'],
   ['leselineal', '📖 Leselineal'], ['vorhang', '🎭 Vorhang'], ['schwarz', '⬛ Tafel schwarz'], ['#d32f2f', '🔴 Farbe Rot'], ['#1565c0', '🔵 Farbe Blau'], ['#2e7d32', '🟢 Farbe Grün']];
 // „Zuletzt benutzt“ merken: wer in der Stunde das Geodreieck oder den Laser nimmt, hat es danach auf dem Doppeltipp
@@ -341,7 +354,7 @@ function doppeltipp(P, Q, it) {
     else { S.tool = 'stift'; if (S.stiftArt === 'laser') S.stiftArt = 'normal'; S.farbe.stift = art; } // eine Farbe
   }
   T.onInst && T.onInst(); T.renderOver(); T.updateToolbar && T.updateToolbar(); /* Werkzeugleiste zeigt das neue Werkzeug */
-  T.toast && T.toast(vorDoppel ? (art === 'radierer' ? '✌ Radierer – nochmals doppelt tippen = zurück zum Stift' : '✌ Doppeltipp: Werkzeug gewechselt – nochmals doppelt tippen = zurück') : '✌ Zurück zum vorherigen Werkzeug', 1500);
+  T.toast && T.toast(vorDoppel ? (art === 'radierer' ? '✌ Schwamm – nochmals doppelt tippen = zurück zum Stift' : '✌ Doppeltipp: Werkzeug gewechselt – nochmals doppelt tippen = zurück') : '✌ Zurück zum vorherigen Werkzeug', 1500);
 }
 
 // ---------- Am Lineal/Geodreieck entlang ----------
@@ -383,11 +396,13 @@ function ruled(P, ed) {
 function instAction(P, ih, wx, wy) {
   const I = ih.I;
   if (ih.part === 'close') return { up() { const i = S.inst.indexOf(I); if (i >= 0) S.inst.splice(i, 1); T.renderOver(); T.onInst && T.onInst(); } };
+  if (ih.part === 'gear') return { up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 14 && T.angleDialog) T.angleDialog(I); } }; /* ⚙ Winkel, Größe, 🔒 Größe fixieren */
   if (ih.part === 'kreis') return { up() { zirkelArc(I, I.a, I.a + 2 * PI, true); } };
   if (ih.part === 'move') {
     const x0 = I.x, y0 = I.y;
     return { inst: I, move(Q) { const [x, y] = world(Q.x, Q.y); I.x = x0 + x - wx; I.y = y0 + y - wy; T.renderOver(); } };
   }
+  if (ih.part === 'radius' && P.type === 'pen') ih = { ...ih, part: 'dreh' }; /* ✒ Stift an der Mine: zeichnet wie ein echter Zirkel (Radius bleibt) – Finger an der Mine verstellt den Radius */
   if (ih.part === 'radius') {
     return { inst: I, move(Q) { const [x, y] = world(Q.x, Q.y); I.r = Math.max(8, Math.round(Math.hypot(x - I.x, y - I.y) / 2) * 2); I.a = Math.atan2(y - I.y, x - I.x); T.renderOver(); } };
   }
@@ -440,11 +455,12 @@ function twoFingerInst(I, A, B) {
   const ang = () => Math.atan2(B.y - A.y, B.x - A.x), mid = () => world((A.x + B.x) / 2, (A.y + B.y) / 2);
   const dist = () => Math.hypot(B.x - A.x, B.y - A.y) || 1;
   const g0 = ang(), a0 = I.a, s0 = I.s || 1, d0 = dist(), [mx, my] = mid(), L = T.toLocal(I, mx, my);
+  const fest = () => I.groesseFest || (I.groesseFest == null && T.opts.instFest && T.opts.instFest[I.kind]);
   return {
     kind: 'gesture', inst: I,
     move() { // zwei Finger: drehen, verschieben und vergrößern/verkleinern
       const [x, y] = mid();
-      I.a = T.snapAngle(a0 + ang() - g0); let k = s0 * dist() / d0; if (Math.abs(k - 1) < 0.06) k = 1; I.s = T.clamp(k, 0.5, 4);
+      I.a = T.snapAngle(a0 + ang() - g0); let k = s0 * dist() / d0; if (Math.abs(k - 1) < 0.06) k = 1; I.s = fest() ? s0 : T.clamp(k, 0.5, 4); /* 🔒 Größe fixiert: nur drehen und verschieben */
       const c = Math.cos(I.a), s = Math.sin(I.a);
       I.x = x - (L[0] * c - L[1] * s) * I.s; I.y = y - (L[0] * s + L[1] * c) * I.s; T.renderOver();
     },
@@ -502,17 +518,35 @@ function liveWinkel(ax, ay, bx, by) {
   let w = Math.round(Math.atan2(-(by - ay), bx - ax) * 180 / PI); if (w < 0) w += 360; if (w > 180) w -= 180;
   return w + '° zur Waagerechten';
 }
+/* 🧲 Fangen: zuerst Ecken und Endpunkte vorhandener Linien/Formen in Fingernähe, sonst der nächste Kreuzungspunkt von Kästchen bzw. Punkteraster */
+function fangPunkt(x, y) {
+  const pg = T.page(), r = 16 * px(); let best = null, bd = r;
+  for (const it of pg.items) {
+    if (it.t !== 's' || it.m !== 'line' || it.an || !it.p || it.p.length > 6) continue;
+    for (const q of it.p) { const d = Math.hypot(q[0] - x, q[1] - y); if (d < bd) { bd = d; best = [q[0], q[1]]; } }
+  }
+  if (best) return best;
+  const B = T.bgInfo(pg.bg), A = T.ABSTAND[B.muster];
+  if (B.muster === 'kariert' || B.muster === 'punkte') { const g = (pg.abstand || A.std) * 4; return [Math.round(x / g) * g, Math.round(y / g) * g]; }
+  return [x, y];
+}
 function shape(P, ax, ay) {
   if (/^verbinder/.test(S.form)) return verbinder(ax, ay);
   if (/^3d:/.test(S.form)) return koerperZiehen(ax, ay, S.form.slice(3), P);
-  const live = { t: 's', m: 'line', g: 1, c: S.farbe.stift, w: S.groesse.stift, p: [], arrow: S.form === 'pfeil', ...fx(),
+  if (S.fangen) [ax, ay] = fangPunkt(ax, ay);
+  const live = { t: 's', m: 'line', g: 1, c: T.echteFarbe(S.farbe.stift), w: S.groesse.stift, p: [], arrow: S.form === 'pfeil', ...fx(),
     ...(S.linienArt && S.linienArt !== 'voll' ? { ls: S.linienArt } : {}), ...((S.winkelZeigen != null ? S.winkelZeigen : !!T.opts.neuWinkel) && !/kreis|ellipse/.test(S.form) ? { wk: 1 } : {}) }; /* Linienart, 📐 Winkel anzeigen */
   if (S.form === 'strecke') live.pkt = 'beide'; else if (S.form === 'strahl') live.pkt = 'anfang'; // Endpunkte markiert
   const build = (bx, by) => {
     const f = S.form, q = (x, y) => [T.r1(x), T.r1(y), .5];
-    if (f === 'linie' || f === 'pfeil' || f === 'strecke' || f === 'strahl') {
+    const gefangen = S.fangen && ([bx, by] = fangPunkt(bx, by), true); /* 🧲 an Ecken/Endpunkten und am Raster fangen */
+    if (f === 'winkel') { /* ∠ Scheitel antippen, ersten Schenkel ziehen – der zweite steht zunächst bei 60° */
+      const L = Math.max(40, Math.hypot(bx - ax, by - ay)), a = T.snapAngle(Math.atan2(ay - by, bx - ax)), b = a + PI / 3; /* ganze Grad, rastet bei 0°, 15° … ein – wie das Geodreieck */
+      live.p = [q(ax + L * Math.cos(a), ay - L * Math.sin(a)), q(ax, ay), q(ax + L * Math.cos(b), ay - L * Math.sin(b))]; live.fz = 'winkel'; delete live.wk; live.closed = false;
+      T.overlay.label = { x: bx, y: by, t: '60° – danach Schenkel ziehen' };
+    } else if (f === 'linie' || f === 'pfeil' || f === 'strecke' || f === 'strahl') {
       const d = Math.hypot(bx - ax, by - ay), a = Math.atan2(by - ay, bx - ax), s = T.snapAngle(a);
-      if (Math.abs(s - a) < 4 * PI / 180 && Math.round(s * 180 / PI) % 45 === 0) { bx = ax + d * Math.cos(s); by = ay + d * Math.sin(s); }
+      if (!gefangen && Math.abs(s - a) < 4 * PI / 180 && Math.round(s * 180 / PI) % 45 === 0) { bx = ax + d * Math.cos(s); by = ay + d * Math.sin(s); }
       live.p = [q(ax, ay), q(bx, by)];
       T.overlay.label = { x: bx, y: by, t: T.zahl(d / T.CM, 1) + ' cm' + (S.winkelZeigen ? ' · ' + liveWinkel(ax, ay, bx, by) : '') };
     } else if (f === 'rechteck') { live.p = [q(ax, ay), q(bx, ay), q(bx, by), q(ax, by)]; live.closed = true; }
@@ -540,7 +574,7 @@ function shape(P, ax, ay) {
     if (/^(rechteck|dreieck|trapez|parallelogramm|raute)$/.test(f)) live.fz = f;
     if (S.formFuell && (live.closed || live.kw)) live.fl = S.formFuell; else delete live.fl; /* 🪣 Füllung, 📐 Winkelfarbe */
     if (S.winkelFarbe) live.wc = S.winkelFarbe;
-    for (const k of ['ms', 'mu', 'mf']) if ((S.masse || T.opts.neuMasse || {})[k]) live[k] = 1; else delete live[k]; /* 📏 Maße, Umfang, Fläche */ /* Figurart: beim Ziehen an den Ecken bleibt sie erhalten */
+    for (const k of ['ms', 'mu', 'mf', 'mo']) if ((S.masse || T.opts.neuMasse || {})[k]) live[k] = 1; else delete live[k]; live.vs = { w: T.startVerdeckt('w'), m: T.startVerdeckt('m'), u: T.startVerdeckt('u'), f: T.startVerdeckt('f'), a: T.startVerdeckt('a') }; /* verdeckt je Angabe */ /* 📏 Maße, Umfang, Fläche */ /* Figurart: beim Ziehen an den Ecken bleibt sie erhalten */
     T.live = live; T.renderLive(); T.renderOver();
   };
   build(ax, ay);
@@ -548,7 +582,7 @@ function shape(P, ax, ay) {
     move(Q) { const [x, y] = world(Q.x, Q.y); build(x, y); },
     up(Q) {
       const [x, y] = world(Q.x, Q.y); T.live = null; T.overlay.label = null; T.renderLive(); T.renderOver();
-      if (Math.hypot(x - ax, y - ay) > 4) { T.snap(); T.addItem(live); zumStift(P, live.id); }
+      if (Math.hypot(x - ax, y - ay) > 4) { T.snap(); T.addItem(live); if (!T.opts.formBleibt) zumStift(P, live.id, true); } /* 🔁 „Mehrere zeichnen“: die Form bleibt gewählt */
     },
     cancel() { T.live = null; T.overlay.label = null; T.renderLive(); T.renderOver(); }
   };
@@ -698,7 +732,7 @@ T.select = select;
 T.eckForm = () => {
   if (!S.sel || S.sel.ids.size !== 1) return null;
   const it = T.page().items.find(i => S.sel.ids.has(i.id));
-  return it && it.t === 's' && it.m === 'line' && !it.an && !it.fest && it.p && (it.kw ? it.p.length === 123 : istKreis(it) || (it.closed ? it.p.length >= 3 && it.p.length <= 4 : it.p.length === 2)) ? it : null;
+  return it && it.t === 's' && it.m === 'line' && !it.an && !it.fest && it.p && (it.kw ? it.p.length === 123 : istKreis(it) || (it.fz === 'winkel' && it.p.length === 3) || (it.closed ? it.p.length >= 3 && it.p.length <= 4 : it.p.length === 2)) ? it : null;
 };
 const istKreis = it => it.closed && ((it.fz === 'kreis' && it.p.length === 120) || (it.fz === 'ellipse' && it.p.length === 96)); /* Kreis oder Ellipse */
 const halbachsen = P => { const xs = P.map(q => q[0]), ys = P.map(q => q[1]); return [(Math.max(...xs) - Math.min(...xs)) / 2, (Math.max(...ys) - Math.min(...ys)) / 2]; };
@@ -712,6 +746,7 @@ function eckHit(x, y) {
   T.eckGriffe(it).forEach((q, i) => { const d = Math.hypot(q[0] - x, q[1] - y); if (d < bd) { bd = d; best = i; } });
   if (best < 0) return null;
   if (istKreis(it)) return P => best === 0 ? kreisSchieben(P, it) : kwZiehen(P, alsKreisWinkel(it), 0);
+  if (it.fz === 'winkel') return P => best === 1 ? kreisSchieben(P, it) : winkelZiehen(P, it, best); /* Scheitel verschiebt, Schenkelenden drehen */
   return P => it.kw ? kwZiehen(P, it, best) : eckZiehen(P, it, best);
 }
 // Kreis → Kreiswinkel (gleiche id, Farbe, Füllung): Randpunkt ziehen öffnet den Winkel ab 0°
@@ -755,6 +790,29 @@ function kwZiehen(P0, o, i) {
     cancel() { T.overlay.label = null; T.renderOver(); }
   };
 }
+/* ∠ Schenkelende ziehen: Schenkel dreht (und wird länger/kürzer); ganze Grad, rastet bei 0°, 15°, 30° … ein */
+function winkelZiehen(P0, o, i) {
+  const V = o.p[1], aFest = i === 0 ? null : Math.atan2(V[1] - o.p[0][1], o.p[0][0] - V[0]); let snapped = false;
+  return { kind: 'move', greift: true,
+    move(Q) {
+      const [x, y] = world(Q.x, Q.y), L = Math.max(30, Math.hypot(x - V[0], y - V[1]));
+      if (!snapped) { T.snap(); snapped = true; }
+      const p = o.p.map(q => [q[0], q[1], q[2]]);
+      if (i === 2) { /* zweiter Schenkel: Winkel gegen den Uhrzeigersinn vom ersten aus */
+        let g = (Math.atan2(V[1] - y, x - V[0]) - aFest) * 180 / PI; g = ((g % 360) + 360) % 360;
+        const alt = T.winkelFormGrad(o); if (alt > 300 && g < 60) g = 360; else if (alt < 60 && g > 300) g = 0;
+        const r = Math.round(g / 15) * 15; g = Math.abs(r - g) < 2 ? r : Math.round(g);
+        const b = aFest + g * PI / 180; p[2] = [T.r1(V[0] + L * Math.cos(b)), T.r1(V[1] - L * Math.sin(b)), 0.5];
+        T.overlay.label = { x, y, t: g + '° – ' + T.winkelArt(g) };
+      } else { /* erster Schenkel: dreht den ganzen Winkel mit (Größe bleibt) */
+        const g = T.winkelFormGrad(o), a = T.snapAngle(Math.atan2(V[1] - y, x - V[0])), lB = Math.hypot(o.p[2][0] - V[0], o.p[2][1] - V[1]), b = a + g * PI / 180;
+        p[0] = [T.r1(V[0] + L * Math.cos(a)), T.r1(V[1] - L * Math.sin(a)), 0.5]; p[2] = [T.r1(V[0] + lB * Math.cos(b)), T.r1(V[1] - lB * Math.sin(b)), 0.5];
+        T.overlay.label = { x, y, t: 'drehen – ' + g + '°' };
+      }
+      T.replaceItem({ ...o, p }); T.render(); T.renderOver();
+    },
+    up() { T.overlay.label = null; T.renderOver(); if (snapped) T.changed && T.changed(); } };
+}
 function eckPunkte(o, i, N) {
   const P = o.p.map(q => [q[0], q[1]]), n = P.length, j = (i + 2) % n, fz = n === 4 ? o.fz : null;
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1]], dot = (a, b) => a[0] * b[0] + a[1] * b[1], norm = a => { const l = Math.hypot(a[0], a[1]) || 1; return [a[0] / l, a[1] / l]; };
@@ -797,9 +855,11 @@ function selHit(x, y) {
     if (o.fest) return T.hitObj(o, x, y) ? P => moveSel(P, x, y, o, true) : null; // fixiert: nur antippen, nicht ziehen/drehen
     const kg = T.koerperGriffAt && T.koerperGriffAt(o, x, y, 22 * p); /* 🧊 3D-Körper: orange Griffe ändern die Maße */
     if (kg) return () => { const z = T.koerperGriffZiehen(o, kg); return { kind: 'move', greift: true, move(Q) { const [wx, wy] = world(Q.x, Q.y); z.move(wx, wy); }, up() { z.up(); }, cancel() { z.up(); } }; };
+    const sg = T.seitenGriffe(o, p).find(q => Math.hypot(x - q.x, y - q.y) <= hr * 0.9); if (sg) return P => seiteZiehen(P, o, sg.s); /* ▭ Abdeckung: Seiten greifen */
     if (Math.hypot(x - h.scale[0], y - h.scale[1]) <= hr) return P => scaleObj(P, o);
     if (Math.hypot(x - h.rot[0], y - h.rot[1]) <= hr) return P => rotObj(P, o);
     if (Math.hypot(x - h.move[0], y - h.move[1]) <= hr) return P => greif(moveSel(P, x, y, o, true)); // ✥ verschieben
+    if (T.hitObj(o, x, y) && T.istKoerper && T.istKoerper(o)) return P => { T.selMenueZu && T.selMenueZu(); return koerperDrehen(P, o, x, y); }; /* 🔄 gewählter Körper: ziehen dreht (verschieben am ✥) */
     if (T.hitObj(o, x, y)) return P => { T.selMenueZu && T.selMenueZu(); return fingerNurGriffe(P) ? tippen(P, o, x, y, true) : greif(moveSel(P, x, y, o, true)); };
   } else {
     const fest = T.page().items.some(it => it.fest && S.sel.ids.has(it.id)), h = T.groupHandles(sb, p);
@@ -965,6 +1025,29 @@ function scaleObj(P, o) {
     }
   };
 }
+/* ▭ Abdeckung an einer Seite ziehen: nur Breite bzw. Höhe ändern, die gegenüberliegende Seite bleibt stehen (auch gedreht) */
+T.seitenGriffe = (o, px) => {
+  if (!o || o.t !== 'o' || o.k !== 'abdeckung' || o.fest) return [];
+  const c = T.objCorners(o), m = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  return [['o', m(c[0], c[1])], ['r', m(c[1], c[2])], ['u', m(c[2], c[3])], ['l', m(c[3], c[0])]].map(([s, p]) => ({ s, x: p[0], y: p[1] }));
+};
+function seiteZiehen(P, o, seite) {
+  const a = (o.r || 0) * PI / 180, co = Math.cos(a), si = Math.sin(a), cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+  const g0 = T.genObj(o.k, o.d, false), sk = o.w / g0.w, min = 40; let snapped = false;
+  return {
+    kind: 'move', greift: true,
+    move(Q) {
+      const [x, y] = world(Q.x, Q.y), lx = (x - cx) * co + (y - cy) * si, ly = -(x - cx) * si + (y - cy) * co;
+      let x0 = -o.w / 2, x1 = o.w / 2, y0 = -o.h / 2, y1 = o.h / 2;
+      if (seite === 'r') x1 = Math.max(x0 + min, lx); else if (seite === 'l') x0 = Math.min(x1 - min, lx);
+      else if (seite === 'u') y1 = Math.max(y0 + min, ly); else y0 = Math.min(y1 - min, ly);
+      const w = x1 - x0, h = y1 - y0, mx = (x0 + x1) / 2, my = (y0 + y1) / 2, ncx = cx + mx * co - my * si, ncy = cy + mx * si + my * co;
+      if (!snapped) { T.snap(); snapped = true; }
+      T.replaceItem({ ...o, d: { ...o.d, bw: w / sk, bh: h / sk }, w, h, x: ncx - w / 2, y: ncy - h / 2 }); T.render(); T.renderOver();
+    },
+    up() { if (snapped) T.changed && T.changed(); }
+  };
+}
 function rotObj(P, o) {
   const cx = o.x + o.w / 2, cy = o.y + o.h / 2; let snapped = false;
   return {
@@ -976,8 +1059,22 @@ function rotObj(P, o) {
     up() { T.overlay.rotDeg = null; T.renderOver(); }
   };
 }
+/* 🔄 Gewählten 3D-Körper anfassen und ziehen: waagerecht rundherum drehen, senkrecht neigen (verschieben am ✥); kurz antippen wie gewohnt (Menü) */
+function koerperDrehen(P, o, wx, wy) {
+  let z = null;
+  return {
+    kind: 'move', greift: true,
+    move(Q) {
+      if (!z) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 8) return; z = T.koerperGriffZiehen(o, { k: 'dreh', x: wx, y: wy }); }
+      const [x, y] = world(Q.x, Q.y); z.move(x, y);
+    },
+    up(Q, ev) { if (z) { z.up(); return; } moveSel(P, wx, wy, o, true).up(Q, ev); },
+    cancel() { if (z) z.up(); }
+  };
+}
 function selectDown(P, wx, wy) {
   const hit = itemAt(wx, wy);
+  if (hit && S.sel && S.sel.ids.size === 1 && S.sel.ids.has(hit.id) && T.istKoerper && T.istKoerper(hit)) return koerperDrehen(P, hit, wx, wy); /* gewählter 3D-Körper: ziehen dreht ihn */
   if (hit) { const war = !!(S.sel && S.sel.ids.has(hit.id)); if (!war) select(hit.t === 's' ? wortGruppe(hit) : hit.grp ? T.page().items.filter(i => i.grp === hit.grp).map(i => i.id) : [hit.id]); return moveSel(P, wx, wy, hit.t === 'o' && !hit.grp ? hit : null, war); }
   S.sel = null; T.overlay.band = { x0: wx, y0: wy, x1: wx, y1: wy }; T.renderOver();
   return {

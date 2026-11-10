@@ -258,6 +258,13 @@ if (B.zahlengerade) B.zahlengerade.schnell = [ // Zahlengerade: nach beiden Seit
   q('Bereich kleiner', d => { if (+d.ende - +d.start > 2 * +d.schritt) { d.start = +d.start + +d.schritt; d.ende = +d.ende - +d.schritt; } return d; }),
   q('↔ Abstand größer', d => { d.abstand = um(+d.abstand, 0.5, 0.5, 10); return d; }), q('Abstand kleiner', d => { d.abstand = um(+d.abstand, -0.5, 0.5, 10); return d; }),
   q('🔴🔵 Farbig ein/aus', d => { d.farbig = !d.farbig; return d; })];
+// 🔢 Zahlen mit/ohne – oben im Kontextmenü (Zahlenstrahl, Zahlengerade): alle · nur Anfang/Ende · ohne (zum Ausfüllen)
+const zahlenChips = { el: akt => { const o = akt(), z = (o && o.d && o.d.beschr) || 'alle', setze = v => b => { const cur = akt(); if (!cur) return; T.bausteinAendern(cur, { f: dd => ({ d: { ...dd, beschr: v } }) }); b.parentElement.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === b)); };
+  return T.chipZeile ? T.chipZeile([{ sym: '🔢 mit Zahlen', title: 'Alle großen Striche beschriften', an: z === 'alle', fn: setze('alle') },
+    { sym: '↔ nur Rand', title: 'Nur Anfang und Ende (Zahlengerade: auch 0)', an: z === 'rand', fn: setze('rand') },
+    { sym: '◻ ohne Zahlen', title: 'Keine Zahlen – zum Ausfüllen', an: z === 'keine', fn: setze('keine') }]) : document.createElement('span'); } };
+B.zahlenstrahl.schnell = [zahlenChips].concat(B.zahlenstrahl.schnell);
+if (B.zahlengerade) B.zahlengerade.schnell = [zahlenChips].concat(B.zahlengerade.schnell);
 B.koord.schnell = [
   q('＋ Bereich', d => { d.xmin--; d.xmax++; d.ymin--; d.ymax++; return d; }), q('− Bereich', d => { if (d.xmax - d.xmin > 2) { d.xmin++; d.xmax--; } if (d.ymax - d.ymin > 2) { d.ymin++; d.ymax--; } return d; }),
   q('⤢ Einheit größer', d => { d.einheit = um(+d.einheit, 0.5, 0.5, 5); return d; }), q('Einheit kleiner', d => { d.einheit = um(+d.einheit, -0.5, 0.5, 5); return d; }),

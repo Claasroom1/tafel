@@ -112,7 +112,7 @@ function inkArea(ink) {
     const b = knopf('', () => { farbe = c; radier = false; }, c === farbe); b.dataset.wahl = 1; b.title = n;
     b.append(h('span', { style: { display: 'inline-block', width: '22px', height: '22px', borderRadius: '50%', background: c, verticalAlign: 'middle' } })); leiste.append(b);
   }
-  const rb = knopf('🧽', () => { radier = true; }); rb.dataset.wahl = 1; rb.title = 'Radierer (ganze Striche)'; leiste.append(rb);
+  const rb = knopf('🧽', () => { radier = true; }); rb.dataset.wahl = 1; rb.title = 'Schwamm (ganze Striche)'; leiste.append(rb);
   leiste.append(knopf('↶', () => { const a = ink.get(); if (a.length) { ink.set(a.slice(0, -1)); male(); } }), knopf('🗑', async () => { if (ink.get().length && await T.frage('Handschrift löschen?', { ok: '🗑 Löschen' })) { ink.set([]); male(); } }));
   new ResizeObserver(() => requestAnimationFrame(male)).observe(cv);
   return { el: wrap, leiste };

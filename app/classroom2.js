@@ -74,6 +74,8 @@ CR.leselineal = () => {
   const knoepfe = h('div', { class: 'sw-knoepfe ll-knoepfe' },
     h('button', { title: 'Eine Zeile nach oben', onclick: () => { st.y -= st.hh; upd(); } }, '▲'),
     h('button', { title: 'Eine Zeile nach unten', onclick: () => { st.y += st.hh; upd(); } }, '▼'),
+    h('button', { title: 'Text eine Zeile hochschieben (weiterlesen) – das Lineal bleibt stehen', onclick: () => { const v = T.page().view; v.y -= st.hh; T.render(); T.renderOver(); } }, '⇡ Text'),
+    h('button', { title: 'Text eine Zeile herunterschieben (zurück) – das Lineal bleibt stehen', onclick: () => { const v = T.page().view; v.y += st.hh; T.render(); T.renderOver(); } }, '⇣ Text'),
     h('button', { title: 'Schmaler', onclick: () => { st.hh = Math.max(40, st.hh * 0.8); upd(); } }, '−'),
     h('button', { title: 'Breiter (mehr Zeilen)', onclick: () => { st.hh = Math.min(600, st.hh * 1.25); upd(); } }, '＋'),
     h('button', { title: 'Abdunkeln: stark / leicht', onclick: () => { st.dunkel = st.dunkel > 0.6 ? 0.5 : 0.82; upd(); } }, '◐'), fk,
@@ -91,14 +93,22 @@ CR.leselineal = () => {
   const box = h('div', { id: 'scheinwerfer', class: 'leselineal' }, dunkel, band, fang, kreuz, griff, knoepfe);
   const lage = e => { const A = flaeche(); return e.clientY - A.t; };
   ziehen(kreuz, e => lage(e) - st.y, (e, d) => { st.y = lage(e) - d; upd(); });
-  ziehen(fang, e => { st.y = lage(e) - st.hh / 2; upd(); }, e => { st.y = lage(e) - st.hh / 2; upd(); });
+  /* Im Dunklen: ziehen verschiebt die Tafel darunter (Text wandert durch den Streifen), kurz antippen setzt das Lineal dorthin; Mausrad blättert */
+  fang.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation(); try { fang.setPointerCapture(e.pointerId); } catch (x) {}
+    const v = T.page().view, x0 = v.x, y0 = v.y, sx = e.clientX, sy = e.clientY; let bewegt = false;
+    const mv = ev => { if (!bewegt && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 8) return; bewegt = true; v.x = x0 + ev.clientX - sx; v.y = y0 + ev.clientY - sy; T.render(); T.renderOver(); };
+    const ende = ev => { fang.removeEventListener('pointermove', mv); fang.removeEventListener('pointerup', ende); fang.removeEventListener('pointercancel', ende); if (!bewegt && ev.type === 'pointerup') { st.y = lage(ev) - st.hh / 2; upd(); } };
+    fang.addEventListener('pointermove', mv); fang.addEventListener('pointerup', ende); fang.addEventListener('pointercancel', ende);
+  });
+  fang.addEventListener('wheel', e => { e.preventDefault(); const v = T.page().view; v.y -= e.deltaY; v.x -= e.deltaX; T.render(); T.renderOver(); }, { passive: false });
   ziehen(griff, () => null, e => { st.hh = T.clamp(lage(e) - st.y, 40, 600); upd(); });
   const tasten = e => { if (!lineal || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return; if (e.key === 'ArrowDown') { st.y += st.hh; upd(); e.preventDefault(); } else if (e.key === 'ArrowUp') { st.y -= st.hh; upd(); e.preventDefault(); } };
   addEventListener('keydown', tasten);
   document.body.append(box); upd();
   const ro = new ResizeObserver(() => requestAnimationFrame(upd)); ro.observe(box);
   lineal = { weg: () => { ro.disconnect(); removeEventListener('keydown', tasten); box.remove(); lineal = null; leiste(); } }; leiste();
-  T.toast('Leselineal: am ✥ links verschieben, ▲ ▼ eine Zeile weiter (auch Pfeiltasten), ⤡ Höhe – im Streifen kann man weiter schreiben.', 4000);
+  T.toast('Leselineal: am ✥ links verschieben, ▲ ▼ eine Zeile weiter (auch Pfeiltasten), ⤡ Höhe. Im Dunklen ziehen oder „⇡ Text“ schiebt die Seite darunter weiter.', 4500);
 };
 
 // ---------- Lupe: vergrößert die Stelle darunter ----------
@@ -221,7 +231,7 @@ function teilungStart(n) {
       const kopf = h('div', { class: 'tkopf' },
         h('input', { type: 'text', class: 'ttitel', value: b.titel, onchange: e => { b.titel = e.target.value; merke('teilTitel', T.teilung.bereiche.map(x => x.titel)); } }),
         ...TFARBEN.slice(0, 4).map(c => h('button', { class: 'tfarbe' + (!b.rad && b.farbe === c ? ' on' : ''), style: { background: c === '#1a1a1a' && T.isDark(T.page()) ? '#f4f4f0' : c }, title: 'Stiftfarbe', onclick: () => { b.farbe = c; b.rad = false; male(); } })),
-        h('button', { class: 'twkz' + (b.rad ? ' on' : ''), title: 'Radierer an/aus', onclick: () => { b.rad = !b.rad; male(); } }, '🧽'),
+        h('button', { class: 'twkz' + (b.rad ? ' on' : ''), title: 'Schwamm an/aus', onclick: () => { b.rad = !b.rad; male(); } }, '🧽'),
         h('button', { class: 'twkz', title: 'Diesen Bereich leeren', onclick: () => bereichLeeren(i) }, '🗑'),
         i === n - 1 ? h('button', { class: 'twkz tende', title: 'Geteilte Tafel beenden', onclick: teilungEnde }, '×') : '');
       teilBox.append(h('div', { class: 'tbereich' }, kopf));
@@ -241,7 +251,7 @@ CR.teilung = () => {
   if (T.teilung) { teilungEnde(); return; }
   const voll = T.page().items.length > 0, neu = h('input', { type: 'checkbox', style: { width: '30px', height: '30px' } }); neu.checked = voll;
   const los = n => { T.closeDlg(); if (neu.checked) { T.snap(); const np = T.newPage(T.page().bg); np.abstand = T.page().abstand || null; np.titel = 'Geteilte Tafel'; S.board.pages.splice(S.page + 1, 0, np); T.gotoPage(S.page + 1); } teilungStart(n); };
-  T.openDlg([h('h2', {}, '◫ Geteilte Tafel'), h('p', { class: 'hint' }, 'Die Tafel wird in Bereiche nebeneinander geteilt. Jeder Bereich hat eigene Farben und einen Radierer – mehrere Kinder schreiben gleichzeitig (so viele Stifte/Finger, wie das Board erkennt).'),
+  T.openDlg([h('h2', {}, '◫ Geteilte Tafel'), h('p', { class: 'hint' }, 'Die Tafel wird in Bereiche nebeneinander geteilt. Jeder Bereich hat eigene Farben und einen Schwamm – mehrere Kinder schreiben gleichzeitig (so viele Stifte/Finger, wie das Board erkennt).'),
     h('div', { class: 'row', style: { justifyContent: 'center', margin: '14px 0' } }, h('button', { class: 'big', style: { minWidth: '150px', fontSize: '20px' }, onclick: () => los(2) }, '◧ 2 Bereiche'), h('button', { class: 'big', style: { minWidth: '150px', fontSize: '20px' }, onclick: () => los(3) }, '▥ 3 Bereiche')),
     h('label', { class: 'fld check' }, neu, 'Auf einer neuen, leeren Seite beginnen')]);
 };

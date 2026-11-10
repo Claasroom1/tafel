@@ -354,8 +354,10 @@ T.BAUSTEINE = {
   abdeckung: { name: 'Abdeckung', gruppe: 'Werkzeug', def: { text: 'Abdeckung – zum Aufdecken verschieben' },
     felder: [{ k: 'text', l: 'Beschriftung', typ: 'text' }],
     gen: (d, P) => {
-      const W = 16 * CM, H = 8 * CM;
-      const s = `<defs><pattern id="st" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="28" height="28" fill="#cfd6df"/><rect width="14" height="28" fill="#c3cbd5"/></pattern></defs>` + rc(0, 0, W, H, '#8a96a6', 'url(#st)', 4, 'rx="10"') + tx(W / 2, H / 2, d.text, '#37414f', 26, 'middle', 'font-weight="600"');
+      const W = +d.bw || 16 * CM, H = +d.bh || 8 * CM; /* bw/bh: an den Seiten gezogen – schmaler, länger … (Muster und Schrift bleiben unverzerrt) */
+      const lang = String(d.text || '').length || 1, quer = H > W * 1.4, fs = Math.max(12, Math.min(26, (quer ? H : W) * 0.9 / (lang * 0.56), (quer ? W : H) * 0.5));
+      const s = `<defs><pattern id="st" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="28" height="28" fill="#cfd6df"/><rect width="14" height="28" fill="#c3cbd5"/></pattern></defs>` + rc(0, 0, W, H, '#8a96a6', 'url(#st)', 4, 'rx="10"') +
+        tx(W / 2, H / 2, d.text, '#37414f', fs, 'middle', 'font-weight="600"' + (quer ? ` transform="rotate(-90 ${f(W / 2)} ${f(H / 2)})"` : '')); /* hoch und schmal: Schrift senkrecht */
       return { svg: doc(W, H, s), w: W, h: H };
     } },
   // schriftliche Aufgabe (Aufgabengenerator): Zahlen stellengerecht untereinander in Kästchen – sofort schriftlich rechnen.
@@ -564,12 +566,13 @@ for (const [id, name] of [['karte_de', 'Deutschland'], ['karte_eu', 'Europa'], [
 T.palette = dark => pal(dark, dark ? '#f4f4f0' : '#1a1a1a');
 T.genObj = (k, d, dark) => T.BAUSTEINE[k] ? T.BAUSTEINE[k].gen({ ...T.BAUSTEINE[k].def, ...d }, T.palette(dark))
   : { svg: doc(400, 240, rc(2, 2, 396, 236, '#94a3b8', '#f8fafc', 3, 'rx="16" stroke-dasharray="10 8"') + tx(200, 105, 'Inhalt nicht mehr verfügbar', '#475569', 22, 'middle', 'font-weight="700"') + tx(200, 145, 'antippen und löschen', '#64748b', 18)), w: 400, h: 240 }; /* z.B. entfernte Skelett-Bilder auf alten Tafeln */
-const imgCache = new WeakMap();
+const imgCache = new WeakMap(), letztesBild = new Map();
 T.objImage = (o, dark) => {
   let c = imgCache.get(o.d);
   if (c && c.dark === dark) return c.img;
   const img = new Image();
-  img.onload = () => { T.render(); };
+  if (o.id && letztesBild.has(o.id)) img.vorher = letztesBild.get(o.id); /* beim Drehen/Ändern: altes Bild zeigen, bis das neue geladen ist (kein Flackern) */
+  img.onload = () => { if (o.id) letztesBild.set(o.id, img); img.vorher = null; T.render(); };
   if (o.k === 'bild' || o.k === 'graph') img.src = o.d.src;
   else if (T.BAUSTEINE[o.k]) img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(T.genObj(o.k, o.d, dark).svg);
   imgCache.set(o.d, { dark, img }); return img;
@@ -673,6 +676,7 @@ T.drawObj = (ctx, o, dark, px) => {
   } else {
     const img = T.objImage(o, dark);
     if (img.complete && img.naturalWidth) ctx.drawImage(img, -o.w / 2, -o.h / 2, o.w, o.h);
+    else if (img.vorher && img.vorher.complete && img.vorher.naturalWidth) ctx.drawImage(img.vorher, -o.w / 2, -o.h / 2, o.w, o.h);
     else { ctx.strokeStyle = '#999'; ctx.setLineDash([8 * px, 6 * px]); ctx.lineWidth = px; ctx.strokeRect(-o.w / 2, -o.h / 2, o.w, o.h); }
   }
   ctx.restore();

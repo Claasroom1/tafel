@@ -60,13 +60,13 @@ const MEHR = ['#1a1a1a', '#5f6368', '#9aa0a6', '#ffffff', '#d32f2f', '#e91e63', 
 const GROESSEN = { stift: [2, 4, 8, 14], marker: [16, 28, 44, 64], radierer: [24, 50, 90, 150, 260] };
 const STAERKE_NAME = ['S', 'M', 'L', 'XL', 'XXL'];
 T.STIFTWAHL = { MEHR, MARKER_MEHR, GROESSEN, STAERKE_NAME }; // für den Stift-Baukasten der Favoriten
-const TOOLS = [['stift', 'Stift'], ['hervor', 'Hervorheben'], ['radierer', 'Radierer'], ['auswahl', 'Auswahl'], ['hand', 'Tafel verschieben'], ['form', 'Formen'], ['text', 'Text']];
+const TOOLS = [['stift', 'Stift'], ['hervor', 'Hervorheben'], ['radierer', 'Schwamm'], ['auswahl', 'Auswahl'], ['hand', 'Tafel verschieben'], ['form', 'Formen'], ['text', 'Text']];
 const INSTR = [['lineal', 'Lineal'], ['geodreieck', 'Geodreieck'], ['winkelmesser', 'Winkel'], ['zirkel', 'Zirkel']];
 
 // Reihenfolge der Werkzeugleiste – unter ⚙ Einstellungen anpassbar (T.opts.leiste); „|“ = Trennstrich
 const LEISTE_STD = ['auswahl', 'stift', 'hervor', 'radierer', 'undo', 'redo', 'wischen', 'hand', 'form', 'text', 'favoriten', '|', 'farben', '|', 'groessen', '|',
   'werkzeuge', 'einfuegen', 'aufgaben', 'classroom', '|', 'seiten'];
-const LEISTE_NAME = { auswahl: 'Auswahl', stift: 'Stift', hervor: 'Hervorheben', radierer: 'Radierer', undo: 'Zurück', redo: 'Vor', wischen: 'Wischen', hand: 'Tafel verschieben', form: 'Formen', text: 'Text', favoriten: 'Favoriten',
+const LEISTE_NAME = { auswahl: 'Auswahl', stift: 'Stift', hervor: 'Hervorheben', radierer: 'Schwamm', undo: 'Zurück', redo: 'Vor', wischen: 'Wischen', hand: 'Tafel verschieben', form: 'Formen', text: 'Text', favoriten: 'Favoriten',
   farben: 'Farben', groessen: 'Stärken', werkzeuge: 'Werkzeuge', einfuegen: 'Einfügen', aufgaben: 'Aufgaben', classroom: 'Classroom', seiten: 'Seiten ◀ 1/3 ▶ Neu', '|': '│' };
 function leisteReihenfolge() {
   const o = Array.isArray(T.opts.leiste) ? T.opts.leiste.filter(id => id === '|' || LEISTE_STD.includes(id)) : [];
@@ -84,10 +84,10 @@ function buildToolbar() {
     switch (id) {
       case 'farben': return [h('div', { id: 'farben', class: 'row', style: { flexWrap: 'nowrap', gap: '5px' } }), h('button', { class: 'sw', id: 'mehrFarben', title: 'Weitere Farben', style: { background: 'conic-gradient(red,yellow,lime,cyan,blue,magenta,red)' }, onclick: ev => farbPop(ev.currentTarget) })];
       case 'groessen': return h('div', { id: 'groessen', class: 'row', style: { flexWrap: 'nowrap', gap: '0' } });
-      case 'werkzeuge': return btn('werkzeuge', 'Werkzeuge', I.geodreieck, () => zeigeDock('werkzeuge', true), 'Lineal, Geodreieck, Zirkel, Rechner, Timer …');
-      case 'einfuegen': return btn('einfuegen', 'Einfügen', I.einfuegen, () => zeigeDock('einfuegen', true), 'Grafiken, Vorlagen, Karten, Bilder');
-      case 'aufgaben': return btn('aufgaben', 'Aufgaben', I.aufgaben, e => aufgabenKnopf(e), 'Aufgaben des Fachs (Mathe, NaWi) – erscheint in Tafeln, für deren Fach es fertige Aufgaben gibt');
-      case 'classroom': return btn('classroom', 'Classroom', I.classroom, () => zeigeDock('classroom', true), 'Phasentimer, Timer, Zufall, Würfel …');
+      case 'werkzeuge': return btn('werkzeuge', 'Werkzeuge', I.geodreieck, () => leisteOderDock('werkzeuge'), 'Lineal, Geodreieck, Zirkel, Rechner, Timer …');
+      case 'einfuegen': return btn('einfuegen', 'Einfügen', I.einfuegen, () => leisteOderDock('einfuegen'), 'Grafiken, Vorlagen, Karten, Bilder');
+      case 'aufgaben': return btn('aufgaben', 'Aufgaben', I.aufgaben, e => leisteOderDock('aufgaben', e.currentTarget), 'Aufgaben des Fachs (Mathe, NaWi) – erscheint in Tafeln, für deren Fach es fertige Aufgaben gibt');
+      case 'classroom': return btn('classroom', 'Classroom', I.classroom, () => leisteOderDock('classroom'), 'Phasentimer, Timer, Zufall, Würfel …');
       case 'undo': return btn('undo', 'Zurück', I.undo, T.undo, 'Rückgängig (Strg+Z)');
       case 'redo': return btn('redo', 'Vor', I.redo, T.redo, 'Wiederholen (Strg+Y)');
       case 'wischen': return btn('wischen', 'Wischen', I.wischen, tafelWischen, 'Tafel wischen: Handschrift, Bausteine oder alles');
@@ -178,7 +178,7 @@ function leisteAnpassen(box) {
 }
 function curKind() { return S.tool === 'marker' ? 'marker' : S.tool === 'radierer' ? 'radierer' : 'stift'; }
 function updateToolbar() {
-  for (const [id] of TOOLS) $('t_' + id).classList.toggle('on', S.tool === id);
+  for (const [id] of TOOLS) $('t_' + id).classList.toggle('on', S.tool === id || (id === 'form' && !!formLeisteEl)); /* Formen: markiert, solange die Formenleiste steht (wie Favoriten) */
   const feder = (S.stiftArt === 'laser' ? S.vorLaser : S.stiftArt) === 'kalli';
   const mk = S.tool === 'marker';
   $('t_stift').querySelector('span').textContent = mk ? 'Marker' : feder ? 'Feder' : 'Stift';
@@ -189,7 +189,7 @@ function updateToolbar() {
   const hv = $('t_hervor'), hvArt = laserAn() ? 'Laser' : '';
   if (hvArt && T.merkeHilfe) T.merkeHilfe('laser'); // für den Doppeltipp „zuletzt benutzt“
   hv.classList.toggle('on', !!hvArt); hv.classList.toggle('laser', hvArt === 'Laser'); hv.querySelector('span').textContent = hvArt || 'Hervorheben';
-  for (const id of ['werkzeuge', 'einfuegen', 'aufgaben', 'classroom']) $('t_' + id).classList.toggle('on', dockArt === id || (id === 'aufgaben' && dockArt === 'mathe-rechenwege'));
+  for (const id of ['werkzeuge', 'einfuegen', 'aufgaben', 'classroom']) $('t_' + id).classList.toggle('on', dockArt === id || schnellArt === id || (id === 'aufgaben' && dockArt === 'mathe-rechenwege'));
   const fa = fachAufgaben(), mathe = !!fa; // „Aufgaben“ nur in Fächern mit fertigen Aufgaben; Symbol des Fachs darüber
   const tA = $('t_aufgaben'); tA.style.display = mathe ? '' : 'none';
   { const ico = fa === 'nawi' ? 'nawi' : fa === 'englisch' ? 'englisch' : 'aufgaben'; if (tA.dataset.ico !== ico) { tA.dataset.ico = ico; const alt = tA.querySelector('svg'); if (alt) alt.outerHTML = I[ico]; }
@@ -199,12 +199,19 @@ function updateToolbar() {
   const vb = document.querySelector('#dock [data-vorhang]'); if (vb) vb.classList.toggle('on', !!vorhang);
   document.querySelectorAll('#dock [data-cr]').forEach(b => b.classList.toggle('on', !!(T.crAktiv && T.crAktiv(b.dataset.cr)))); // Scheinwerfer, Lupe, geteilte Tafel
   const k = curKind(), fk = k === 'marker' ? 'marker' : 'stift', fw = $('farben'); fw.innerHTML = '';
-  for (const c of leisteFarben(fk)) fw.append(h('button', { class: 'sw' + (S.farbe[fk] === c ? ' on' : ''), style: { background: c }, title: c, onclick: () => { S.farbe[fk] = c; if (S.tool !== fk && S.tool !== 'form' && S.tool !== 'text') setTool(fk); updateToolbar(); T.renderOver(); } }));
-  if (!leisteFarben(fk).includes(S.farbe[fk])) fw.append(h('button', { class: 'sw on', style: { background: S.farbe[fk] } }));
+  /* 📱 schmaler Bildschirm: nur die gewählte Farbe/Stärke steht in der Leiste – antippen öffnet die Auswahl */
+  const kompakt = () => innerWidth <= 1400;
+  const farbStaerkePop = el => openPop(el, h('h4', {}, 'Farbe'), h('div', { class: 'row', style: { flexWrap: 'wrap', gap: '8px' } },
+      ...leisteFarben(fk).map(c => h('button', { class: 'sw' + (S.farbe[fk] === c ? ' on' : ''), style: { background: c, width: '44px', height: '44px' }, title: c, onclick: () => { S.farbe[fk] = c; if (S.tool !== fk && S.tool !== 'form' && S.tool !== 'text') setTool(fk); T.closePops(); updateToolbar(); T.renderOver(); } })),
+      h('button', { class: 'sw', style: { background: 'conic-gradient(red, yellow, lime, cyan, blue, magenta, red)', width: '44px', height: '44px' }, title: 'Weitere Farben', onclick: () => { T.closePops(); $('mehrFarben').click(); } })),
+    h('h4', { style: { marginTop: '12px' } }, 'Stärke'), h('div', { class: 'row', style: { gap: '8px' } },
+      ...GROESSEN[k].map((g, i) => h('button', { class: 'big' + (S.groesse[k] === g ? ' on' : ''), onclick: () => { S.groesse[k] = g; T.closePops(); updateToolbar(); } }, STAERKE_NAME[i]))));
+  for (const c of leisteFarben(fk)) fw.append(h('button', { class: 'sw' + (S.farbe[fk] === c ? ' on' : ''), style: { background: c }, title: c, onclick: e => { if (kompakt() && S.farbe[fk] === c) return farbStaerkePop(e.currentTarget); S.farbe[fk] = c; if (S.tool !== fk && S.tool !== 'form' && S.tool !== 'text') setTool(fk); updateToolbar(); T.renderOver(); } }));
+  if (!leisteFarben(fk).includes(S.farbe[fk])) fw.append(h('button', { class: 'sw on', style: { background: S.farbe[fk] }, onclick: e => { if (kompakt()) farbStaerkePop(e.currentTarget); } }));
   const gw = $('groessen'); gw.innerHTML = '';
   GROESSEN[k].forEach((g, i) => {
     const d = k === 'radierer' ? 8 + i * 6 : Math.min(24, Math.max(4, k === 'marker' ? g / 2.6 : g * 1.5));
-    gw.append(h('button', { class: 'sz' + (S.groesse[k] === g ? ' on' : ''), title: (k === 'radierer' ? 'Radiergröße ' : 'Strichstärke ') + STAERKE_NAME[i], onclick: () => { S.groesse[k] = g; updateToolbar(); } },
+    gw.append(h('button', { class: 'sz' + (S.groesse[k] === g ? ' on' : ''), title: (k === 'radierer' ? 'Schwammgröße ' : 'Strichstärke ') + STAERKE_NAME[i], onclick: e => { if (kompakt() && S.groesse[k] === g) return farbStaerkePop(e.currentTarget); S.groesse[k] = g; updateToolbar(); } },
       h('i', { style: { width: d + 'px', height: d + 'px', background: k === 'radierer' ? 'transparent' : k === 'marker' ? S.farbe.marker : (S.farbe.stift === '#ffffff' ? '#ccc' : S.farbe.stift), border: k === 'radierer' ? '2px solid currentColor' : '' } }),
       h('span', {}, STAERKE_NAME[i])));
   });
@@ -242,7 +249,7 @@ function aufgabenKnopf(e) {
   const el = e.currentTarget;
   if (!S.board || !/^sonstiges/i.test(S.board.fach || '') || dockArt === 'aufgaben' || dockArt === 'mathe-rechenwege') { zeigeDock('aufgaben', true); return; }
   openPop(el, h('h4', {}, 'Aufgaben für welches Fach?'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch' } },
-    ...AUF_FAECHER.map(([v, l]) => h('button', { class: 'big' + ((S.aufFach || 'alle') === v ? ' on' : ''), onclick: () => { S.aufFach = v === 'alle' ? null : v; T.closePops(); zeigeDock('aufgaben'); updateToolbar(); } }, l))));
+    ...AUF_FAECHER.map(([v, l]) => h('button', { class: 'big' + ((S.aufFach || 'alle') === v ? ' on' : ''), onclick: () => { S.aufFach = v; T.closePops(); zeigeDock('aufgaben'); updateToolbar(); } }, l))));
 }
 // ⧉ Seitenleiste als Schwebemenü: dasselbe Menü in einem verschiebbaren Fenster, das offen bleibt
 const dockSchwebe = {};
@@ -257,7 +264,7 @@ function dockInhalt(art) {
 }
 function dockAlsSchwebe(art) {
   schliesseDock(); dockArt = null;
-  const w = schwebeMenue('dock-' + art, DOCK_TITEL[art], neu => { dockSchwebe[art] = neu; const r = dockInhalt(art); return [r.knoepfe.length ? h('div', { class: 'row' }, ...r.knoepfe) : '', r.body]; }, art === 'einfuegen' || art === 'aufgaben' ? 760 : 460);
+  const w = schwebeMenue('dock-' + art, DOCK_TITEL[art], neu => { dockSchwebe[art] = neu; const r = dockInhalt(art); setTimeout(() => { const f = schwebeOffen['dock-' + art]; if (f) favSterne(art, f); }, 0); /* ☆ auch im schwebenden Fenster */ return [r.knoepfe.length ? h('div', { class: 'row' }, ...r.knoepfe) : '', r.body]; }, art === 'einfuegen' || art === 'aufgaben' ? 760 : 460);
   if (w) { w.classList.add('dock-schwebe'); const alt = w.onclose; w.onclose = () => { delete dockSchwebe[art]; alt && alt(); }; }
   updateToolbar();
 }
@@ -278,7 +285,7 @@ function zeigeDock(art, umschalten) {
     document.documentElement.style.setProperty('--dockR', bw + 'px');
     if (T.ox) { T.ox = 0; document.documentElement.style.setProperty('--dockW', '0px'); T.render(); T.renderOver(); vorhangPlatz(); }
   } else if (!war || Math.abs(bw - T.ox) > 1) { T.ox = bw; document.documentElement.style.setProperty('--dockW', T.ox + 'px'); T.render(); T.renderOver(); vorhangPlatz(); }
-  T.closePops(); updateToolbar();
+  T.closePops(); updateToolbar(); favSterne(art); /* ☆ Favoriten für die Leiste unten */
 }
 function schliesseDock() {
   dockArt = null; $('dock').classList.remove('auf'); document.body.classList.remove('dockAuf');
@@ -325,6 +332,7 @@ function classroomPanel() {
     h('h3', {}, 'Mitmachen'), h('div', { class: 'tiles klein' }, kachel('📊', 'Umfrage', C.umfrage), kachel('🏆', 'Punkte­stand', C.punkte), C.quiz ? kachel('🔔', 'Team-Quiz (Buzzer)', C.quiz) : ''),
     h('h3', {}, 'Zufall & Gruppen'), h('div', { class: 'tiles klein' }, kachel('🎯', 'Namen ziehen', zufallWidget), kachel('🎡', 'Glücksrad', C.gluecksrad), kachel('👥', 'Gruppen bilden', C.gruppen), kachel('🎲', 'Würfel', wuerfelWidget)),
     h('h3', {}, 'Teilen'), h('div', { class: 'tiles klein' }, kachel('🔳', 'QR-Code', C.qr)),
+    T.feiernDialog ? h('h3', {}, 'Feiern') : '', T.feiernDialog ? h('div', { class: 'tiles klein' }, kachel('🎉', 'Feiern', () => T.feiernDialog())) : '', /* Konfetti, Geburtstag, Glückwunsch */
     h('p', { class: 'hint' }, 'Die Werkzeuge öffnen sich als kleine Fenster auf der Tafel und lassen sich an der Titelleiste verschieben. 📝 im Fenster legt das Werkzeug in die offene Notiz (sonst in den Reiter „🎒 Classroom“) – dort läuft es weiter.')];
 }
 const EMOJIS = [
@@ -345,13 +353,15 @@ function setTool(id) {
   updateToolbar(); T.renderOver();
 }
 function toolClick(id, el) {
-  if (id === 'hervor') return hervorPop(el);
+  if (id === 'form' && formLeisteEl) { formLeisteWeg(); setTool('stift'); return; } /* Formen nochmals: Leiste zu (wie Favoriten) */
+  if (id === 'hervor') return leisteOderDock('hervor', el); /* ▤ Leiste unten (bzw. wie früher das Menü) */
   if (id === 'stift' && S.stiftArt === 'laser') { S.stiftArt = S.vorLaser || 'normal'; setTool('stift'); return; } // vom Laser zurück zum Schreiben
-  if (id === 'stift' && S.tool === 'marker') return stiftPop(el); // Textmarker aktiv: Stiftmenü zur Auswahl öffnen
-  const again = S.tool === id; setTool(id);
-  if (id === 'form') formPop(el);
-  else if (id === 'radierer' && again) radPop(el);
-  else if (id === 'stift' && again) stiftPop(el);
+  if (id === 'stift' && S.tool === 'marker') return leisteOderDock('stift', el); // Textmarker aktiv: Stiftmenü zur Auswahl öffnen
+  const again = S.tool === id, vorSel = id === 'form' ? S.sel : null; setTool(id);
+  if (id !== 'form' && formLeisteEl) formLeisteWeg(); /* anderes Werkzeug unten gewählt: Formenleiste zu (nach einer Form bleibt sie stehen) */
+  if (id === 'form') { if (T.opts.formLeisteAus) formPop(el); else { if (vorSel) { S.sel = vorSel; T.renderOver(); } T.closePops(); if (schnellEl) schnellWeg(); formLeiste(); updateToolbar(); } } /* gewählte Form bleibt gewählt – Farbe, Bemaßung, Formeln gelten dann für sie */ /* Test: Formenleiste oben statt Aufklappmenü */
+  else if (id === 'radierer') { if (T.opts.schnellleisten === false) openPop(el, ...radInhalt(() => {}, false, () => T.closePops())); else leisteOderDock('radierer', el); } /* gleich die Auswahl: Stellen · Ganze Striche · Seite leeren (ohne Schwebemenü) */
+  else if (id === 'stift' && again) leisteOderDock('stift', el);
 }
 // Hervorheben: Laserpointer, Scheinwerfer, Lupe, Vorhang – alles zum Zeigen und Lenken der Aufmerksamkeit
 const laserAn = () => S.tool === 'stift' && S.stiftArt === 'laser';
@@ -397,7 +407,8 @@ function stiftInhalt(neu, schwebend, zu) {
       h('b', {}, '🔷 Formerkennung: ' + (formAn ? 'an' : 'aus')), h('span', { style: { fontSize: '13px', color: 'var(--muted)' } }, 'Form zeichnen, Stift kurz halten → saubere Form')),
       doppelWahl()),
     h('h4', { style: { marginTop: '14px' } }, 'Effekt'), h('div', { class: 'row', style: { maxWidth: '640px' } },
-      eff('', '✏️ Ohne Effekt', 'normale Tinte'), eff('schatten', '🌗 Schatten', 'weicher Schatten'), eff('graffiti', '🎨 Graffiti', 'Umriss + Glanz'), eff('neon', '💡 Neon', 'leuchtet – toll auf dunkel')),
+      eff('', '✏️ Ohne Effekt', 'normale Tinte'), eff('schatten', '🌗 Schatten', 'weicher Schatten'), eff('graffiti', '🎨 Graffiti', 'Umriss + Glanz'), eff('neon', '💡 Neon', 'leuchtet – toll auf dunkel'),
+      eff('regenbogen', '🌈 Regenbogen', 'alle Farben'), eff('glitzer', '💫 Glitzer', 'funkelt'), eff('gold', '🥇 Gold', 'glänzt wie Metall'), eff('galaxie', '🌌 Galaxie', 'Nachthimmel mit Sternen'), eff('umriss', '🔲 Umriss', 'hohle Schrift')),
     h('p', { class: 'hint', style: { maxWidth: '560px' } }, 'Gilt für neue Handschrift. Schon Geschriebenes: mit „Auswahl“ markieren › 🎨 Effekt.')];
 }
 // ✌ Doppeltipp direkt im Stift-Menü (neben der Formerkennung) wählen – Auswahlliste wie in den Einstellungen
@@ -418,7 +429,7 @@ function effektPop(el) {
   const striche = T.page().items.filter(i => S.sel && S.sel.ids.has(i.id) && i.t === 's' && i.m !== 'hl');
   const setze = v => { T.snap(); for (const s of striche) { if (v) s.fx = v; else delete s.fx; } T.render(); T.closePops(); };
   openPop(el, h('h4', {}, '🎨 Effekt für die markierte Handschrift'), h('div', { class: 'row' },
-    ...[['', '✏️ Ohne'], ['schatten', '🌗 Schatten'], ['graffiti', '🎨 Graffiti'], ['neon', '💡 Neon']].map(([v, l]) => h('button', { class: 'big', onclick: () => setze(v) }, l))));
+    ...[['', '✏️ Ohne'], ['schatten', '🌗 Schatten'], ['graffiti', '🎨 Graffiti'], ['neon', '💡 Neon'], ['regenbogen', '🌈 Regenbogen'], ['glitzer', '💫 Glitzer'], ['gold', '🥇 Gold'], ['galaxie', '🌌 Galaxie'], ['umriss', '🔲 Umriss']].map(([v, l]) => h('button', { class: 'big', onclick: () => setze(v) }, l))));
 }
 
 // ---------- Popover ----------
@@ -430,6 +441,7 @@ function openPop(anchor, ...content) {
   if (pop.style.display === 'block' && popAnker === anchor && ev && ev.type === 'click' && anchor.contains(ev.target)) { T.closePops(); return; }
   popAnker = anchor;
   pop.innerHTML = ''; pop.append(...content); pop.style.display = 'block';
+  pop.classList.toggle('liste', !!(anchor && anchor.closest && anchor.closest('#topbar'))); /* Menüs oben: schmale, schlichte Liste wie die Listen unten */
   const r = anchor.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
   let x = T.clamp(r.left + r.width / 2 - pw / 2, 10, innerWidth - pw - 10);
   let y = r.top - ph - 12; if (y < 60) y = r.bottom + 12 + ph <= innerHeight - 10 ? r.bottom + 12 : 64; // passt weder oben noch unten: oben am Rand (scrollt innen)
@@ -487,34 +499,92 @@ function masseZeilen(neu) {
     h('p', { class: 'hint', style: { margin: '4px 0 0' } }, 'Einzelnen Wert antippen: „?“ → leer → Wert. Beim Kreis mit „≈“ (π gerundet).')];
 }
 // Schaltsymbole: [{ sym, title, an, fn(knopf) }] – ein Tipp schaltet um, eingeschaltet farbig hinterlegt
-T.chipZeile = liste => h('div', { class: 'chipzeile' }, ...liste.filter(Boolean).map(c => { const b = h('button', { class: 'chip' + (c.an ? ' on' : ''), title: c.title, onclick: e => c.fn(b, e) }, c.sym); return b; }));
+T.chipZeile = liste => h('div', { class: 'chipzeile' }, ...liste.filter(Boolean).map(c => { const b = h('button', { class: 'chip' + (c.an ? ' on' : '') + ([...c.sym].length > 3 ? ' breit' : ''), title: c.title, onclick: e => c.fn(b, e) }, c.sym); return b; }));
+// 📏 Bemaßung als Tabelle: je Zeile  Angabe · an/aus (⏻) · verdeckt (geschlossenes Auge = als „?“)
+// ids: gewählte Formen (Kontextmenü, Formenleiste mit Auswahl) – ohne ids: Voreinstellung für neue Formen
+const ICON_AN = an => `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="${an ? '#16a34a' : '#94a3b8'}" stroke-width="2.6" stroke-linecap="round"><path d="M7.5 6.2a8 8 0 1 0 9 0"/><path d="M12 3v8.5"/></svg>`;
+const ICON_ZU = zu => `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="${zu ? '#b45309' : '#94a3b8'}" stroke-width="2.4" stroke-linecap="round"><path d="M3 10.5c4.5 5 13.5 5 18 0"/><path d="M6.2 13.6 4.6 16M12 15.2v2.9M17.8 13.6l1.6 2.4"/></svg>`;
+function bemassTabelle(ids, nachher, ohneTitel) {
+  const pg = T.page(), sel = ids ? pg.items.filter(i => ids.includes(i.id) && i.t === 's' && i.m === 'line' && !i.an) : [];
+  const mitAuswahl = sel.length > 0, W = sel.map(i => T.formMasse ? T.formMasse(i) : null), alle = k => sel.length && sel.every(i => i[k]);
+  const M = S.masse || T.opts.neuMasse || {}, orte = (T._wkOrte && T._wkOrte.get(pg)) || [];
+  const fertig = () => { T.changed && T.changed(); T.render(); T.renderOver(); requestAnimationFrame(() => requestAnimationFrame(() => nachher && nachher())); };
+  const schalte = (k, an) => { T.snap(); sel.forEach(i => { const o = pg.items.find(x => x.id === i.id) || i, n = { ...o }; if (an) n[k] = 1; else delete n[k]; T.replaceItem(n); }); };
+  const neuSetzen = (k, an) => { S.masse = { ...M }; if (an) S.masse[k] = 1; else delete S.masse[k]; };
+  const zust = art => T.verdecktAn(sel.map(i => i.id), art); /* true = als „?“ verdeckt */
+  const hatWinkel = !mitAuswahl || sel.some(i => i.kw || i.fz === 'winkel' || (i.closed && i.p.length >= 3 && i.p.length <= 4) || (!i.closed && i.p.length === 2));
+  const zeigtW = mitAuswahl ? (!pg.winkelAus && sel.some(i => !i.wkAus) && (sel.some(i => i.wk || i.kw || i.fz === 'winkel') || pg.items.some(i => i.wk && !i.wkAus))) : (S.winkelZeigen != null ? S.winkelZeigen : !!T.opts.neuWinkel);
+  const winkelSchalten = () => {
+    if (mitAuswahl) { const s = new Set(sel.map(i => i.id)); T.snap(); pg.items = pg.items.map(i => s.has(i.id) ? (i.fz === 'winkel' ? (zeigtW ? { ...i, wkAus: 1 } : (({ wkAus, ...r }) => r)(i)) : zeigtW ? (({ wk, ...r }) => ({ ...r, wkAus: 1 }))(i) : (({ wkAus, ...r }) => ({ ...r, wk: 1 }))(i)) : i); if (!zeigtW) delete pg.winkelAus; }
+    else { S.winkelZeigen = !zeigtW; if (S.winkelZeigen) delete pg.winkelAus; }
+  };
+  const knopf = (svg, an, titel, fn) => { const b = h('button', { class: 'bm-k' + (an ? ' on' : ''), title: titel, onclick: e => { e.preventDefault(); e.stopPropagation(); fn(); fertig(); } }); b.innerHTML = svg; return b; };
+  /* Zeilen: [Name, an?, an/aus schalten, Sorte für „verdeckt“ (null = keine)] */
+  const Z = [];
+  if (hatWinkel) Z.push(['📐 Winkel', zeigtW, winkelSchalten, 'w']);
+  const istWf = mitAuswahl && sel.length && sel.every(i => i.fz === 'winkel'); /* ∠ drehbarer Winkel: zusätzlich die Winkelart */
+  if (istWf) Z.push(['🏷 Winkelart', sel.every(i => i.wa !== false), () => { const an = !sel.every(i => i.wa !== false); T.snap(); sel.forEach(i => { const n = { ...i }; if (an) delete n.wa; else n.wa = false; T.replaceItem(n); }); }, 'a']); /* eigenes Auge: Winkelart verdecken */
+  const gibt = f => !mitAuswahl || W.some(f);
+  for (const [k, l, art, f] of [['ms', '📏 Seitenlängen', 'm', Boolean], ['mu', '⭕ Umfang', 'u', w => w && w.u != null], ['mf', '▦ Fläche', 'f', w => w && w.f != null], ['mo', '🧮 Formeln', ['Ff', 'Fr', 'Fe'], w => w && (w.u != null || w.f != null)]]) /* Formeln: ein Auge für Formel, Rechnung und Ergebnis zusammen */
+    if (gibt(f)) Z.push([l, mitAuswahl ? alle(k) : !!M[k], () => { const an = mitAuswahl ? !alle(k) : !M[k]; if (mitAuswahl) schalte(k, an); else neuSetzen(k, an); }, art]);
+  const moAn = (mitAuswahl ? alle('mo') : !!M.mo) && gibt(w => w && (w.u != null || w.f != null)), schreibweisen = {};
+  if (moAn && mitAuswahl) { /* 🧮 welche Formeln an der Form stehen: Umfang, Flächeninhalt, Bogenlänge */
+    const da = new Set(); sel.forEach((i, n) => { const F = W[n] && T.formFormeln(i, W[n]); if (F) { F.Z.forEach(z => z[3] && da.add(z[3].l)); for (const [l, vs] of Object.entries(F.V || {})) if (vs.length > 1 && !schreibweisen[l]) schreibweisen[l] = vs; } });
+    for (const [b, l] of [['u', 'Umfang u'], ['A', 'Flächeninhalt A'], ['b', 'Bogenlänge b']]) if (da.has(b)) {
+      const an = sel.every(i => !(i.fh && i.fh[b]));
+      Z.push(['　☑ ' + l, an, () => { T.snap(); sel.forEach(i => { const o = pg.items.find(x => x.id === i.id) || i, fh = { ...(o.fh || {}) }; if (an) fh[b] = 1; else delete fh[b]; const n = { ...o, fh }; if (!Object.keys(fh).length) delete n.fh; T.replaceItem(n); }); }, null]);
+    }
+  }
+  if (moAn) for (const [s, l] of [['f', 'Formel'], ['r', 'Rechnung'], ['e', 'Ergebnis']]) { /* 🧮 Formelkasten: jede Zeile ein-/ausblenden und verdecken */
+    const an = !mitAuswahl || sel.every(i => !(i.fa && i.fa[s]));
+    Z.push(['　↳ ' + l, an, mitAuswahl ? () => { T.snap(); sel.forEach(i => { const o = pg.items.find(x => x.id === i.id) || i, fa = { ...(o.fa || {}) }; if (an) fa[s] = 1; else delete fa[s]; const n = { ...o, fa }; if (!Object.keys(fa).length) delete n.fa; T.replaceItem(n); }); } : null, 'F' + s]);
+  }
+  const tab = h('div', { class: 'bm-tab' }, h('span', { class: 'bm-kopf' }, ''), h('span', { class: 'bm-kopf' }, 'an/aus'), h('span', { class: 'bm-kopf' }, 'verdeckt'));
+  { /* 📏 Bemaßung: alles auf einmal an/aus und verdecken (statt „Alles als ?“ / „Alles offen“) */
+    const haupt = Z.filter(r => !/↳|☑/.test(r[0]) && r[2]), allesAn = haupt.length && haupt.every(r => r[1]);
+    const alleArten = [...new Set(Z.flatMap(r => [].concat(r[3] || [])))];
+    const allesZu = alleArten.length && (mitAuswahl ? alleArten.every(a => zust(a)) : alleArten.every(a => T.startVerdeckt(a) === 'frage'));
+    if (haupt.length) tab.append(h('span', { class: 'bm-name bm-gesamt' }, '📏 Bemaßung'),
+      knopf(ICON_AN(allesAn), allesAn, allesAn ? 'Alles an – antippen: alles aus' : 'antippen: alles an', () => { const ziel = !allesAn; haupt.forEach(r => { if (!!r[1] !== ziel) r[2](); }); }),
+      alleArten.length ? knopf(ICON_ZU(allesZu), allesZu, allesZu ? 'Alles verdeckt – antippen: alles zeigen' : 'antippen: alles als „?“ verdecken', () => {
+        if (mitAuswahl) T.winkelAlle(allesZu ? 'zahl' : 'frage', sel.map(i => i.id), alleArten);
+        else { T.opts.verdecktNeu = { ...(T.opts.verdecktNeu || {}), ...Object.fromEntries(alleArten.map(a => [a, !allesZu])) }; T.saveOpts(); } }) : h('span', { class: 'bm-leer' }, ''));
+  }
+  for (const [l, an, fn, art] of Z) {
+    let zu = null;
+    const arten = [].concat(art || []);
+    if (art && !mitAuswahl) { const z = arten.every(a => T.startVerdeckt(a) === 'frage'); zu = knopf(ICON_ZU(z), z, z ? 'Neue Formen: verdeckt („?“) – antippen: sichtbar' : 'Neue Formen: sichtbar – antippen: verdeckt', () => { T.opts.verdecktNeu = { ...(T.opts.verdecktNeu || {}), ...Object.fromEntries(arten.map(a => [a, !z])) }; T.saveOpts(); }); }
+    else if (art && mitAuswahl) { const z = arten.every(a => zust(a)); zu =knopf(ICON_ZU(z), z, z ? 'Verdeckt (als „?“) – antippen: anzeigen' : 'Sichtbar – antippen: als „?“ verdecken', () => T.winkelAlle(z ? 'zahl' : 'frage', sel.map(i => i.id), art)); } /* auch wenn die Angabe gerade aus ist: gilt beim Einschalten */
+    tab.append(h('span', { class: 'bm-name' }, l), fn ? knopf(ICON_AN(an), an, an ? 'an – antippen: aus' : 'aus – antippen: an', fn) : h('span', { class: 'bm-leer' }, ''), zu || h('span', { class: 'bm-leer' }, ''));
+  }
+  const teile = [tab];
+  for (const [l, vs] of Object.entries(schreibweisen)) { /* ✏️ Schreibweise der Formel wählen (z. B. u = 2 · a + 2 · b oder u = 2 · (a + b)) */
+    const akt = Math.min(vs.length - 1, (sel[0].fv && sel[0].fv[l]) || 0);
+    teile.push(h('div', { class: 'fk-schreib' }, h('span', { class: 'bm-name' }, '✏️ ' + l + ' ='),
+      ...vs.map((f, i) => h('button', { class: 'fk-sw' + (i === akt ? ' on' : ''), title: 'Schreibweise der Formel', onclick: e => { e.stopPropagation(); T.snap();
+        sel.forEach(it => { const o = pg.items.find(x => x.id === it.id) || it, fv = { ...(o.fv || {}) }; if (i) fv[l] = i; else delete fv[l]; const n = { ...o, fv }; if (!Object.keys(fv).length) delete n.fv; T.replaceItem(n); }); fertig(); } }, f))));
+  }
+  if (moAn && mitAuswahl) { /* 🎨 Farbe des Formelkastens · Kasten zurück neben die Form */
+    const akt = sel[0].fkc || T.FK_FARBEN[0];
+    teile.push(h('div', { class: 'fk-farben', title: 'Farbe des Formelkastens' }, h('span', { class: 'bm-name' }, '🎨 Kasten'),
+      ...T.FK_FARBEN.map(c => h('button', { class: 'fk-f' + (c === akt ? ' on' : ''), style: { background: c }, title: 'Kastenfarbe', onclick: e => { e.stopPropagation(); T.snap(); sel.forEach(i => { const o = pg.items.find(x => x.id === i.id) || i; T.replaceItem({ ...o, fkc: c }); }); fertig(); } })),
+      sel.some(i => i.fk) ? h('button', { class: 'fk-zurueck', title: 'Formelkasten wieder neben die Form setzen', onclick: e => { e.stopPropagation(); T.snap(); sel.forEach(i => { const o = pg.items.find(x => x.id === i.id) || i, n = { ...o }; delete n.fk; T.replaceItem(n); }); fertig(); } }, '↺') : ''));
+  }
+  return h('div', { class: 'bm' }, ohneTitel || Z.length ? '' : h('div', { class: 'bm-titel' }, '📏 Bemaßung'), ...teile); /* mit Zeilen steht „📏 Bemaßung“ als erste Zeile mit an/aus und Auge */
+}
+T.bemassTabelle = bemassTabelle;
 function formChips(g, sel) {
-  const pg = T.page(), W = sel.map(i => T.formMasse ? T.formMasse(i) : null);
-  const neuBauen = () => { selbar.dataset.key = ''; T.changed && T.changed(); T.render(); T.renderOver(); };
-  const schalte = (k, an, wert) => { T.snap(); sel.forEach(i => { const o = pg.items.find(x => x.id === i.id) || i, n = { ...o }; if (an) n[k] = wert == null ? 1 : wert; else delete n[k]; T.replaceItem(n); }); neuBauen(); };
-  const hatWinkel = sel.some(i => i.kw || (i.closed && i.p.length >= 3 && i.p.length <= 4) || (!i.closed && i.p.length === 2));
-  const zeigtW = !pg.winkelAus && sel.some(i => !i.wkAus) && (sel.some(i => i.wk || i.kw) || pg.items.some(i => i.wk && !i.wkAus));
+  const pg = T.page();
+  const neuBauen = () => { selbar.dataset.key = ''; T.renderOver(); };
+  const schalte = (k, an, wert) => { T.snap(); sel.forEach(i => { const o = pg.items.find(x => x.id === i.id) || i, n = { ...o }; if (an) n[k] = wert == null ? 1 : wert; else delete n[k]; T.replaceItem(n); }); T.changed && T.changed(); T.render(); neuBauen(); };
   const alle = k => sel.every(i => i[k]);
+  if (sel.some(i => (T.formMasse && T.formMasse(i)) || i.fz === 'winkel')) g.append(bemassTabelle(sel.map(i => i.id), neuBauen)); /* Bemaßung direkt im Kontextmenü */
   g.append(T.chipZeile([
-    hatWinkel ? { sym: '📐', title: zeigtW ? 'Winkel ausblenden' : 'Winkel anzeigen', an: zeigtW, fn: () => {
-      const ids = new Set(sel.map(i => i.id)); T.snap();
-      pg.items = pg.items.map(i => ids.has(i.id) ? (zeigtW ? (({ wk, ...r }) => ({ ...r, wkAus: 1 }))(i) : (({ wkAus, ...r }) => ({ ...r, wk: 1 }))(i)) : i);
-      if (!zeigtW) delete pg.winkelAus; neuBauen(); } } : null,
-    W.some(Boolean) ? { sym: '📏', title: 'Seitenlängen bzw. Radius', an: alle('ms'), fn: () => schalte('ms', !alle('ms')) } : null,
-    W.some(w => w && w.u != null) ? { sym: '⭕', title: 'Umfang u', an: alle('mu'), fn: () => schalte('mu', !alle('mu')) } : null,
-    W.some(w => w && w.f != null) ? { sym: '▦', title: 'Flächeninhalt A', an: alle('mf'), fn: () => schalte('mf', !alle('mf')) } : null,
-    sel.some(i => i.closed || i.kw) ? { sym: '🪣', title: 'Füllung ein/aus (Farbe unter ⋯)', an: alle('fl'), fn: () => schalte('fl', !alle('fl'), S.formFuell || '#fde68a') } : null,
-    { sym: '⋯', title: 'Messen & Darstellen: alle Winkel zeigen / als „?“, Füllfarbe, Winkelfarbe', an: false, fn: b => messenPop(b, sel.map(i => i.id)) }]));
+    sel.some(i => i.closed || i.kw) ? { sym: '🪣', title: 'Füllung ein/aus', an: alle('fl'), fn: () => schalte('fl', !alle('fl'), S.formFuell || '#fde68a') } : null,
+    { sym: '🎨 Farben', title: 'Füllfarbe und Winkelfarbe', an: false, fn: b => messenPop(b) }]));
 }
-// ⋯ Messen & Darstellen – das Seltene: Winkel alle zeigen / als „?“, Füllfarbe, Winkelfarbe
-function messenPop(el, ids) {
-  const neu = () => openPop(el, h('h4', {}, 'Messen & Darstellen'),
-    h('div', { class: 'row' }, h('button', { class: 'big', onclick: () => { T.winkelAlle('zahl', ids); neu(); } }, '👁 Alle Winkel zeigen'), h('button', { class: 'big', onclick: () => { T.winkelAlle('frage', ids); neu(); } }, '❓ Alle Winkel als „?“')),
-    h('div', { class: 'row', style: { marginTop: '6px' } }, h('span', { class: 'hint', style: { margin: 0, alignSelf: 'center' } }, 'Ganze Seite:'),
-      h('button', { class: 'big', onclick: () => { T.winkelAlle('zahl'); neu(); } }, '👁 zeigen'), h('button', { class: 'big', onclick: () => { T.winkelAlle('frage'); neu(); } }, '❓ als „?“')),
-    ...formFarbZeilen(neu));
-  neu();
-}
+// 🎨 Farben der gewählten Form(en): Füllfarbe, Winkelfarbe
+function messenPop(el) { const neu = () => openPop(el, ...formFarbZeilen(neu)); neu(); }
 function formFarbPop(el) { openPop(el, ...formFarbZeilen(() => formFarbPop(el))); }
 function formInhalt(neu, schwebend) {
   // links: Formen untereinander, nach Art getrennt – rechts: Linienart, Winkel, Füllung, Winkelfarbe
@@ -523,6 +593,7 @@ function formInhalt(neu, schwebend) {
   const K3 = [['wuerfel', '🧊 Würfel'], ['quader', '▭ Quader'], ['prisma', '△ Dreiecksprisma'], ['pyramide', '◮ Pyramide'], ['zylinder', '⌭ Zylinder'], ['kegel', '▲ Kegel'], ['kugel', '● Kugel']].filter(([k]) => T.BAUSTEINE[k]);
   const links = h('div', { class: 'fm-links' },
     kat('Linien'), ...[['linie', '╱ Linie'], ['strecke', '•—• Strecke'], ['strahl', '•— Strahl'], ['pfeil', '➝ Pfeil']].map(([id, l]) => wahl(id, l)),
+    wahl('winkel', '∠ Winkel (drehbar)', 'Scheitel antippen und ersten Schenkel ziehen. Danach antippen: am Ende des zweiten Schenkels drehen – Gradzahl und Winkelart erscheinen (zuerst als „?“).'),
     kat('Flächen'), ...[['rechteck', '▭ Rechteck'], ['dreieck', '△ Dreieck'], ['trapez', '⏢ Trapez'], ['parallelogramm', '▱ Parallelogramm'], ['raute', '◇ Raute'], ['kreis', '⊙ Kreis / Kreiswinkel'], ['ellipse', '⬭ Ellipse']].map(([id, l]) => wahl(id, l)),
     kat('3D-Körper'), ...K3.map(([k, l]) => wahl('3d:' + k, l, 'Körper aufziehen – Maße, Ecken und Kanten danach im Kontextmenü „✏️ Bearbeiten“')),
     kat('Verbinden (haftet an zwei Elementen)'), ...[['verbinder', '⤳ Verbindungspfeil'], ['verbinderLinie', '— Verbindungslinie'], ['verbinderPunkte', '•—• Linie mit Punkten']].map(([id, l]) => wahl(id, l, 'Erstes Element antippen (Zettel, Text, Baustein, Bild), dann das zweite.')));
@@ -540,16 +611,229 @@ function formInhalt(neu, schwebend) {
       const sel = S.sel && S.sel.ids ? pg.items.filter(i => S.sel.ids.has(i.id) && i.t === 's' && i.m === 'line' && !i.an) : [];
       if (sel.length && S.winkelZeigen) { T.snap(); sel.forEach(i => T.replaceItem({ ...i, wk: 1 })); }
       T.changed && T.changed(); T.render(); } }), '📐 Winkel anzeigen');
-  const rechts = h('div', { class: 'fm-rechts' }, schwebend ? '' : h('div', { class: 'row', style: { justifyContent: 'flex-end', marginBottom: '6px' } }, alsSchwebe(() => { T.closePops(); formSchwebe(); })), h('h4', {}, 'Linienart'), laRow, ...(ff => [ff[0], ff[1], ff[2], wkBox, ff[3]])(formFarbZeilen(neu)), /* Voreinstellungen (Winkel zuerst „?“, Maße für neue Formen): ⚙ Einstellungen › Formen & Messen */ /* „Winkel anzeigen“ steht bei der Winkelfarbe */
+  /* 📏 Längen anzeigen: neue Linien und Formen bekommen ihre Längen (beim Kreis den Radius) gleich beim Zeichnen; ist etwas gewählt, auch dieses */
+  const fgBox = h('label', { class: 'big', style: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginTop: '6px' }, title: 'Beim Zeichnen von Formen rasten Ecken an vorhandenen Ecken/Endpunkten ein, sonst an den Kästchen- bzw. Punkte-Kreuzungen' },
+    h('input', { type: 'checkbox', checked: !!S.fangen, style: { width: '24px', height: '24px' }, onchange: e => { S.fangen = e.target.checked; } }), '🧲 Fangen (Ecken, Raster)');
+  const mzBox = h('label', { class: 'big', style: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginTop: '6px' }, title: 'Nach dem Zeichnen bleibt die Form gewählt – mehrere Linien oder Formen hintereinander zeichnen; zurück zum Stift über die Werkzeugleiste' },
+    h('input', { type: 'checkbox', checked: !!T.opts.formBleibt, style: { width: '24px', height: '24px' }, onchange: e => { if (e.target.checked) T.opts.formBleibt = true; else delete T.opts.formBleibt; T.saveOpts(); } }), '🔁 Mehrere zeichnen');
+  /* 📏 Bemaßung: jede Angabe einzeln – gilt für neue Formen und, ist etwas gewählt, für die gewählten (Haken zeigt dann deren Stand) */
+  const mBox = (k, l, tip) => {
+    const pg = T.page(), gew = S.sel && S.sel.ids ? pg.items.filter(i => S.sel.ids.has(i.id) && i.t === 's' && i.m === 'line' && !i.an) : [];
+    return h('label', { class: 'big', style: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginTop: '6px' }, title: tip },
+      h('input', { type: 'checkbox', checked: gew.length ? gew.some(i => i[k]) : !!(S.masse || T.opts.neuMasse || {})[k], style: { width: '24px', height: '24px' }, onchange: e => {
+        const an = e.target.checked; S.masse = { ...(S.masse || T.opts.neuMasse || {}) }; if (an) S.masse[k] = 1; else delete S.masse[k];
+        const pg2 = T.page(), sel = S.sel && S.sel.ids ? pg2.items.filter(i => S.sel.ids.has(i.id) && i.t === 's' && i.m === 'line' && !i.an) : [];
+        if (sel.length) { T.snap(); sel.forEach(i => { const n = { ...i }; if (an) n[k] = 1; else delete n[k]; T.replaceItem(n); }); }
+        T.changed && T.changed(); T.render(); T.renderOver(); } }), l);
+  };
+  const lkBox = h('div', {},
+    mBox('ms', '📏 Seitenlängen / Radius', 'Längen an den Seiten – einzeln antippen: „?“ → leer → Wert'),
+    mBox('mu', '⭕ Umfang u', 'Umfang unter der Form'),
+    mBox('mf', '▦ Flächeninhalt A', 'Flächeninhalt unter der Form'),
+    mBox('mo', '🧮 Formeln', 'Formeln für u und A unter der Form, Seiten heißen a, b, c … (mit Höhe h) – Formel antippen: Zahlen einsetzen, nochmals: Ergebnis'));
+  const rechts = h('div', { class: 'fm-rechts' }, schwebend ? '' : h('div', { class: 'row', style: { justifyContent: 'flex-end', marginBottom: '6px' } }, alsSchwebe(() => { T.closePops(); formSchwebe(); })), h('h4', {}, 'Linienart'), laRow, ...formFarbZeilen(neu), h('h4', { style: { marginTop: '14px' } }, '📏 Bemaßung'), bemassTabelle(S.sel && S.sel.ids ? [...S.sel.ids] : null, neu, true), /* Voreinstellungen (Winkel zuerst „?“, Maße für neue Formen): ⚙ Einstellungen › Formen & Messen */ /* „Winkel anzeigen“ steht bei der Winkelfarbe */
     h('p', { class: 'hint', style: { marginTop: '12px' } }, 'Nach dem Zeichnen einer Form schreibt der Stift wieder; mit dem Finger antippen: Menü, verschieben, Ecken ziehen. Linien rasten bei 45° ein. Kreis vom Mittelpunkt aus ziehen; Kreis antippen und den orangen Randpunkt ziehen = Kreiswinkel. Formen antippen: Ecken ziehen.'));
+  links.prepend(mzBox, fgBox); /* Zeichenhilfen direkt über den Formen – dort sucht man sie */
+  [mzBox, fgBox].forEach(b => { b.style.marginTop = '0'; b.style.marginBottom = '4px'; });
   return [h('div', { class: 'fm-wrap' }, links, rechts)];
 }
 function formPop(el) { const neu = () => openPop(el, ...formInhalt(neu, false)); neu(); }
 function formSchwebe() { schwebeMenue('formen', '◇ Formen', neu => formInhalt(neu, true), 800); }
-const radPop = popOderSchwebe('radierer', '🧽 Radierer', radInhalt, 460);
+// ◇ Formenleiste oben (Test): erscheint nur beim Werkzeug Formen – Form ▾ · Linienart ▾ · Farbe ▾ · Bemaßung ▾ · Optionen ▾
+var formLeisteEl = null, formLeisteOffen = null; /* var: setTool kann schon vorher laufen */
+function formLeisteWeg() { if (formLeisteEl) { formLeisteEl.remove(); formLeisteEl = null; formLeisteOffen = null; document.removeEventListener('pointerdown', formLeisteAussen, true); } }
+function formLeisteAussen(e) { if (formLeisteEl && formLeisteOffen && !formLeisteEl.contains(e.target)) { formLeisteOffen = null; formLeiste(); } } /* daneben tippen: Aufklappliste zu – die Leiste bleibt */
+function formLeiste() {
+  if (!formLeisteEl) { formLeisteEl = h('div', { id: 'formLeiste' }); document.body.append(formLeisteEl); document.addEventListener('pointerdown', formLeisteAussen, true);
+    const tb = $('toolbar').getBoundingClientRect(); formLeisteEl.style.top = 'auto'; formLeisteEl.style.bottom = (tb.top > innerHeight / 2 ? innerHeight - tb.top + 10 : 16) + 'px'; }
+  /* Farbe: pastellgrau (CSS #formLeiste --fl-farbe) */
+  const [wrap] = formInhalt(() => formLeiste(), true), links = wrap.querySelector('.fm-links'), rechts = wrap.querySelector('.fm-rechts');
+  const T5 = { form: [], linie: [], farbe: [], mass: [], opt: [] }, lk = [...links.children];
+  T5.form.push(...lk); /* „Mehrere zeichnen“ und „Fangen“ direkt über den Linien */
+  let teil = null;
+  for (const c of [...rechts.children]) {
+    if (c.tagName === 'H4') { const t = c.textContent; teil = /Linienart/.test(t) ? 'linie' : /Füllung|Winkelfarbe/.test(t) ? 'farbe' : /Bemaßung/.test(t) ? 'mass' : teil; if (teil !== 'linie' && teil !== 'mass') T5[teil].push(c); continue; }
+    if (teil && !c.classList.contains('hint')) T5[teil].push(c);
+  }
+  const knopf = (id, txt) => h('button', { class: 'fl-k' + (formLeisteOffen === id ? ' on' : ''), onclick: () => { formLeisteOffen = formLeisteOffen === id ? null : id; formLeiste(); } }, txt, h('span', { class: 'fl-pf' }, ' ▾'));
+  formLeisteEl.innerHTML = '';
+  const griff = h('div', { class: 'fl-griff', title: 'Ziehen: Leiste verschieben' }, '⠿');
+  const zeile = h('div', { class: 'fl-zeile' }, griff, knopf('form', '◇ Form'), knopf('linie', 'Linienart'), knopf('farbe', 'Farbe'), knopf('mass', '📏 Bemaßung'),
+    h('button', { class: 'fl-k', title: 'Formenleiste schließen – zurück zum Stift', onclick: () => { formLeisteWeg(); setTool('stift'); } }, '✕'));
+  formLeisteEl.append(h('div', { class: 'sl-reiter' }, '◇ Formen'), zeile);
+  /* ⠿ verschieben – die Lage bleibt gespeichert */
+  /* Lage: beim Öffnen immer unten über der Werkzeugleiste (dort sucht man sie); am ⠿ verschiebbar, solange sie offen ist */
+  griff.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation(); try { griff.setPointerCapture(e.pointerId); } catch (x) {}
+    const r = formLeisteEl.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+    const mv = ev => { const x = T.clamp(ev.clientX - dx, 0, innerWidth - 120), y = T.clamp(ev.clientY - dy, 0, innerHeight - 60); formLeisteEl.style.left = x + 'px'; formLeisteEl.style.top = y + 'px'; formLeisteEl.style.transform = 'none'; formLeisteEl.style.bottom = 'auto'; };
+    const ende = () => { griff.removeEventListener('pointermove', mv); griff.removeEventListener('pointerup', ende); griff.removeEventListener('pointercancel', ende); T.saveOpts(); };
+    griff.addEventListener('pointermove', mv); griff.addEventListener('pointerup', ende); griff.addEventListener('pointercancel', ende);
+  });
+  if (formLeisteOffen) {
+    const auf = h('div', { class: 'fl-auf fm-rechts' + (formLeisteOffen === 'form' ? ' fm-links' : '') }, ...T5[formLeisteOffen]);
+    if (formLeisteOffen === 'form') auf.addEventListener('click', e => { if (e.target.closest('.fm-k')) setTimeout(() => { formLeisteOffen = null; formLeiste(); }, 0); }); /* Form gewählt: Liste zu */
+    const k = zeile.children[1 + ['form', 'linie', 'farbe', 'mass'].indexOf(formLeisteOffen)];
+    formLeisteEl.append(auf); auf.style.left = Math.max(0, k.offsetLeft) + 'px';
+    T.klappRichtung(formLeisteEl, auf);
+  }
+}
+/* Aufklappliste einer Leiste: steht die Leiste in der unteren Bildschirmhälfte → nach oben, sonst nach unten; Höhe bis zum Rand, Rest scrollt */
+T.klappRichtung = (leiste, kl) => {
+  const lr = leiste.getBoundingClientRect(), unten = innerHeight - lr.bottom - 16, oben = lr.top - 16;
+  kl.style.top = ''; kl.style.bottom = '';
+  if ((lr.top + lr.bottom) / 2 > innerHeight / 2) { kl.style.top = 'auto'; kl.style.bottom = 'calc(100% + 6px)'; kl.style.maxHeight = Math.max(120, oben) + 'px'; }
+  else { kl.style.top = 'calc(100% + 6px)'; kl.style.bottom = 'auto'; kl.style.maxHeight = Math.max(120, unten) + 'px'; }
+};
+T.formLeisteWeg = formLeisteWeg; T.formLeisteAuf = () => !!formLeisteEl; /* solange die Leiste oben steht, bleibt die Form gewählt (weiterzeichnen) – bis ✕ */
+// ▤ Schnellleisten unten (Werkzeuge, Einfügen, Classroom) – wie die Formenleiste: unten über der Werkzeugleiste, am ⠿ verschiebbar.
+// Werkzeuge: alle Messwerkzeuge direkt; Classroom und Einfügen: ⭐ Favoriten (einzelne Punkte oder ganze Einfügen-Kategorien als ▾ Liste).
+// „☰ Alle“ öffnet die gewohnte Seitenleiste – dort mit ☆ Favoriten markieren. Abschaltbar: ⚙ › Leiste & Favoriten.
+var schnellEl = null, schnellArt = null, schnellOffen = null; /* var: updateToolbar kann vorher laufen */
+const SCHNELL_TITEL = { werkzeuge: '📐 Werkzeuge', einfuegen: '🧩 Einfügen', classroom: '⏱ Classroom', hervor: '🖍 Hervorheben', stift: '✏️ Stift', aufgaben: '🧮 Aufgaben', radierer: '🧽 Schwamm', wischen: '🧹 Wischen' };
+function schnellWeg() { if (schnellEl) { schnellEl.remove(); schnellEl = null; schnellOffen = null; document.removeEventListener('pointerdown', schnellAussen, true); } schnellArt = null; updateToolbar(); }
+function schnellAussen(e) { /* daneben tippen: Liste zu (der eigene Knopf schaltet selbst um) */
+  if (!schnellEl || schnellEl.contains(e.target)) return; const b = $('t_' + schnellArt); if (b && b.contains(e.target)) return;
+  if (e.target.closest && e.target.closest('#pop, #modal, #toast')) return; schnellWeg(); }
+const leistenFavs = art => ((T.opts.leistenFav || {})[art] || []).slice();
+function favUmschalten(art, id) {
+  const f = leistenFavs(art), i = f.indexOf(id); if (i >= 0) f.splice(i, 1); else f.push(id);
+  T.opts.leistenFav = { ...(T.opts.leistenFav || {}), [art]: f }; T.saveOpts(); if (schnellArt === art) schnellZeichnen();
+}
+const kachelName = el => { const c = el.cloneNode(true); c.querySelectorAll('.fav-stern, .em').forEach(s => s.remove()); return c.textContent.replace(/[­]/g, '').replace(/\s+/g, ' ').trim(); }; /* ohne Symbol und Trennstriche */
+/* Kacheln einer Seitenleiste (bei Einfügen: einer Kategorie) einsammeln – Klick ruft dieselbe Aktion auf */
+function leistenKacheln(art, kat) {
+  const alt = einfKat; if (kat) einfKat = kat;
+  let r = null; try { r = dockInhalt(art); } catch (e) { r = null; } finally { einfKat = alt; }
+  if (!r) return [];
+  return [...r.body.querySelectorAll('.tile')].map(el => ({ id: art + ':' + (kat ? kat + ':' : '') + kachelName(el), name: kachelName(el), el }));
+}
+const einfKatName = id => { const k = EINF_KAT.find(x => x[0] === id); return k ? k[1] : id; };
+/* Symbol einer Kachel klein übernehmen (Bild, Emoji oder SVG) */
+const kachelSymbol = el => { const s = el.querySelector('img, .em, svg'); if (!s) return ''; const c = s.cloneNode(true); c.classList && c.classList.add('sl-sym'); return c; };
+function schnellOeffnen(art) {
+  if (!schnellEl) { schnellEl = h('div', { id: 'schnellLeiste', class: 'dd' }); document.body.append(schnellEl); document.addEventListener('pointerdown', schnellAussen, true); }
+  schnellArt = art; schnellOffen = null; schnellZeichnen(); schnellAnKnopf(); updateToolbar();
+}
+/* ▾ schmale Liste direkt am Knopf unten: Werkzeugleiste unten → nach oben, oben → nach unten; zu lang → scrollt */
+function schnellAnKnopf() {
+  const b = schnellEl && $('t_' + schnellArt); if (!b) return;
+  const r = b.getBoundingClientRect(), w = schnellEl.offsetWidth, nachOben = (r.top + r.bottom) / 2 > innerHeight / 2;
+  schnellEl.style.transform = 'none'; schnellEl.style.left = T.clamp(r.left + r.width / 2 - w / 2, 8, innerWidth - w - 8) + 'px';
+  if (nachOben) { schnellEl.style.top = 'auto'; schnellEl.style.bottom = (innerHeight - r.top + 8) + 'px'; schnellEl.style.maxHeight = (r.top - 16) + 'px'; }
+  else { schnellEl.style.bottom = 'auto'; schnellEl.style.top = (r.bottom + 8) + 'px'; schnellEl.style.maxHeight = (innerHeight - r.bottom - 16) + 'px'; }
+}
+function schnellZeichnen() {
+  if (!schnellEl || !schnellArt) return;
+  const art = schnellArt, tf = $('t_' + art), fb = tf && getComputedStyle(tf).getPropertyValue('--pastell').trim(); if (fb) schnellEl.style.setProperty('--fl-farbe', fb);
+  const knopf = (inhalt, fn, titel, on) => h('button', { class: 'fl-k' + (on ? ' on' : ''), title: titel || '', onclick: fn }, ...[].concat(inhalt));
+  const aufrufen = it => () => { schnellWeg(); it.el.click(); }; /* gewählt: Liste zu */
+  const teile = [], auf = {}; /* auf: Inhalte der ▾ Aufklapplisten */
+  const klapp = (key, label, inhalt, titel) => { auf[key] = inhalt; const b = knopf([h('span', {}, ...[].concat(label)), h('span', { class: 'fl-pf' }, ' ▾')], () => { schnellOffen = schnellOffen === key ? null : key; schnellZeichnen(); }, titel, schnellOffen === key); b.dataset.klapp = key; teile.push(b); };
+  const neuZeichnen = () => setTimeout(schnellZeichnen, 60);
+  if (art === 'hervor') { /* 🖍 alle Hilfen direkt – aktive sind markiert, nochmals antippen schaltet aus */
+    const inh = hervorInhalt(neuZeichnen, true, neuZeichnen), reihe = inh.find(x => x && x.classList && x.classList.contains('row'));
+    for (const b of reihe ? [...reihe.querySelectorAll('button')] : []) { const t = b.querySelector('b'), hint = b.querySelector('span'); teile.push(knopf([h('span', {}, t ? t.textContent : b.textContent)], () => { schnellWeg(); b.click(); }, hint ? hint.textContent : '', b.classList.contains('on'))); }
+  } else if (art === 'stift') { /* ✏️ Stiftart ▾ · Formerkennung · Doppeltipp ▾ · Effekt ▾ */
+    const inh = stiftInhalt(neuZeichnen, true, () => setTimeout(schnellWeg, 60)), reihen = inh.filter(x => x && x.classList && x.classList.contains('row'));
+    const [artReihe, formReihe, effReihe] = reihen, akt = artReihe && artReihe.querySelector('button.on');
+    if (artReihe) { const ico = akt && akt.querySelector('svg, img'), c = ico ? ico.cloneNode(true) : null; if (c) c.classList.add('sl-sym'); /* Symbol wechselt mit: Stift · Feder · Textmarker */
+      klapp('art', [c || '✏️ ', ' ' + (akt ? (akt.textContent.match(/Stift|Feder|Textmarker/) || ['Stiftart'])[0] : 'Stiftart')], [artReihe], 'Stift, Kalligrafie-Feder oder Textmarker'); }
+    if (effReihe) { const e = effReihe.querySelector('button.on'), t = e && !/Ohne/.test(e.textContent) ? e.querySelector('b').textContent : '✨ Effekt';
+      klapp('eff', t, [effReihe], 'Effekt für neue Handschrift'); } /* Effekt ▾ direkt neben Stift ▾ – Symbol des gewählten Effekts */
+    const fb = formReihe && formReihe.querySelector('button'); if (fb) teile.push(knopf([h('span', {}, fb.querySelector('b').textContent)], () => fb.click(), 'Form zeichnen, Stift kurz halten → saubere Form', fb.classList.contains('on')));
+    if (formReihe) { const v = T.opts.doppeltipp || '', ziele = T.DOPPEL_ZIELE || [['', 'aus']], name = (ziele.find(z => z[0] === v) || ['', 'aus'])[1]; /* eigene Liste statt Auswahlfeld – klappt wie die anderen nach oben/unten */
+      klapp('doppel', '✌ Doppeltipp' + (v ? ': ' + (name.match(/^\S+/) || [''])[0] : ''), [h('div', { class: 'row' }, ...ziele.map(([w, l]) => h('button', { class: 'big' + (v === w ? ' on' : ''), onclick: () => {
+        if (w) T.opts.doppeltipp = w; else delete T.opts.doppeltipp; T.saveOpts(); schnellWeg(); toast(w ? '✌ Zweimal kurz mit dem Stift tippen: ' + l : 'Doppeltipp aus', 2200); } }, h('b', {}, l))))], 'Zwei kurze Tipper mit dem Stift'); }
+  } else if (art === 'radierer') { /* 🧽 wie früher: Stellen · Ganze Striche · Seite leeren */
+    const modus = m => () => { S.radModus = m; setTool('radierer'); schnellWeg(); };
+    teile.push(knopf([h('span', {}, 'Stellen wegwischen')], modus('teil'), 'Nur dort wegwischen, wo der Schwamm drüberfährt', S.radModus === 'teil'),
+      knopf([h('span', {}, 'Ganze Striche')], modus('strich'), 'Angetippte Striche ganz löschen', S.radModus === 'strich'),
+      knopf([h('span', {}, '🗑 Seite leeren')], () => { schnellWeg(); seiteLeeren(); }, 'Alles auf dieser Seite löschen – mit „Zurück“ wiederherstellbar'));
+  } else if (art === 'wischen') { /* 🧹 Was soll weggewischt werden? */
+    const pg = T.page(), schrift = pg.items.filter(it => it.t === 's').length, objekte = pg.items.length - schrift;
+    const w = (txt, n, filter, text) => { const b = knopf([h('span', {}, txt), n == null ? '' : h('span', { class: 'fl-pf' }, n ? '(' + n + ')' : '(nichts da)')], () => { schnellWeg(); wischeSeite(filter, text); }, ''); b.disabled = n === 0; return b; };
+    teile.push(w('✍ Nur Handschrift', schrift, it => it.t !== 's', 'Handschrift gewischt – Bausteine bleiben stehen.'),
+      w('🧩 Nur Bausteine & Bilder', objekte, it => it.t === 's', 'Bausteine und Bilder entfernt – Handschrift bleibt.'),
+      w('🗑 Alles', null, () => false, 'Seite komplett gewischt.'));
+  } else if (art === 'aufgaben') { /* 🧮 ★-Stufe wählen, Favoriten-Thema antippen = 8 Aufgaben auf die Tafel */
+    const stufe = +T.opts.aufStufe || 1;
+    if (S.board && /^sonstiges/i.test(S.board.fach || '')) { /* schnelle Tafel: Fach hier in der Liste wählen – danach öffnet „Alle“ als schwebendes Fenster */
+      const akt = AUF_FAECHER.find(x => x[0] === S.aufFach);
+      klapp('fach', akt ? akt[1] : '📚 Fach wählen', [h('div', { class: 'row' }, ...AUF_FAECHER.map(([v, l]) => h('button', { class: 'big' + (S.aufFach === v ? ' on' : ''),
+        onclick: () => { S.aufFach = v; updateToolbar(); schnellWeg(); if (dockSchwebe.aufgaben) dockSchwebe.aufgaben(); else dockAlsSchwebe('aufgaben'); } }, h('b', {}, l))))], 'Aufgaben für welches Fach?'); }
+    teile.push(h('div', { class: 'sl-reihe' }, ...[1, 2, 3].map(s => knopf([h('span', {}, '★'.repeat(s))], () => { T.opts.aufStufe = s; T.saveOpts(); schnellZeichnen(); }, 'Niveau', s === stufe))));
+    const f = leistenFavs('aufgaben').filter(id => T.AUFGABEN && T.AUFGABEN[id.slice(9)]);
+    for (const id of f) { const k = id.slice(9), A = T.AUFGABEN[k];
+      teile.push(knopf([h('span', {}, A.name)], () => { schnellWeg(); try { aufgabenEinfuegen(T.erzeugeAufgaben(k, stufe, 8), T.opts.aufLoes || 'einzeln', T.opts.platz || 'mittel', { typ: k, stufe, anz: 8 }); } catch (e) { toast('Das ging nicht: ' + e.message, 3000); } }, '8 Aufgaben ' + '★'.repeat(stufe) + ' auf die Tafel')); }
+    if (!f.length) teile.push(h('span', { class: 'sl-hinweis' }, '⭐ Noch keine Lieblingsthemen – „☰ Alle“ öffnen und bei einem Thema ☆ antippen.'));
+  } else if (art === 'werkzeuge') {
+    for (const it of leistenKacheln('werkzeuge')) { const inst = it.el.dataset && it.el.dataset.inst; teile.push(knopf([kachelSymbol(it.el), h('span', {}, it.name)], aufrufen(it), it.name, inst && S.inst.some(i => i.kind === inst))); }
+    teile.push(knopf([h('span', {}, '🧮 Rechner')], () => { schnellWeg(); zeigeDock('werkzeuge'); }, 'Wissenschaftlicher Rechner (Seitenleiste)'));
+  } else {
+    const f = leistenFavs(art), cache = {};
+    const finde = id => { const kat = art === 'einfuegen' ? id.split(':')[1] : null, key = kat || '-'; cache[key] = cache[key] || leistenKacheln(art, kat); return cache[key].find(x => x.id === id); };
+    for (const id of f) {
+      if (id.startsWith('kat:')) { const kat = id.slice(4), b = knopf([h('span', {}, einfKatName(kat)), h('span', { class: 'fl-pf' }, ' ▾')], () => { schnellOffen = schnellOffen === id ? null : id; schnellZeichnen(); }, 'Kategorie ' + einfKatName(kat), schnellOffen === id); b.dataset.klapp = id; teile.push(b); continue; }
+      const it = finde(id); if (it) teile.push(knopf([kachelSymbol(it.el), h('span', {}, it.name)], aufrufen(it), it.name));
+    }
+    if (!f.length) teile.push(h('span', { class: 'sl-hinweis' }, '⭐ Noch keine Favoriten – „☰ Alle“ öffnen und beim Gewünschten ☆ antippen' + (art === 'einfuegen' ? ' (auch bei ganzen Kategorien).' : '.')));
+    if (art === 'classroom') { /* ☰ Alle ▾: alle Werkzeuge als Liste nach Bereichen – antippen startet, ☆ merkt als Favorit */
+      const alle = [], fs = new Set(f); let r = null; try { r = dockInhalt('classroom'); } catch (e) { r = null; }
+      for (const el of r ? [...r.body.children] : []) {
+        if (el.tagName === 'H3') { alle.push(h('div', { class: 'sl-gruppe' }, el.textContent)); continue; }
+        for (const t of el.querySelectorAll ? el.querySelectorAll('.tile') : []) { const id = 'classroom:' + kachelName(t), an = fs.has(id);
+          alle.push(h('div', { class: 'sl-zeile2' }, h('button', { class: 'sl-eintrag', onclick: () => { schnellWeg(); t.click(); } }, kachelSymbol(t), h('span', {}, kachelName(t))),
+            h('button', { class: 'sl-stern' + (an ? ' an' : ''), title: an ? 'Aus den Favoriten nehmen' : 'Zu den Favoriten', onclick: () => favUmschalten('classroom', id) }, an ? '★' : '☆'))); }
+      }
+      klapp('alle', '☰ Alle', alle, 'Alle Classroom-Werkzeuge – ☆ = in die Leiste');
+    }
+  }
+  /* schmale Liste: Titel · Einträge untereinander · ☰ Alle – ▾ klappt direkt darunter auf */
+  const zeile = h('div', { class: 'fl-zeile' }, h('div', { class: 'sl-gruppe' }, SCHNELL_TITEL[art]), ...teile,
+    art === 'hervor' || art === 'stift' || art === 'werkzeuge' || art === 'classroom' || art === 'radierer' || art === 'wischen' ? '' : knopf([h('span', {}, '☰ Alle')], /* Classroom: ☰ Alle ▾ als Liste; Werkzeuge: alles steht schon in der Liste */ () => { const a = art; schnellWeg(); alleSchwebend(a); }, 'Alles in einem schwebenden Fenster links – dort mit ☆ Favoriten wählen'));
+  const st = schnellEl.querySelector('.fl-zeile'), scroll = st ? st.scrollTop : 0;
+  schnellEl.innerHTML = ''; schnellEl.append(zeile);
+  if (schnellOffen && (schnellOffen.startsWith('kat:') || auf[schnellOffen])) { /* ▾ Kategorie (alle Kacheln) bzw. Aufklappliste (Stift, Classroom „Alle“) */
+    const kat = schnellOffen.startsWith('kat:') ? schnellOffen.slice(4) : null, liste = kat ? leistenKacheln('einfuegen', kat) : [];
+    const kl = kat ? h('div', { class: 'sl-innen sl-liste' }, ...liste.map(it => h('button', { class: 'sl-eintrag', onclick: aufrufen(it) }, kachelSymbol(it.el), h('span', {}, it.name))),
+      liste.length ? '' : h('p', { class: 'hint' }, 'Diese Kategorie öffnet sich besser in der Seitenleiste: „☰ Alle“.')) : h('div', { class: 'sl-innen sl-klapp' }, ...auf[schnellOffen]);
+    const k = [...zeile.children].find(c => c.dataset && c.dataset.klapp === schnellOffen);
+    if (k) k.after(kl); else zeile.append(kl);
+  }
+  zeile.scrollTop = scroll; schnellAnKnopf();
+}
+/* „☰ Alle“: das ganze Menü als schwebendes Fenster links – bleibt offen, die Tafel rückt nicht zur Seite */
+function alleSchwebend(art) {
+  if (dockArt) schliesseDock();
+  if (art === 'aufgaben' && S.board && /^sonstiges/i.test(S.board.fach || '') && !S.aufFach) { schnellOeffnen('aufgaben'); schnellOffen = 'fach'; schnellZeichnen(); return; } /* schnelle Tafel: erst das Fach – in der Liste aufgeklappt */
+  dockAlsSchwebe(art); /* genau wie „⧉ Als Schwebemenü“: schwebendes Fenster, die Tafel bleibt, wo sie ist */
+}
+/* Knopf unten: Leiste (Standard) oder wie früher die Seitenleiste */
+function leisteOderDock(art, el) {
+  if (T.opts.schnellleisten === false) { if (art === 'hervor') return hervorPop(el); if (art === 'stift') return stiftPop(el); if (art === 'aufgaben') return aufgabenKnopf({ currentTarget: el }); return zeigeDock(art, true); } /* wie früher */
+  if (schnellArt === art) return schnellWeg();
+  if (dockArt) schliesseDock(); if (formLeisteEl) formLeisteWeg();
+  schnellOeffnen(art);
+}
+/* ☆ in der Seitenleiste: Kacheln (Classroom, Einfügen) und ganze Einfügen-Kategorien als Favorit markieren */
+function favSterne(art, wurzel) {
+  if (art !== 'classroom' && art !== 'einfuegen' && art !== 'aufgaben') return;
+  const dock = wurzel || $('dock'), f = new Set(leistenFavs(art));
+  const stern = (id, ziel) => { const s = h('span', { class: 'fav-stern' + (f.has(id) ? ' an' : ''), title: f.has(id) ? 'Aus den Favoriten nehmen' : 'Zu den Favoriten (Leiste unten)' }, f.has(id) ? '★' : '☆');
+    s.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); favUmschalten(art, id); const an = leistenFavs(art).includes(id); s.textContent = an ? '★' : '☆'; s.classList.toggle('an', an); }, true);
+    s.addEventListener('pointerdown', e => e.stopPropagation(), true); ziel.append(s); };
+  if (art === 'aufgaben') { /* Themen des Aufgabengenerators – auch nach dem Jahrgangsfilter wieder */
+    const deko = () => dock.querySelectorAll('.aufliste button[data-k]').forEach(b => { if (!b.querySelector('.fav-stern')) stern('aufgaben:' + b.dataset.k, b); });
+    deko(); const al = dock.querySelector('.aufliste'); if (al) new MutationObserver(deko).observe(al, { childList: true }); return; }
+  dock.querySelectorAll('.dbody .tile').forEach(el => stern(art + ':' + (art === 'einfuegen' ? einfKat + ':' : '') + kachelName(el), el));
+  if (art === 'einfuegen') dock.querySelectorAll('.kats .kat').forEach(el => { const k = EINF_KAT.find(x => x[1] === kachelName(el)); if (k) stern('kat:' + k[0], el); });
+}
+T.schnellWeg = schnellWeg;
+const radPop = popOderSchwebe('radierer', '🧽 Schwamm', radInhalt, 460);
 function radInhalt(neu, schwebend, zu) {
-  return [h('h4', {}, 'Radierer'), h('div', { class: 'row' },
-    h('button', { class: 'big' + (S.radModus === 'teil' ? ' on' : ''), onclick: () => { S.radModus = 'teil'; setTool('radierer'); zu(); } }, 'Stellen radieren'),
+  return [h('h4', {}, 'Schwamm'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch', gap: '6px', minWidth: '220px' } }, /* untereinander */
+    h('button', { class: 'big' + (S.radModus === 'teil' ? ' on' : ''), onclick: () => { S.radModus = 'teil'; setTool('radierer'); zu(); } }, 'Stellen wegwischen'),
     h('button', { class: 'big' + (S.radModus === 'strich' ? ' on' : ''), onclick: () => { S.radModus = 'strich'; setTool('radierer'); zu(); } }, 'Ganze Striche'),
     h('button', { class: 'big warn', onclick: () => { if (!schwebend) T.closePops(); seiteLeeren(); } }, '🗑 Seite leeren'))];
 }
@@ -665,11 +949,13 @@ async function seiteLoeschen() {
 }
 function wischAnimation() { const w = $('wisch'); w.classList.remove('los'); void w.offsetWidth; w.classList.add('los'); }
 // Wischen mit Auswahl: nur Handschrift, nur Bausteine & Bilder oder alles
+function wischeSeite(filter, text) { T.closePops(); T.snap(); T.page().items = T.page().items.filter(filter); S.sel = null; wischAnimation();
+  setTimeout(() => { T.render(); T.renderOver(); }, 200); toast(text, 5000, [['↶ Zurück', T.undo]]); }
 function tafelWischen(ev) {
   const pg = T.page(), schrift = pg.items.filter(it => it.t === 's').length, objekte = pg.items.length - schrift;
-  if (!pg.items.length) { toast('Die Tafel ist schon sauber.'); return; }
-  const wische = (filter, text) => { T.closePops(); T.snap(); T.page().items = T.page().items.filter(filter); S.sel = null; wischAnimation();
-    setTimeout(() => { T.render(); T.renderOver(); }, 200); toast(text, 5000, [['↶ Zurück', T.undo]]); };
+  if (!pg.items.length) { if (schnellArt === 'wischen') schnellWeg(); toast('Die Tafel ist schon sauber.'); return; }
+  if (T.opts.schnellleisten !== false) return leisteOderDock('wischen'); /* ▾ schmale Liste wie bei den anderen Knöpfen */
+  const wische = wischeSeite;
   const knopf = (txt, n, fn) => h('button', { class: 'big', disabled: !n, style: { justifyContent: 'flex-start', textAlign: 'left' }, onclick: fn }, txt, h('span', { class: 'hint', style: { marginLeft: '8px' } }, n ? `(${n})` : '(nichts da)'));
   openPop(ev && ev.currentTarget || $('t_wischen'), h('h4', {}, 'Was soll weggewischt werden?'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch', minWidth: '280px' } },
     knopf('✍ Nur Handschrift', schrift, () => wische(it => it.t !== 's', 'Handschrift gewischt – Bausteine bleiben stehen.')),
@@ -1174,7 +1460,7 @@ const EINF_KAT = [
 ];
 const EINF_TEILE = { // welche Vorlagen in welcher Kategorie stehen
   Struktur: ['ablauf', 'mindmap', 'wortwolke', 'venn', 'tabelle', 'zuordnung', 'zeitstrahl', 'diagramm'],
-  Mathe: ['koord', 'zahlenmauer', 'zahlenstrahl', 'zahlengerade','bruchkreis', 'bruchstreifen', 'rechnen', 'stellenwert', 'hunderter', 'uhr'],
+  Mathe: ['koord', 'zahlenmauer', 'zahlenstrahl', 'zahlengerade','bruchkreis', 'bruchstreifen', 'bruchstuecke', 'geoerkl', 'rechnen', 'stellenwert', 'hunderter', 'uhr'],
   Körper: ['wuerfelnetz', 'faltnetz:wuerfel', 'koerpernetz:quader', 'faltnetz:quader', 'koerpernetz:prisma', 'faltnetz:prisma', 'koerpernetz:pyramide', 'faltnetz:pyramide',
     'koerpernetz:tetraeder', 'faltnetz:tetraeder', 'koerpernetz:zylinder', 'faltnetz:zylinder', 'koerpernetz:kegel', 'faltnetz:kegel', 'wuerfelgebaeude', 'wuerfel', 'quader', 'pyramide', 'prisma', 'zylinder', 'kegel', 'kugel'],
   Sprachen: ['vokabeln', 'satzbau', 'wortarten', 'silbenboegen', 'satzglieder'],
@@ -1335,6 +1621,8 @@ function kachelListe(kat, tile) {
   return (EINF_TEILE[kat] || []).filter(k => T.BAUSTEINE[k]).map(k => tile(h('img', { src: T.thumb(k), alt: '' }), T.BAUSTEINE[k].name, () => {
     if (k === 'schaltzeichen') return schaltzeichenMenue(); /* schwebendes Menü: Bauteile direkt antippen */
     if (k === 'ablauf' && T.ablaufMenue) return T.ablaufMenue(); /* schwebendes Menü: Abläufe */
+    if (k === 'bruchstuecke' && T.bruchstueckeMenue) return T.bruchstueckeMenue(); /* 🍕 Form und Anzahl wählen, dann n bewegliche Stücke */
+    if (k === 'geoerkl' && T.geoErklMenue) return T.geoErklMenue(); /* 📐 Geodreieck erklärt: Tafel wählen oder alle auf neue Seiten */
     const o = insertObj(k, { ...T.BAUSTEINE[k].def });
     if (k === 'wortwolke') T.editObj(o); /* gleich Begriffe sammeln */
     else if (T.BAUSTEINE[k].felder.length) toast('Eingefügt – mit „✏️ Bearbeiten“ anpassen (Maße, Inhalte …)', 2600);
@@ -1592,6 +1880,10 @@ T.angleDialog = I => {
   const set = v => { T.setAngleAbout(I, -v * Math.PI / 180, D.center[0], D.center[1]); T.renderOver(); };
   openDlg([h('h2', {}, D.name + ': Winkel und Größe'), h('label', { class: 'fld' }, 'Winkel in Grad (gegen den Uhrzeigersinn)', inp),
     h('div', { class: 'row' }, ...[0, 15, 30, 45, 60, 90, 120, 135, 180, 270].map(v => h('button', { class: 'big', onclick: () => { set(v); closeDlg(); } }, v + '°'))),
+    (() => { /* 🔒 Größe fixieren: beim Drehen mit zwei Fingern bleibt die Größe gleich (gilt auch für neu geöffnete Werkzeuge dieser Art) */
+      const i = h('input', { type: 'checkbox', style: { width: '24px', height: '24px' }, onchange: e => { I.groesseFest = e.target.checked; T.opts.instFest = { ...(T.opts.instFest || {}), [I.kind]: e.target.checked }; if (!e.target.checked) delete T.opts.instFest[I.kind]; T.saveOpts(); T.renderOver(); } });
+      i.checked = I.groesseFest != null ? !!I.groesseFest : !!(T.opts.instFest && T.opts.instFest[I.kind]); return h('label', { class: 'fld check', style: { marginTop: '10px' } }, i, '🔒 Größe fixieren – beim Drehen und Verschieben mit zwei Fingern ändert sich die Größe nicht'); })(),
+    I.kind === 'geodreieck' && T.geoErklMenue ? h('button', { class: 'big', style: { marginTop: '8px' }, onclick: () => { closeDlg(); T.geoErklMenue(); } }, '📘 So geht’s – Erklärung zum Geodreieck einfügen') : '',
     h('h3', {}, 'Größe (auch mit zwei Fingern aufziehen)'),
     h('div', { class: 'row' }, ...[[0.75, '75 %'], [1, '100 %'], [1.5, '150 %'], [2, '200 %'], [3, '300 %']].map(([k, l]) => h('button', { class: 'big' + (Math.abs((I.s || 1) - k) < 0.01 ? ' on' : ''), onclick: () => { T.setScaleAbout(I, k, D.center[0], D.center[1]); T.renderOver(); closeDlg(); } }, l))),
     h('div', { class: 'acts' }, h('button', { class: 'big', onclick: closeDlg }, 'Abbrechen'), h('button', { class: 'big prim', onclick: () => { const v = parseFloat(String(inp.value).replace(',', '.')); if (!isNaN(v)) set(v); closeDlg(); } }, 'Drehen'))]);
@@ -1639,20 +1931,22 @@ function settingsDialog() {
       h('label', { class: 'fld' }, 'Geschwindigkeit', auswahl('doppelTempo', [[250, 'schnell (0,25 s)'], [350, 'mittel (0,35 s)'], [500, 'langsam (0,5 s)']], 350)),
       tipp('Schneller umstellen: im Stift-Menü neben der Formerkennung. „🔁 zuletzt benutzt“ nimmt das zuletzt eingeschaltete Hilfsmittel. Löst es beim Schreiben (ä, ö, ü) versehentlich aus: „schnell“ wählen oder ausschalten.')]],
     ['board', '☝ Finger & Board', () => [
-      h('label', { class: 'fld' }, 'Finger (Berührung ohne Stift)', sel('finger', [['pan', 'verschieben & zoomen (Stift schreibt)'], ['radieren', 'radieren (2 Finger verschieben)'], ['schreiben', 'schreiben wie der Stift (Board unterscheidet nicht)']])),
+      h('label', { class: 'fld' }, 'Finger (Berührung ohne Stift)', sel('finger', [['pan', 'verschieben & zoomen (Stift schreibt)'], ['radieren', 'wegwischen (2 Finger verschieben)'], ['schreiben', 'schreiben wie der Stift (Board unterscheidet nicht)']])),
       chk2('stiftSchreibt', '✒ Stift schreibt immer – bedient keine Elemente (Lösungen, Uhr, Kärtchen nur mit dem Finger)'),
       chk('nurGriffeAn', '✥ Elemente nur über die Griffe verschieben – ein Finger auf dem Element bewegt dann die Tafel. Standard (aus): Finger greift das Element direkt, zweiter Finger dreht und vergrößert'),
-      tipp('1 Finger: Tafel verschieben, Elemente greifen und antippen. 2 Finger: zoomen bzw. Element drehen und vergrößern. Handballen: radieren.'),
-      chk('palm', 'Handballen / Schwamm (große Berührfläche) radiert'),
-      h('label', { class: 'fld' }, 'Radiergröße für Handballen / Schwamm', auswahl('handRadierer', [[0, 'automatisch (so groß wie die Hand)'], [60, 'klein'], [120, 'mittel'], [200, 'groß'], [320, 'sehr groß']], 0)),
+      tipp('1 Finger: Tafel verschieben, Elemente greifen und antippen. 2 Finger: zoomen bzw. Element drehen und vergrößern. Handballen: wegwischen.'),
+      ...(T.istIpad ? [tipp('iPad: Die beim Schreiben aufliegende Hand wird automatisch ignoriert; weggewischt wird mit dem Schwamm oder dem Pencil-Doppeltipp.')] : [ /* Tablet: Handballen-Radierer, Bildschirmtastatur und SMART-Hinweise gibt es dort nicht */
+      chk('palm', 'Handballen oder Board-Schwamm (große Berührfläche) wischt weg'),
+      h('label', { class: 'fld' }, 'Schwammgröße für Handballen / Board-Schwamm', auswahl('handRadierer', [[0, 'automatisch (so groß wie die Hand)'], [60, 'klein'], [120, 'mittel'], [200, 'groß'], [320, 'sehr groß']], 0)),
       chk('tastatur', '⌨ Eigene Bildschirmtastatur der Tafel-App (erscheint bei jedem Eingabefeld)', () => T.tastaturUmschalten && T.tastaturUmschalten()),
       abschnitt('Stift-Test'),
-      h('p', { class: 'hint', html: 'Oben rechts steht nach jeder Berührung, was die Tafel meldet: <b>✒ Stift</b>, <b>☝ Finger</b> oder <b>🖱 Maus</b>. Erscheint beim Schreiben mit dem SMART-Stift ein „Screenshot“ mit eigener Ink-Leiste, ist SMART Ink aktiv – siehe Anleitung, Abschnitt „SMART Board“.' })]],
+      h('p', { class: 'hint', html: 'Oben rechts steht nach jeder Berührung, was die Tafel meldet: <b>✒ Stift</b>, <b>☝ Finger</b> oder <b>🖱 Maus</b>. Erscheint beim Schreiben mit dem SMART-Stift ein „Screenshot“ mit eigener Ink-Leiste, ist SMART Ink aktiv – siehe Anleitung, Abschnitt „SMART Board“.' })])]],
     ['formen', '📐 Formen & Messen', () => {
       const box = (an, label, set) => { const i = h('input', { type: 'checkbox', onchange: e => { set(e.target.checked); T.saveOpts(); } }); i.checked = an; return h('label', { class: 'fld check' }, i, label); };
       const nm = () => o.neuMasse || (o.neuMasse = {});
       return [
-        box(o.winkelFrage !== false, '❓ Winkel zuerst als „?“ – antippen deckt sie einzeln auf (gilt für neue Seiten mit Formen)', an => { if (an) delete o.winkelFrage; else o.winkelFrage = false; }),
+        box(!o.formLeisteAus, '◇ Formenleiste oben (Test): beim Werkzeug Formen erscheint oben eine Leiste mit Aufklapplisten statt des großen Menüs', an => { if (an) delete o.formLeisteAus; else o.formLeisteAus = true; }),
+        box(o.winkelFrage !== false, '❓ Winkel und Maße zuerst verdeckt („?“, „u = ?“, „A = ?“) – antippen deckt sie einzeln auf; im Menü 📏 Bemaßung je Angabe umschaltbar', an => { if (an) delete o.winkelFrage; else o.winkelFrage = false; }),
         abschnitt('Neue Formen zeigen automatisch …'),
         box(!!o.neuWinkel, '📐 Winkel', an => { if (an) o.neuWinkel = true; else delete o.neuWinkel; S.winkelZeigen = an; }),
         ...[['ms', '📏 Seitenlängen / Radius'], ['mu', '⭕ Umfang'], ['mf', '▦ Flächeninhalt']].map(([k, l]) => box(!!nm()[k], l, an => { if (an) nm()[k] = 1; else delete nm()[k]; S.masse = { ...nm() }; })),
@@ -1660,6 +1954,8 @@ function settingsDialog() {
     ['leiste', '🧰 Leiste & Favoriten', () => [
       h('label', { class: 'fld' }, 'Bedienseite (Pult links / rechts) – auch über ⇆ unten bei Zoom', auswahl('seite', SEITEN.map(([v, l]) => [v, l]), 'mitte', seiteAnwenden)),
       chk('palette', '⭐ Favoriten zeigen (schwebende Leiste; auch über „Favoriten“ in der Werkzeugleiste)', () => T.paletteZeigen && T.paletteZeigen()),
+      (() => { const i = h('input', { type: 'checkbox', onchange: e => { if (e.target.checked) delete o.schnellleisten; else o.schnellleisten = false; T.saveOpts(); schnellWeg(); } }); i.checked = o.schnellleisten !== false;
+        return h('label', { class: 'fld check' }, i, '▤ Werkzeuge, Einfügen und Classroom als Leiste unten (mit ⭐ Favoriten, „☰ Alle“ öffnet die Seitenleiste) – aus: wie früher gleich die Seitenleiste'); })(),
       chk('leisteOben', 'Werkzeugleiste oben statt unten', () => document.body.classList.toggle('leisteOben', o.leisteOben)),
       chk('karteImmer', '🗺 Übersichtskarte immer zeigen (sonst nur beim Verschieben und Zoomen)', () => T.render()),
       abschnitt('Farben in der Werkzeugleiste'), tipp('Antippen nimmt eine Farbe in die Leiste auf bzw. heraus (höchstens 8). Alle weiteren Farben gibt es immer über den Regenbogen-Knopf.'),
@@ -1668,6 +1964,7 @@ function settingsDialog() {
       (() => { const b = h('div'); leisteAnpassen(b); return b; })()]],
     ['aussehen', '🎨 Darstellung', () => [
       h('label', { class: 'fld' }, 'Farbschema der App', h('select', { onchange: e => T.setThema(e.target.value) }, ...Object.entries(THEMEN).map(([v, [i, l]]) => h('option', { value: v, selected: (o.thema || 'auto') === v }, i + ' ' + l)))),
+      h('label', { class: 'fld' }, '🔍 Größe der Symbole und Knöpfe (Leisten, Menüs) – größer ist leichter zu treffen', auswahl('symbole', [['', 'Normal'], ['gross', 'Groß'], ['sehrgross', 'Sehr groß']], '', () => { T.symbolGroesse(); updateToolbar(); })),
       chk('tafelNacht', '🌙 Tafel im Nachtmodus dunkel anzeigen (weiße Seiten erscheinen schwarz, gleiches Muster; Export und Druck bleiben weiß)', () => { if (S.board) { autoInk(); T.renderOver(); } })]],
     ['sperre', '🔒 Sperre & PIN', () => [
       tipp('Den PIN legt man auf der Startseite bei der eigenen Lehrkraft fest („🔑 PIN festlegen“).'),
@@ -1683,17 +1980,19 @@ function settingsDialog() {
       F.supported ? h('div', { class: 'row' }, h('button', { class: 'big', onclick: async () => { try { await F.connect(); await T.persNeuLaden(); closeDlg(); status(); toast('Ordner verbunden: ' + F.name()); } catch (e) {} } }, '📂 Ordner wählen / ändern')) : '',
       tipp((T.opts.lehrkraft ? `Das ist der Ablageordner von ${T.opts.lehrkraft}. ` : '') + 'Jede Lehrkraft wählt ihren eigenen Ordner (z. B. im eigenen OneDrive oder IServ); er wird beim Anmelden – Namen auf der Startseite antippen – automatisch verbunden. Darin liegen ihre Tafeln (Lehrkraft › Klasse › Fach) und als „_einstellungen.json“ alle persönlichen Einstellungen, Favoriten, Vorlagen und Listen.')]]
   ];
-  if (!BEREICHE.some(b => b[0] === einstBereich)) einstBereich = 'stift';
+  const nurBoard = !!(T.angemeldet && !T.angemeldet()); /* nicht angemeldet: nur die Board-Einstellungen – alles Persönliche erst nach dem Anmelden */
+  const BER = (nurBoard ? BEREICHE.filter(b => b[0] === 'board') : BEREICHE).filter(b => !(b[0] === 'ablage' && (F.intern || !F.supported))); /* Tablet: kein Ablageordner möglich – Bereich weglassen */
+  if (!BER.some(b => b[0] === einstBereich)) einstBereich = BER[0][0];
   const rechts = h('div', { class: 'einst-rechts' }), links = h('div', { class: 'einst-links' });
   const zeige = id => {
-    einstBereich = id; const b = BEREICHE.find(x => x[0] === id);
+    einstBereich = id; const b = BER.find(x => x[0] === id);
     links.querySelectorAll('button').forEach(k => k.classList.toggle('on', k.dataset.b === id));
     rechts.innerHTML = ''; rechts.append(h('h3', { style: { marginTop: 0 } }, b[1]), ...b[2]().filter(Boolean)); rechts.scrollTop = 0;
   };
-  links.append(...BEREICHE.map(([id, l]) => h('button', { class: 'kat', 'data-b': id, onclick: () => zeige(id) }, l)));
+  links.append(...BER.map(([id, l]) => h('button', { class: 'kat', 'data-b': id, onclick: () => zeige(id) }, l)));
   openDlg([h('h2', {}, '⚙ Einstellungen'), h('div', { class: 'einst' }, links, rechts),
-    h('p', { class: 'hint', style: { margin: '8px 0 0' } }, T.opts.lehrkraft ? `Gilt für ${T.opts.lehrkraft} (außer Finger, Handballen, Druck und Bildschirmtastatur – die gehören zum Board).` : 'Tipp: Mit gewählter Lehrkraft werden die Einstellungen in ihrem Ordner gespeichert.'),
-    h('div', { class: 'acts' }, h('button', { class: 'big prim', onclick: closeDlg }, 'Fertig'))], true);
+    h('p', { class: 'hint', style: { margin: '8px 0 0' } }, nurBoard ? 'Hier nur die Einstellungen des Boards (Finger, Handballen …). Persönliche Einstellungen – Stift, Leiste, Darstellung, Sperre & PIN, Ordner – nach dem Anmelden.' : T.opts.lehrkraft ? `Gilt für ${T.opts.lehrkraft} (außer Finger, Handballen, Druck und Bildschirmtastatur – die gehören zum Board).` : 'Tipp: Mit gewählter Lehrkraft werden die Einstellungen in ihrem Ordner gespeichert.'),
+    h('div', { class: 'acts' }, nurBoard ? h('button', { class: 'big', onclick: () => { closeDlg(); archiv(); anmeldenDialog(); } }, '👤 Anmelden') : '', h('button', { class: 'big prim', onclick: closeDlg }, 'Fertig'))], true);
   zeige(einstBereich);
 }
 let einstBereich = 'stift'; // zuletzt geöffneter Bereich der Einstellungen
@@ -1732,6 +2031,10 @@ let backupT = 0;
 async function backup() { if (!S.board) return; try { await T.idbSet('backup', { json: JSON.stringify(S.board), dirty: S.dirty, file: S.file, zeit: Date.now() }); } catch (e) {} }
 async function speichern(manuell) {
   if (!S.board || saving) return;
+  if (!angemeldet()) { /* nicht angemeldet: nie in einen (fremden) Ordner – nur als Datei */
+    if (manuell) { F.download(S.board); S.dirty = false; status(); backup(); toast('Als Datei heruntergeladen. Im eigenen Ordner speichern: erst anmelden (📁 Tafeln › 👤 Anmelden), dann 💾.', 5000); }
+    return;
+  }
   if (!F.root) {
     if (F.pending && manuell) { try { if (await F.reconnect()) return speichern(true); } catch (e) {} }
     if (manuell) { F.download(S.board); S.dirty = false; status(); backup(); toast('Als Datei heruntergeladen (kein Ablageordner verbunden).'); }
@@ -1747,7 +2050,7 @@ async function speichern(manuell) {
   } catch (e) { toast('Speichern fehlgeschlagen: ' + (e.message || e), 5000); }
   saving = false; status();
 }
-setInterval(() => { if (S.board && S.dirty && F.root && S.file && !S.drag && !T.live) speichern(false); }, 20000);
+setInterval(() => { if (T.opts.autoSpeichern !== false && S.board && S.dirty && F.root && S.file && !S.drag && !T.live) speichern(false); }, 20000); /* 💾 automatisch – abschaltbar */
 addEventListener('beforeunload', e => { if (S.board && S.dirty) { backup(); e.preventDefault(); e.returnValue = ''; } });
 
 function topInfo() {
@@ -1767,11 +2070,12 @@ function ladeTafel(board, file) {
 }
 T.ladeTafel = ladeTafel; // für Tests
 async function neueTafel(lehrkraft, fach, titel, klasse) {
-  const b = T.newBoard(lehrkraft, fach, titel || 'Tafel ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }));
+  const heute = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); /* Standardname: „Mathe vom 10.11.2026“ bzw. „Tafel vom …“ – oben unter „Dateiname:“ änderbar */
+  const b = T.newBoard(lehrkraft, fach, titel || ((!fach || fach === 'Sonstiges' ? 'Tafel' : fach) + ' vom ' + heute));
   if (klasse) b.klasse = klasse;
   if (fach === 'Mathe') b.pages[0].bg = 'kariert';
   if (fach === 'Musik') b.pages[0].bg = 'noten';
-  ladeTafel(b, null); S.dirty = true; if (F.root) await speichern(false); status();
+  ladeTafel(b, null); S.dirty = true; if (F.root && T.opts.autoSpeichern !== false && (!T.angemeldet || T.angemeldet())) await speichern(false); status(); /* nicht angemeldet: nichts in fremde Ordner speichern */
 }
 
 // ---------- Tafel-Archiv (Startbildschirm) ----------
@@ -1781,75 +2085,151 @@ const geraetLehrkraefte = () => { try { const l = JSON.parse(localStorage.getIte
 const merkeLehrkraft = n => { const l = new Set(geraetLehrkraefte()); if (!n || l.has(n)) return; l.add(n); try { localStorage.setItem('tafelgeraet.lehrkraefte', JSON.stringify([...l])); } catch (e) {} };
 if (T.opts.lehrkraft) merkeLehrkraft(T.opts.lehrkraft);
 let archivWahl = null, papierkorbAuf = false; const papierkorbGeprueft = new Set(); // Mehrfachauswahl der Tafeln · Papierkorb offen · schon automatisch geleert
+// Anmeldung gilt für diese Browser-Sitzung (am geteilten Board: nach dem Schließen ist wieder die neutrale Startseite da)
+const angemeldet = () => { try { return !!T.opts.lehrkraft && sessionStorage.getItem('tafelapp.angemeldet') === T.opts.lehrkraft; } catch (e) { return false; } };
+const setzeAngemeldet = n => { try { if (n) sessionStorage.setItem('tafelapp.angemeldet', n); else sessionStorage.removeItem('tafelapp.angemeldet'); } catch (e) {} };
+T.angemeldet = angemeldet;
+// ⚡ Leere Tafel: groß, aber nicht über die ganze Breite
+const loslegenKnopf = () => h('button', { class: 'loslegen gross', onclick: () => neueTafel(angemeldet() ? T.opts.lehrkraft : 'Lehrkraft', 'Sonstiges', null) },
+  h('span', { class: 'ico' }, '⚡'), h('span', {}, h('b', {}, 'Leere Tafel'), h('small', {}, angemeldet() ? 'sofort schreiben – liegt dann unter „Sonstige“' : 'sofort schreiben – ohne Anmelden')));
+// Lehrkraft wechseln (Ordner-Freigabe muss im Tipp starten – daher F.sofortFreigeben zuerst, ohne await davor)
+async function lehrkraftWechseln(n) {
+  if (F.sofortFreigeben) F.sofortFreigeben(n);
+  if (n === T.opts.lehrkraft && F.pending && F.freigabe) { const p = await F.freigabe.p; F.freigabe = null; if (p === 'granted') { F.root = F.pending; F.pending = null; await T.persNeuLaden(); } status(); return; }
+  T.opts.lehrkraft = n; T.saveOptsRoh(); merkeLehrkraft(n); await persWechsel(); T.onLehrkraft && T.onLehrkraft(); status();
+}
+// 🔒 PIN abfragen (Dialog) – true, wenn richtig
+function pinAbfrage(name) {
+  return new Promise(fertig => {
+    const inp = pinFeld('PIN');
+    const los = async () => { if (await F.pinPruefen(name, inp.value.trim())) { entsperrt.add(name); merkeEntsperrt(); closeDlg(); fertig(true); } else { toast('Falscher PIN.', 2000); inp.value = ''; inp.focus(); } };
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') los(); });
+    openDlg([h('h2', {}, `🔒 ${name}`), h('p', { class: 'hint' }, 'Bitte den PIN eingeben.'), h('div', { class: 'row' }, inp),
+      h('div', { class: 'acts' }, h('button', { class: 'big', onclick: () => { closeDlg(); fertig(false); } }, 'Abbrechen'), h('button', { class: 'big prim', onclick: los }, 'Anmelden'))]);
+    setTimeout(() => inp.focus(), 50);
+  });
+}
+// 📂 Ordner einrichten bzw. freigeben (einmalig je Gerät) – true, wenn danach ein Ordner verbunden ist
+function ordnerSchritt(name) {
+  return new Promise(fertig => {
+    const zu = v => { closeDlg(); fertig(v); };
+    if (F.pending) {
+      openDlg([h('h2', {}, '📂 Ordner freigeben'), h('p', { class: 'hint' }, `Ihr Ordner »${F.name()}« ist gemerkt. Der Browser fragt einmal pro Start nach der Erlaubnis – bitte „Zulassen“ wählen.`),
+        h('div', { class: 'acts' }, h('button', { class: 'big', onclick: () => zu(false) }, 'Später'), h('button', { class: 'big prim', onclick: async () => { try { await F.reconnect(); await T.persNeuLaden(); } catch (e) {} zu(!!F.root); } }, '▶ Freigeben'))]);
+      return;
+    }
+    openDlg([h('h2', {}, '📂 Ordner einrichten (einmalig)'),
+      h('p', { class: 'hint' }, `Wo sollen die Tafeln von ${name} liegen? Am besten ein eigener Ordner „Tafeln“ im OneDrive oder im synchronisierten IServ-Ordner. Darin legt die App alles nach Klasse und Fach ab – auch Einstellungen und Listen. Das fragt die App nur einmal; danach genügt das Anmelden.`),
+      h('div', { class: 'acts' }, h('button', { class: 'big', onclick: () => zu(false) }, 'Später'), h('button', { class: 'big prim', onclick: async () => { try { await F.connect(); await T.persNeuLaden(); } catch (e) {} zu(!!F.root); } }, '📂 Ordner wählen'))]);
+  });
+}
+// 👤 Anmelden: Name → (Ordner einmalig) → PIN → persönliche Startseite
+async function anmeldenDialog() {
+  const namen = new Set([...geraetLehrkraefte(), ...await F.teachers().catch(() => [])]); if (T.opts.lehrkraft) namen.add(T.opts.lehrkraft);
+  if (F.ladeOrdner) await F.ladeOrdner([...namen]);
+  const waehle = n => { closeDlg(); anmeldenWeiter(n); }; /* lehrkraftWechseln startet die Freigabe noch im Tipp */
+  const chips = h('div', { class: 'chips' }, ...[...namen].sort((a, b) => a.localeCompare(b, 'de')).map(n => h('button', { class: 'chip', onclick: () => waehle(n) }, n)),
+    h('button', { class: 'chip', onclick: async () => { const n = await frage('Name oder Kürzel:', { feld: {} }); if (n && n.trim()) waehle(F.safe(n.trim())); } }, '＋ Neu'));
+  openDlg([h('h2', {}, '👤 Anmelden'), h('p', { class: 'hint' }, namen.size ? 'Eigenen Namen antippen:' : 'Noch niemand angelegt – „＋ Neu“ antippen und Namen oder Kürzel eingeben.'), chips,
+    h('div', { class: 'acts' }, h('button', { class: 'big', onclick: closeDlg }, 'Abbrechen'))]);
+}
+async function anmeldenWeiter(n) {
+  const wechsel = lehrkraftWechseln(n); await wechsel;
+  if (F.supported && !F.intern && !F.root) await ordnerSchritt(n);
+  const pin = await F.pinLesen(n).catch(() => null);
+  if (pin && !entsperrt.has(n)) { if (!await pinAbfrage(n)) { archiv(); return; } }
+  else if (!pin && !T.opts.pinGefragt) {
+    const ja = await frage(`🔑 PIN für ${n} festlegen?\n\nMit PIN sieht am Board niemand sonst Ihre Klassen und Tafeln. Sie können das später unten auf Ihrer Startseite ändern.`, { ok: 'PIN festlegen', abbrechen: 'Ohne PIN' });
+    T.opts.pinGefragt = true; T.saveOpts();
+    if (ja) { setzeAngemeldet(n); await tafelUebernehmen(n); pinDialog(n, false); return; }
+  }
+  setzeAngemeldet(n); await tafelUebernehmen(n); archivFach = null; archiv();
+}
+// Vor dem Anmelden geschriebene (noch nirgends gespeicherte) Tafel gehört jetzt der angemeldeten Lehrkraft: „Sonstige“ › Fach der Tafel
+async function tafelUebernehmen(n) {
+  const b = S.board; if (!b || S.file || b.lehrkraft === n) return;
+  b.lehrkraft = n; delete b.klasse; S.dirty = true; topInfo();
+  if (F.root && T.opts.autoSpeichern !== false) await speichern(false);
+  toast(`Die offene Tafel „${b.titel}“ gehört jetzt ${n} – zu finden unter Sonstige › ${b.fach}.`, 4500);
+}
+function abmelden() { const n = T.opts.lehrkraft; if (n) { entsperrt.delete(n); merkeEntsperrt(); } setzeAngemeldet(null); archivFach = null; archiv(); }
+// Neutrale Startseite: ⚡ Leere Tafel · 👤 Anmelden
+async function startSeite(A) {
+  A.append(h('div', { class: 'kopf' }, h('h1', {}, '🧑‍🏫 Tafel-App'), h('span', { class: 'spacer' }), /* ⚙ Einstellungen erst nach dem Anmelden (je Lehrkraft); Board-Einstellungen über ⚙ an der Tafel */
+    S.board ? h('button', { class: 'big', onclick: () => { A.style.display = 'none'; } }, '← Zurück zur Tafel') : ''));
+  const mitte = h('div', { class: 'start-mitte' }, loslegenKnopf(),
+    h('button', { class: 'anmelden-k', onclick: anmeldenDialog }, h('span', { class: 'ico' }, '👤'), h('span', {}, h('b', {}, 'Anmelden'), h('small', {}, 'meine Klassen, Fächer und Tafeln'))));
+  A.append(mitte);
+  try {
+    const bk = await T.idbGet('backup');
+    if (bk && bk.dirty && (!S.board || JSON.parse(bk.json).id !== S.board.id)) {
+      const b = JSON.parse(bk.json);
+      mitte.append(h('div', { class: 'karte warnbox' }, h('div', { class: 'row' },
+        h('button', { class: 'big prim', onclick: () => { ladeTafel(b, bk.file); S.dirty = true; status(); } }, 'Wiederherstellen'),
+        h('span', { style: { flex: 1, fontSize: '17px' } }, `⚠ Ungesicherte Tafel gefunden: „${b.titel}“ (${new Date(bk.zeit).toLocaleString('de-DE')})`))));
+    }
+  } catch (e) {}
+  mitte.append(h('button', { class: 'big', style: { marginTop: '8px', alignSelf: 'center' }, onclick: () => dateiOeffnen() }, '📂 Tafel-Datei öffnen'));
+}
 async function archiv() {
   const A = $('archiv'); A.style.display = 'block'; A.innerHTML = ''; T.closePops();
   const name = T.opts.lehrkraft;
-  const kopf = h('div', { class: 'kopf' }, h('h1', {}, '🧑‍🏫 Tafel-App'), h('span', { class: 'spacer' }),
-    h('button', { class: 'big', title: 'Stift, Finger, Darstellung, Ablageordner …', onclick: settingsDialog }, '⚙ Einstellungen'),
+  if (!angemeldet()) return startSeite(A);
+  /* links: Name antippen › Abmelden (und Sperren), gleich daneben ⚙ Einstellungen */
+  /* Name antippen: darunter klappt ein kleines Menü auf – 🚪 Abmelden (mit Rückfrage), ⚙ Einstellungen */
+  const menue = h('div', { class: 'name-menue', style: { display: 'none' } },
+    h('button', { class: 'big', onclick: async () => {
+      menue.style.display = 'none';
+      if (await frage(`Wirklich abmelden, ${name}?\n\nDie offene Tafel wird vorher gespeichert und geschlossen; danach erscheint wieder die Startseite für alle.`, { ok: '🚪 Abmelden', abbrechen: 'Abbrechen' })) tafelSchliessenUnd(abmelden); } }, '🚪 Abmelden'),
+    h('button', { class: 'big', title: 'Stift, Finger, Darstellung, Sperre, Ablageordner …', onclick: () => { menue.style.display = 'none'; settingsDialog(); } }, '⚙ Einstellungen'));
+  const nameKnopf = h('button', { class: 'name-k', title: 'Antippen: Abmelden, Einstellungen', onclick: e => { e.stopPropagation(); menue.style.display = menue.style.display === 'none' ? 'flex' : 'none'; } }, '👤 ' + name + ' ▾');
+  A.onclick = e => { if (!e.target.closest('.name-wahl')) menue.style.display = 'none'; }; /* daneben tippen: zu */
+  const kopf = h('div', { class: 'kopf' }, h('div', { class: 'name-wahl' }, nameKnopf, menue), h('span', { class: 'spacer' }),
     S.board ? h('button', { class: 'big', onclick: () => { A.style.display = 'none'; } }, '← Zurück zur Tafel') : '');
   A.append(kopf);
-  // Schnellstart ganz oben – leere Tafel ohne Lehrkraft/Fach-Auswahl
-  A.append(h('button', { class: 'loslegen', onclick: () => neueTafel(T.opts.lehrkraft || 'Lehrkraft', 'Sonstiges', 'Schnelle Tafel') },
-    h('span', { class: 'ico' }, '⚡'), h('span', {}, h('b', {}, 'Schnell loslegen'), h('small', {}, 'Leere Tafel öffnen und sofort schreiben'))));
-  // Ablage
+  A.append(h('div', { class: 'start-mitte klein' }, loslegenKnopf()));
+  // Ablage: nur zeigen, wenn etwas zu tun ist
   const ab = h('div', { class: 'karte' });
-  if (F.intern) ab.append(h('p', { class: 'hint' }, '📱 Die Tafeln werden in der App auf diesem Gerät gespeichert (Lehrkraft › Klasse › Fach). Bitte ab und zu „💾 Sicherung exportieren“ – z. B. auf einen USB-Stick oder in IServ. Mit „📥 Sicherung einspielen“ kommen Tafeln von einem anderen Gerät hierher.'));
+  if (F.intern) ab.append(h('p', { class: 'hint' }, '📱 Die Tafeln werden in der App auf diesem Gerät gespeichert. Bitte ab und zu unten „💾 Sicherung exportieren“ – z. B. in IServ oder OneDrive.'));
   else if (!F.supported) ab.append(h('p', { class: 'hint' }, '⚠ Dieser Browser kann keinen Ablageordner verbinden. Bitte die App über „Tafel starten.bat“ in Microsoft Edge öffnen. Bis dahin werden Tafeln als Datei heruntergeladen.'));
-  // Knöpfe links (vor dem Text) – dort, wo man sie zuerst sieht und erreicht
-  else if (F.root) ab.append(h('div', { class: 'row' }, h('button', { class: 'big', onclick: async () => { try { await F.connect(); archiv(); } catch (e) {} } }, 'Ordner ändern'), h('span', { class: 'hint', style: { flex: 1 } }, '📂 Ablageordner: »' + F.name() + '« (Unterordner: Lehrkraft › Klasse › Fach)')));
-  else if (F.pending) ab.append(h('div', { class: 'row' }, h('button', { class: 'big prim', onclick: async () => { try { await F.reconnect(); await T.persNeuLaden(); } catch (e) {} archiv(); status(); } }, '▶ Starten'), h('span', { class: 'hint', style: { flex: 1 } }, 'Gespeicherte Tafeln aus »' + F.name() + '« öffnen: auf „▶ Starten“ tippen und im Browser „Zulassen“ wählen (einmal pro Start).')));
-  else ab.append(h('div', { class: 'row' }, h('button', { class: 'big prim', onclick: async () => { try { await F.connect(); await T.persNeuLaden(); archiv(); status(); } catch (e) {} } }, '📂 Ordner wählen'), h('span', { class: 'hint', style: { flex: 1 } }, (T.opts.lehrkraft ? `Noch kein Ablageordner für ${T.opts.lehrkraft}. ` : 'Noch kein Ablageordner. ') + 'Jede Lehrkraft wählt ihren eigenen Ordner, z. B. „Tafeln“ in ihrem OneDrive oder im synchronisierten IServ-Ordner – beim nächsten Anmelden (Namen antippen) wird er automatisch verbunden.')));
-  A.append(ab);
-  // Wiederherstellen
+  else if (F.pending) ab.append(h('div', { class: 'row' }, h('button', { class: 'big prim', onclick: async () => { try { await F.reconnect(); await T.persNeuLaden(); } catch (e) {} archiv(); status(); } }, '▶ Ordner freigeben'), h('span', { class: 'hint', style: { flex: 1 } }, 'Gespeicherte Tafeln aus »' + F.name() + '«: antippen und im Browser „Zulassen“ wählen.')));
+  else if (!F.root) ab.append(h('div', { class: 'row' }, h('button', { class: 'big prim', onclick: async () => { try { await F.connect(); await T.persNeuLaden(); archiv(); status(); } catch (e) {} } }, '📂 Ordner einrichten'), h('span', { class: 'hint', style: { flex: 1 } }, 'Noch kein Ordner – ohne Ordner werden Tafeln als Datei heruntergeladen.')));
+  if (ab.childNodes.length) A.append(ab);
   try {
     const bk = await T.idbGet('backup');
     if (bk && bk.dirty && (!S.board || JSON.parse(bk.json).id !== S.board.id)) {
       const b = JSON.parse(bk.json);
       A.append(h('div', { class: 'karte warnbox' }, h('div', { class: 'row' },
-        h('button', { class: 'big prim', onclick: () => { ladeTafel(b, bk.file); S.dirty = true; status(); speichern(false); } }, 'Wiederherstellen'),
+        h('button', { class: 'big prim', onclick: () => { ladeTafel(b, bk.file); S.dirty = true; status(); if (T.opts.autoSpeichern !== false) speichern(false); } }, 'Wiederherstellen'),
         h('span', { style: { flex: 1, fontSize: '17px' } }, `⚠ Ungesicherte Tafel gefunden: „${b.titel}“ (${b.fach}, ${new Date(bk.zeit).toLocaleString('de-DE')})`))));
     }
   } catch (e) {}
-  // Lehrkraft
-  const lk = h('div', { class: 'karte' }, h('h3', { style: { marginTop: 0 } }, '1. Lehrkraft'));
-  const chips = h('div', { class: 'chips' });
-  // Lehrkräfte an diesem Gerät (jede mit eigenem Ablageordner) – plus die im aktuellen Ordner gefundenen
-  const namen = new Set([...geraetLehrkraefte(), ...await F.teachers().catch(() => [])]); if (name) namen.add(name);
-  if (F.ladeOrdner) await F.ladeOrdner([...namen]);
-  const anmelden = async n => {
-    if (F.sofortFreigeben) F.sofortFreigeben(n); /* noch im Tipp: nur „Zulassen“ statt Ordner wählen */
-    if (n === T.opts.lehrkraft && F.pending && F.freigabe) { const p = await F.freigabe.p; F.freigabe = null; if (p === 'granted') { F.root = F.pending; F.pending = null; await T.persNeuLaden(); } status(); archiv(); return; } /* gleiche Lehrkraft, Ordner nur noch zu bestätigen */
-    T.opts.lehrkraft = n; T.saveOptsRoh(); merkeLehrkraft(n); await persWechsel(); T.onLehrkraft && T.onLehrkraft(); status(); archiv(); };
-  for (const n of [...namen].sort((a, b) => a.localeCompare(b, 'de'))) chips.append(h('button', { class: 'chip' + (n === name ? ' on' : ''), title: F.hatOrdner && F.hatOrdner(n) ? 'Antippen: anmelden – der gemerkte Ablageordner wird verbunden (Browser fragt nur „Zulassen“)' : 'Antippen: anmelden', onclick: () => anmelden(n) }, n + (F.hatOrdner && F.hatOrdner(n) ? ' 📂' : '')));
-  chips.append(h('button', { class: 'chip', onclick: async () => { const n = await frage('Name oder Kürzel der Lehrkraft:', { feld: {} }); if (n && n.trim()) anmelden(F.safe(n.trim())); } }, '＋ Neu'));
-  lk.append(chips); A.append(lk);
-  if (!name) { A.append(h('p', { class: 'hint' }, 'Bitte zuerst eine Lehrkraft wählen oder anlegen.')); A.append(dateiKarte()); return; }
-  // freiwilliger PIN: gesperrt → erst PIN eingeben; entsperrt → „Sperren“ und „PIN ändern“ neben den Namen
   const pin = await F.pinLesen(name).catch(() => null);
-  if (pin && !entsperrt.has(name)) { A.append(pinKarte(name)); A.append(dateiKarte()); return; }
+  if (pin && !entsperrt.has(name)) { A.append(pinKarte(name)); return; }
+  const lk = h('div'); /* PIN-Knöpfe kommen ganz nach unten */
   lk.append(h('div', { class: 'row', style: { marginTop: '8px' } }, pin
-    ? [h('button', { class: 'big', title: 'Tafeln dieser Lehrkraft wieder sperren', onclick: () => { entsperrt.delete(name); merkeEntsperrt(); archiv(); } }, '🔒 Sperren'),
+    ? [h('button', { class: 'big', title: 'Tafeln wieder sperren', onclick: () => { entsperrt.delete(name); merkeEntsperrt(); abmelden(); } }, '🔒 Sperren'),
        h('button', { class: 'big', onclick: () => pinDialog(name, true) }, '🔑 PIN ändern / entfernen')]
-    : h('button', { class: 'big', title: 'Freiwillig: Klassen, Fächer und Tafeln dieser Lehrkraft erst nach PIN-Eingabe zeigen', onclick: () => pinDialog(name, false) }, '🔑 PIN festlegen (freiwillig)')));
+    : h('button', { class: 'big', title: 'Freiwillig: Klassen, Fächer und Tafeln erst nach PIN-Eingabe zeigen', onclick: () => pinDialog(name, false) }, '🔑 PIN festlegen (freiwillig)')));
   // Klasse (gemerkt; „ohne Klasse“ = ältere Tafeln direkt unter Lehrkraft › Fach)
   const klasse = T.opts.klasse || '', wer = F.wer(name, klasse);
-  const kk = h('div', { class: 'karte' }, h('h3', { style: { marginTop: 0 } }, '2. Klasse')), kchips = h('div', { class: 'chips' });
+  const kk = h('div', { class: 'karte' }, h('h3', { style: { marginTop: 0 } }, '🏫 Meine Klassen')), kchips = h('div', { class: 'chips klassen' });
   const kn = new Set(await F.klassen(name).catch(() => [])); if (klasse) kn.add(klasse);
   const waehleKlasse = k => { T.opts.klasse = k; T.saveOpts(); archivFach = null; archiv(); };
-  kchips.append(h('button', { class: 'chip' + (!klasse ? ' on' : ''), title: 'Tafeln ohne Klassenzuordnung', onclick: () => waehleKlasse('') }, 'ohne Klasse'));
+  kchips.append(h('button', { class: 'chip' + (!klasse ? ' on' : ''), title: 'Tafeln ohne Klasse – auch die schnellen Tafeln', onclick: () => waehleKlasse('') }, 'Sonstige / ohne Klasse'));
   for (const k of [...kn].sort((a, b) => a.localeCompare(b, 'de', { numeric: true }))) kchips.append(h('button', { class: 'chip' + (k === klasse ? ' on' : ''), onclick: () => waehleKlasse(k) }, k));
   kchips.append(h('button', { class: 'chip', onclick: async () => { const n = await frage('Klasse, z. B. 7b oder 9 E-Kurs:', { feld: {} }); if (n && n.trim()) waehleKlasse(F.safe(n.trim().replace(/^klasse\s*/i, ''))); } }, '＋ Neu'));
   kk.append(kchips); A.append(kk);
   // Fächer + Liste
-  const cols = h('div', { class: 'cols' }), links = h('div', { class: 'karte' }, h('h3', { style: { marginTop: 0 } }, '3. Fach')), rechts = h('div', { class: 'karte' });
+  const cols = h('div', { class: 'cols' }), links = h('div', { class: 'karte' }, h('h3', { style: { marginTop: 0 } }, `📚 Fächer${klasse ? ' in ' + klasse : ''}`)), rechts = h('div', { class: 'karte' });
   const counts = await F.faecher(wer);
   const fg = h('div', { class: 'faecher' });
   const alle = T.FAECHER.map(f => f.id); for (const k of Object.keys(counts)) if (!alle.includes(k)) alle.push(k);
   for (const id of alle) { const f = T.fach(id); fg.append(h('button', { class: 'fach' + (archivFach === id ? ' on' : ''), style: '--fc:' + f.farbe, onclick: () => { archivFach = id; archiv(); } }, h('span', { style: { fontSize: '28px' } }, f.icon), id, counts[id] ? h('span', { class: 'n' }, counts[id] + ' Tafel' + (counts[id] > 1 ? 'n' : '')) : '')); }
   links.append(fg); cols.append(links, rechts); A.append(cols);
-  if (!archivFach) rechts.append(h('h3', { style: { marginTop: 0 } }, '4. Tafel'), h('p', { class: 'hint' }, 'Fach antippen – dann neue Tafel anlegen oder eine gespeicherte öffnen.'));
+  if (!archivFach) rechts.append(h('h3', { style: { marginTop: 0 } }, '🗂 Tafeln'), h('p', { class: 'hint' }, 'Fach antippen – dann neue Tafel anlegen oder eine gespeicherte öffnen.'));
   else {
-    rechts.append(h('h3', { style: { marginTop: 0 } }, `4. ${klasse ? klasse + ' · ' : ''}${archivFach}: Tafeln`));
+    rechts.append(h('h3', { style: { marginTop: 0 } }, `🗂 ${klasse ? klasse + ' · ' : ''}${archivFach}: Tafeln`));
     const ti = h('input', { type: 'text', class: 'feld', placeholder: 'Titel, z. B. „Brüche addieren“', style: { flex: 1, minWidth: '200px' } });
     rechts.append(h('div', { class: 'row', style: { marginBottom: '14px' } }, ti, h('button', { class: 'big prim', onclick: () => neueTafel(name, archivFach, ti.value.trim(), klasse) }, '＋ Neue Tafel')));
     const liste = h('div', { class: 'liste' });
@@ -1910,6 +2290,10 @@ async function archiv() {
     }
   }
   A.append(dateiKarte());
+  /* ganz unten: PIN und automatisches Speichern */
+  const autoBox = h('input', { type: 'checkbox', checked: T.opts.autoSpeichern !== false, style: { width: '24px', height: '24px' }, onchange: e => { if (e.target.checked) delete T.opts.autoSpeichern; else T.opts.autoSpeichern = false; T.saveOpts(); toast(e.target.checked ? '💾 Tafeln werden automatisch gespeichert.' : '💾 Nur noch beim Tippen auf „Speichern“ (Strg+S).', 2500); } });
+  lk.append(h('label', { class: 'big', style: { display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px', cursor: 'pointer' } }, autoBox, '💾 Tafeln automatisch speichern (alle 20 s)'));
+  A.append(h('div', { class: 'karte' }, lk));
 }
 // ---------- PIN (freiwillig, pro Lehrkraft) ----------
 // Sperre in der App: Wer den Ablageordner direkt öffnet, sieht die Dateien weiterhin. Entsperrt bleibt es bis zum Schließen des Browsers.
@@ -1975,8 +2359,9 @@ function pinDialog(name, hatPin) {
     h('div', { class: 'acts' }, h('button', { class: 'big', onclick: closeDlg }, 'Abbrechen'), h('button', { class: 'big prim', onclick: ok }, 'Speichern'))]);
   setTimeout(() => p1.focus(), 50);
 }
+const dateiOeffnen = () => { if (!dateiKarte.oeffnen) dateiKarte(); return dateiKarte.oeffnen(); };
 function dateiKarte() {
-  const oeffnen = async () => {
+  const oeffnen = dateiKarte.oeffnen = async () => {
     try {
       const b = await F.upload(); if (!b) return;
       if (F.istSicherung(b)) {
@@ -2103,12 +2488,23 @@ function widget(title, body, x, y) {
   w.kopf = (...els) => { knoepfe.innerHTML = ''; knoepfe.append(...els.flat().filter(Boolean)); };
   const wb = h('div', { class: 'wb' }, body); Object.assign(w, { _head: head, _knoepfe: knoepfe, _zu: zu, _wb: wb, _titel: title });
   w.append(head, wb); document.body.append(w); w.style.zIndex = ++wz;
-  if (w._wz) wzGriffe(w, wb);
+  if (w._wz) wzGriffe(w, wb); else groesseLasche(w, wb); /* alle anderen Fenster: unten eine Lasche zum Größe-Ändern */
   let d = null;
   head.addEventListener('pointerdown', e => { if (e.target.tagName === 'BUTTON') return; d = [e.clientX - w.offsetLeft, e.clientY - w.offsetTop]; head.setPointerCapture(e.pointerId); w.style.zIndex = ++wz; });
   head.addEventListener('pointermove', e => { if (d) { w.style.left = T.clamp(e.clientX - d[0], 0, innerWidth - 80) + 'px'; w.style.top = T.clamp(e.clientY - d[1], 56, innerHeight - 60) + 'px'; } });
   head.addEventListener('pointerup', () => { d = null; });
   return w;
+}
+// ═ Lasche unten an jedem Fenster: ziehen ändert Breite (seitlich) und Höhe (nach unten/oben) – der Inhalt rollt bei Bedarf
+function groesseLasche(w, wb) {
+  const g = h('div', { class: 'wz-griff lasche', title: 'Ziehen: Fenster größer oder kleiner machen' }); let st = null;
+  g.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); try { g.setPointerCapture(e.pointerId); } catch (x) {} st = { x: e.clientX, y: e.clientY, w: w.offsetWidth, h: w.offsetHeight }; w.style.zIndex = ++wz; });
+  g.addEventListener('pointermove', e => { if (!st) return;
+    const bw = T.clamp(st.w + (e.clientX - st.x) * 2, 220, innerWidth - 20), bh = T.clamp(st.h + e.clientY - st.y, 120, innerHeight - w.offsetTop - 10); /* Lasche in der Mitte: nach außen ziehen = breiter */
+    w.classList.add('groesse'); w.style.width = bw + 'px'; w.style.height = bh + 'px'; w.style.left = T.clamp(w.offsetLeft - (bw - w.offsetWidth) / 2, 0, innerWidth - 80) + 'px';
+    w.querySelectorAll('.schwebe-inhalt').forEach(b => { b.style.maxWidth = 'none'; }); });
+  const ende = () => { st = null; }; g.addEventListener('pointerup', ende); g.addEventListener('pointercancel', ende);
+  w.append(g);
 }
 // Classroom-Fenster: Größe an rechtem Rand, unterem Rand und Ecke ändern – der ganze Inhalt wird mitskaliert (gemerkt je Werkzeug)
 function wzGriffe(w, wb) {
@@ -2549,12 +2945,51 @@ addEventListener('dragover', e => e.preventDefault());
 addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (!f || !S.board) return; if (f.type.startsWith('image/')) bildEinfuegen(f); else if (f.name.endsWith('.json')) f.text().then(t => { try { ladeTafel(JSON.parse(t), null); S.dirty = true; } catch (x) { toast('Keine Tafel-Datei.'); } }); });
 
 // ---------- Start ----------
-$('bArchiv').onclick = () => { if (S.dirty && F.root) speichern(false); archiv(); };
+/* offene Tafel sichern (automatisch bzw. nachfragen) – true, wenn es weitergehen darf */
+async function tafelSichern() {
+  if (!S.board || !S.dirty) return true;
+  if (angemeldet() && (F.root || F.intern)) { if (T.opts.autoSpeichern !== false || await frage('Änderungen an dieser Tafel speichern?', { ok: '💾 Speichern', abbrechen: 'Nicht speichern' })) await speichern(false); return true; }
+  return await frage('Diese Tafel ist nicht gespeichert (nicht angemeldet). Trotzdem schließen?\n\nZum Behalten: Abbrechen › 💾 Speichern (lädt eine Datei herunter).', { ok: 'Schließen', abbrechen: 'Abbrechen' });
+}
+/* Tafel beenden: sichern, schließen, dann weiter (Startseite / Abmelden) */
+async function tafelSchliessenUnd(weiter) {
+  if (S.board && !await tafelSichern()) return;
+  if (S.board) { S.board = null; S.file = null; S.dirty = false; S.sel = null; S.inst = []; document.title = 'Tafel-App'; for (const k of ['cMain', 'cLive', 'cOver']) { const c = T.cv[k + 'X']; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, T.cv[k].width, T.cv[k].height); } $('titel').value = ''; $('ablageInfo').textContent = ''; try { await T.idbSet('backup', null); } catch (e) {} }
+  (weiter || archiv)();
+}
+T.tafelSchliessenUnd = tafelSchliessenUnd;
+/* 📁 Tafel ▾ oben links: Startseite, neue Tafel, beenden, sperren, abmelden */
+$('bArchiv').onclick = e => {
+  const an = angemeldet(), el = e.currentTarget;
+  const zeile = (txt, fn, titel) => h('button', { class: 'big', style: { width: '100%', justifyContent: 'flex-start' }, title: titel || '', onclick: () => { T.closePops(); fn(); } }, txt);
+  openPop(el, h('h4', {}, an ? '📁 Tafel · ' + T.opts.lehrkraft : '📁 Tafel'),
+    h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '250px' } },
+      zeile('🏠 Startseite – Tafeln auswählen', async () => { if (await tafelSichern()) archiv(); }),
+      zeile('＋ Neue Tafel', async () => { if (await tafelSichern()) neueTafel(an ? T.opts.lehrkraft : 'Lehrkraft', 'Sonstiges', null); }, 'Leere Tafel – liegt dann unter „Sonstige“'),
+      zeile('⏹ Tafel beenden', () => tafelSchliessenUnd(), 'Speichern und schließen'),
+      an ? zeile('🔒 Sperren', async () => { const n = T.opts.lehrkraft; if (await F.pinLesen(n).catch(() => null)) sperrbildschirm(n); else toast('Zum Sperren zuerst einen PIN festlegen: 🏠 Startseite › ganz unten „🔑 PIN festlegen“.', 4500); }, 'Tafel abdecken – weiter nur mit PIN') : '',
+      an ? zeile('🚪 Abmelden', () => tafelSchliessenUnd(abmelden), 'Tafel speichern und schließen, abmelden') : zeile('👤 Anmelden', async () => { archiv(); anmeldenDialog(); })));
+};
 // 💾 Speichern öffnet das Menü: Tafel speichern, Seite/Auswahl zu „Meine Aufgaben“ (Strg+S speichert weiter direkt)
+/* 📤 Speichern unter: PC – Speicherort wählen; Tablet – Teilen-Menü („In Dateien sichern“, OneDrive …); sonst Download */
+async function speichernUnter() {
+  if (!S.board) return;
+  const b = S.board, name = `${F.safe(b.titel || 'Tafel')}.tafel.json`, blob = new Blob([JSON.stringify(b)], { type: 'application/json' });
+  try {
+    if (window.showSaveFilePicker && !T.istIpad) {
+      const hd = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'Tafel-Datei', accept: { 'application/json': ['.json'] } }] });
+      const w = await hd.createWritable(); await w.write(blob); await w.close(); toast('Gespeichert: ' + hd.name); return;
+    }
+    const datei = new File([blob], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [datei] })) { await navigator.share({ files: [datei], title: b.titel }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  T.downloadBlob(blob, name); toast('Als Datei heruntergeladen: ' + name, 3000);
+}
 $('bSave').onclick = e => {
   const n = S.sel && S.sel.ids ? S.sel.ids.size : 0, zu = fn => () => { T.closePops(); fn(); };
   openPop(e.currentTarget, h('div', { class: 'sp-kasten' }, h('h4', {}, '💾 Speichern'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch' } },
-    h('button', { class: 'big', onclick: zu(() => speichern(true)) }, '💾 Tafel speichern (Strg+S)'))),
+    h('button', { class: 'big', onclick: zu(() => speichern(true)) }, '💾 Tafel speichern (Strg+S)'),
+    h('button', { class: 'big', title: 'Als Datei an einem Ort Ihrer Wahl sichern (z. B. USB-Stick, IServ, OneDrive, am iPad: „In Dateien sichern“)', onclick: zu(speichernUnter) }, '📤 Speichern unter … (als Datei)'))),
     h('div', { class: 'ma-kasten' }, /* eigener, farbig eingerahmter Bereich – hebt sich vom normalen Speichern ab */
       h('h4', {}, '⭐ Zu „Meine Aufgaben“ hinzufügen'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch' } },
         h('button', { class: 'big', title: 'Alles auf dieser Seite (getippte Aufgaben, Bilder, Bausteine, Handschrift)', onclick: zu(() => T.seiteZuMeinenAufgaben(false)) }, '📄 Diese Seite'),
@@ -2563,6 +2998,8 @@ $('bSave').onclick = e => {
 };
 $('bExport').onclick = e => exportPop(e.currentTarget);
 $('bSettings').onclick = settingsDialog;
+/* Tablet als App vom Home-Bildschirm: läuft schon im Vollbild – ⛶ nicht anbieten */
+if (T.istIpad && (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))) $('bFull').style.display = 'none';
 $('ablageInfo').onclick = infoDialog;
 $('bFull').onclick = () => { // Vollbild – am iPad mit Safari-Präfix; geht es nicht: als App vom Home-Bildschirm starten
   const d = document, el = d.documentElement, voll = d.fullscreenElement || d.webkitFullscreenElement;
@@ -2582,9 +3019,12 @@ T.setThema = t => {
   T.opts.thema = THEMEN[t] ? t : 'auto'; T.saveOpts();
   const dunkel = T.opts.thema === 'dunkel' || (T.opts.thema === 'auto' && dunkelMQ.matches);
   document.documentElement.dataset.theme = dunkel ? 'dark' : 'light';
+  if (T.symbolGroesse) T.symbolGroesse();
   if (S.board && T.opts.tafelNacht) { autoInk(); T.renderOver(); } // weiße Tafel folgt dem Nachtmodus (Stift Schwarz ↔ Weiß passend)
   const b = $('bThema'); b.textContent = THEMEN[T.opts.thema][0]; b.title = 'Darstellung: ' + THEMEN[T.opts.thema][1] + ' – antippen zum Wechseln';
 };
+/* 🔍 Größere Symbole (⚙ › Darstellung): Leisten, Menüs und Knöpfe größer – leichter zu treffen */
+T.symbolGroesse = () => { const g = { gross: '1', sehrgross: '2' }[T.opts.symbole]; if (g) document.documentElement.dataset.gross = g; else delete document.documentElement.dataset.gross; };
 dunkelMQ.addEventListener('change', () => T.setThema(T.opts.thema));
 $('bThema').onclick = () => { const n = { auto: 'hell', hell: 'dunkel', dunkel: 'auto' }[T.opts.thema] || 'auto'; T.setThema(n); toast('Darstellung: ' + THEMEN[n][1], 1500); };
 

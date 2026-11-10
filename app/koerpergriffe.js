@@ -49,11 +49,62 @@ const VO = {
   kegel: d => [PI * d.r * d.r * d.h / 3, PI * d.r * (d.r + wurzel(d.r * d.r + d.h * d.h)), true],
   kugel: d => [4 / 3 * PI * d.r ** 3, 4 * PI * d.r * d.r, true]
 };
+// 🔄 Frei drehen: echte 3D-Ansicht (senkrechte Parallelprojektion) mit Drehung um die senkrechte Achse (dy) und Neigung (dp)
+// Modelle in cm, y nach oben; „glatte“ Kanten (Mantel von Zylinder/Kegel) erscheinen nur als Umriss
+const MODELL = {
+  wuerfel: d => quaderM(d.a, d.a, d.a), quader: d => quaderM(d.a, d.b, d.c),
+  pyramide: d => ({ V: [[0, 0, 0], [d.a, 0, 0], [d.a, 0, d.a], [0, 0, d.a], [d.a / 2, d.h, d.a / 2]], F: [[0, 1, 2, 3], [0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]], namen: 'ABCDS' }),
+  prisma: d => ({ V: [[0, 0, 0], [d.g, 0, 0], [d.g / 2, d.hd, 0], [0, 0, d.l], [d.g, 0, d.l], [d.g / 2, d.hd, d.l]], F: [[0, 1, 2], [3, 4, 5], [0, 1, 4, 3], [1, 2, 5, 4], [2, 0, 3, 5]], namen: 'ABCDEF' }),
+  zylinder: d => rund(d.r, d.h, false), kegel: d => rund(d.r, d.h, true)
+};
+function quaderM(a, b, c) { return { V: [[0, 0, 0], [a, 0, 0], [a, 0, b], [0, 0, b], [0, c, 0], [a, c, 0], [a, c, b], [0, c, b]], F: [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]], namen: 'ABCDEFGH' }; }
+function rund(r, h, spitz) {
+  const n = 64, V = [], F = [], glatt = new Set(), unten = [], key = (a, b) => Math.min(a, b) + '-' + Math.max(a, b);
+  for (let i = 0; i < n; i++) { const t = i / n * 2 * PI; V.push([r * Math.cos(t), 0, r * Math.sin(t)]); unten.push(i); }
+  if (spitz) { V.push([0, h, 0]); for (let i = 0; i < n; i++) { const j = (i + 1) % n; F.push([i, j, n]); glatt.add(key(i, n)); } }
+  else { for (let i = 0; i < n; i++) V.push([r * Math.cos(i / n * 2 * PI), h, r * Math.sin(i / n * 2 * PI)]);
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n; F.push([i, j, n + j, n + i]); glatt.add(key(i, n + i)); }
+    F.push(unten.map(i => n + i)); }
+  F.push(unten); return { V, F, glatt };
+}
+function dreh3d(k, d, P) {
+  const { doc, tx, ln, f } = T._svg, m = 40, a = (d.dy == null ? 30 : +d.dy || 0) * PI / 180, p = (d.dp == null ? 20 : +d.dp || 0) * PI / 180, ca = Math.cos(a), sa = Math.sin(a), cp = Math.cos(p), sp = Math.sin(p);
+  const rot = v => { const x1 = v[0] * ca + v[2] * sa, z1 = -v[0] * sa + v[2] * ca; return [x1, v[1] * cp - z1 * sp, v[1] * sp + z1 * cp]; };
+  if (k === 'kugel') { /* Kugel: Umriss bleibt, der Äquator zeigt die Drehung (vorn durchgezogen, hinten gestrichelt) */
+    const r = d.r * CM, W = 2 * r + 2 * m, c = W / 2; let s = `<circle cx="${f(c)}" cy="${f(c)}" r="${f(r)}" fill="${P.soft}" stroke="${P.ink}" stroke-width="3"/>`;
+    for (let i = 0; i < 96; i++) { const q1 = rot([d.r * Math.cos(i / 96 * 2 * PI), 0, d.r * Math.sin(i / 96 * 2 * PI)]), q2 = rot([d.r * Math.cos((i + 1) / 96 * 2 * PI), 0, d.r * Math.sin((i + 1) / 96 * 2 * PI)]), vorn = q1[2] + q2[2] >= 0;
+      s += ln(c + q1[0] * CM, c - q1[1] * CM, c + q2[0] * CM, c - q2[1] * CM, P.ink, vorn ? 2.5 : 2, vorn ? '' : `stroke-dasharray="${P.dash}"`); }
+    if (d.masse) s += `<circle cx="${f(c)}" cy="${f(c)}" r="3.5" fill="${P.acc}"/>`;
+    return { svg: doc(W, W, s), w: W, h: W };
+  }
+  const M3 = MODELL[k](d), xs = M3.V.map(v => v[0]), ys = M3.V.map(v => v[1]), zs = M3.V.map(v => v[2]);
+  const mid = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2];
+  const R = Math.max(...M3.V.map(v => Math.hypot(v[0] - mid[0], v[1] - mid[1], v[2] - mid[2]))), W = 2 * R * CM + 2 * m, c = W / 2;
+  const Q = M3.V.map(v => rot([v[0] - mid[0], v[1] - mid[1], v[2] - mid[2]])), X = q => c + q[0] * CM, Y = q => c - q[1] * CM;
+  const sub = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]], cen = [0, 1, 2].map(i => Q.reduce((s, q) => s + q[i], 0) / Q.length);
+  const vis = M3.F.map(fc => { const u = sub(Q[fc[1]], Q[fc[0]]), w = sub(Q[fc[fc.length - 1]], Q[fc[0]]); let nz = u[0] * w[1] - u[1] * w[0];
+    const fm = [0, 1, 2].map(i => fc.reduce((s, j) => s + Q[j][i], 0) / fc.length), n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], nz];
+    if (n[0] * (fm[0] - cen[0]) + n[1] * (fm[1] - cen[1]) + n[2] * (fm[2] - cen[2]) < 0) nz = -nz; return nz > 1e-9; });
+  const kanten = new Map();
+  M3.F.forEach((fc, fi) => fc.forEach((u, i) => { const v = fc[(i + 1) % fc.length], key = Math.min(u, v) + '-' + Math.max(u, v); const e = kanten.get(key) || { u, v, fl: [] }; e.fl.push(fi); kanten.set(key, e); }));
+  let s = '';
+  if (d.flaechen !== false || M3.glatt) M3.F.forEach((fc, fi) => { if (vis[fi]) s += `<polygon points="${fc.map(j => f(X(Q[j])) + ',' + f(Y(Q[j]))).join(' ')}" fill="${P.soft}" stroke="${P.soft}" stroke-width="1"/>`; });
+  for (const [key, e] of kanten) {
+    const sicht = e.fl.some(i => vis[i]);
+    if (M3.glatt && M3.glatt.has(key)) { if (e.fl.length === 2 && vis[e.fl[0]] !== vis[e.fl[1]]) s += ln(X(Q[e.u]), Y(Q[e.u]), X(Q[e.v]), Y(Q[e.v]), P.ink, 3); continue; } /* Mantel: nur der Umriss */
+    s += ln(X(Q[e.u]), Y(Q[e.u]), X(Q[e.v]), Y(Q[e.v]), P.ink, sicht ? 3 : 2, sicht ? '' : `stroke-dasharray="${P.dash}"`);
+  }
+  if (d.ecken && M3.namen) Q.forEach((q, i) => { if (i >= M3.namen.length) return; const dx = X(q) - c, dy = Y(q) - c, l = Math.hypot(dx, dy) || 1; s += tx(X(q) + dx / l * 20, Y(q) + dy / l * 20, M3.namen[i], P.acc, 20, 'middle', 'font-weight="600"'); });
+  return { svg: doc(W, W, s), w: W, h: W };
+}
+T.dreh3d = dreh3d; T.istKoerper = o => !!(o && o.t === 'o' && (VO[o.k] || o.k === 'faltnetz') && T.BAUSTEINE[o.k] && o.d && o.d.r3); /* nur mit 🔄 Drehen an: ziehen dreht (Körper und animierte Netze) */
 if (T._svg) for (const k of Object.keys(VO)) {
   const Bk = T.BAUSTEINE[k]; if (!Bk) continue;
-  const { doc, tx, ln, f } = T._svg, alt = Bk.gen;
-  Bk.felder = (Bk.felder || []).concat([{ k: 'kanten', l: 'Kantenlängen (bzw. r, h) mit Wert anzeigen', typ: 'check' }, { k: 'volumen', l: 'Volumen V anzeigen', typ: 'check' }, { k: 'oberflaeche', l: 'Oberfläche O anzeigen', typ: 'check' }]);
-  Bk.gen = (d, P) => {
+  const { doc, tx, ln, f } = T._svg, alt0 = Bk.gen, alt = (d, P) => d.r3 ? dreh3d(k, { ...Bk.def, ...d }, P) : alt0(d, P);
+  Bk.felder = (Bk.felder || []).concat([{ k: 'kanten', l: 'Kantenlängen (bzw. r, h) mit Wert anzeigen', typ: 'check' }, { k: 'volumen', l: 'Volumen V anzeigen', typ: 'check' }, { k: 'oberflaeche', l: 'Oberfläche O anzeigen', typ: 'check' },
+    { k: 'r3', l: '🔄 Gedrehte 3D-Ansicht (aus = wieder Schrägbild) – gewählten Körper mit dem Finger ziehen dreht ihn', typ: 'check' }, { k: 'dy', l: 'Drehung (°)', typ: 'zahl', min: -360, max: 360 }, { k: 'dp', l: 'Neigung (°)', typ: 'zahl', min: -90, max: 90 }]);
+  Bk.gen = (d0, P) => {
+    const d = d0.r3 ? { ...d0, kanten: false } : d0; /* gedreht: Kantenbeschriftung passt nicht zur Lage */
     const g = alt(d, P); if (!d.volumen && !d.oberflaeche && !d.kanten) return g;
     const dd = { ...Bk.def, ...d }, z = v => T.zahl(v, 1), [V, O, ca] = VO[k](dd), gl = ca ? ' ≈ ' : ' = ';
     const L = versatz(d), unten = d.kanten ? 30 : 0;
@@ -77,6 +128,7 @@ if (T._svg) for (const k of Object.keys(VO)) {
   // Symbolzeile: 📏 Kanten · 📦 Volumen · 🧱 Oberfläche – ein Tipp schaltet um
   const schalter = (akt, k) => b => { const o = akt(); if (!o) return; T.bausteinAendern(o, { f: dd => ({ d: { ...dd, [k]: !dd[k] } }) }); const n = akt(); b.classList.toggle('on', !!(n && n.d[k])); };
   Bk.schnell = d => [{ el: akt => T.chipZeile ? T.chipZeile([
+    { sym: '🔄', title: 'Drehen: an = Körper mit dem Finger ziehen dreht ihn (waagerecht rundherum, senkrecht neigen), verschieben am ✥ · aus = wieder Schrägbild', an: !!d.r3, fn: schalter(akt, 'r3') },
     { sym: '📏', title: 'Kantenlängen (bzw. r, h) mit Wert', an: !!d.kanten, fn: schalter(akt, 'kanten') },
     { sym: '📦', title: 'Volumen V', an: !!d.volumen, fn: schalter(akt, 'volumen') },
     { sym: '🧱', title: 'Oberfläche O', an: !!d.oberflaeche, fn: schalter(akt, 'oberflaeche') }]) : document.createElement('span') }]
@@ -85,12 +137,30 @@ if (T._svg) for (const k of Object.keys(VO)) {
 // Griffe in Tafel-Koordinaten (für Zeichnen und Antippen)
 T.koerperGriffe = o => {
   const K = o && o.t === 'o' && !o.fest && KG[o.k]; if (!K) return [];
-  const d = daten(o), g = T.genObj(o.k, d, false), A = anker(K, o.k, d);
+  const d = daten(o);
+  if (d.r3) return []; /* 🔄 gedreht: der ganze Körper ist der Griff (ziehen dreht) */
+  const g = T.genObj(o.k, d, false), A = anker(K, o.k, d);
   return K.griffe(d).map(q => { const [x, y] = T.svgZuWelt(o, g, A[0] + q.at[0], A[1] + q.at[1]); return { ...q, x, y, name: NAME[q.k] || q.k }; });
 };
 T.koerperGriffAt = (o, x, y, r) => T.koerperGriffe(o).find(q => Math.hypot(q.x - x, q.y - y) <= r) || null;
 // Ziehen: Maß aus dem Abstand zum Anker entlang der Griffrichtung; Anker bleibt an seiner Stelle auf der Tafel
 T.koerperGriffZiehen = (o0, q) => {
+  if (q.k === 'dreh') { /* waagerecht ziehen = um die senkrechte Achse drehen (360°), senkrecht ziehen = neigen */
+    const d0 = daten(o0), y0 = d0.dy == null ? 30 : +d0.dy, p0 = d0.dp == null ? 20 : +d0.dp, z = T.page().view.z || 1; let snapped = false, zuletzt = '';
+    return {
+      move(wx, wy) {
+        let dy = Math.round(y0 + (wx - q.x) * z * 0.6) % 360; if (dy < 0) dy += 360;
+        const dp = T.clamp(Math.round(p0 + (wy - q.y) * z * 0.6), -90, 90), sig = dy + '/' + dp;
+        T.overlay.label = { x: wx, y: wy, t: '⟳ ' + dy + '° · ↕ ' + dp + '°' };
+        if (sig === zuletzt) { T.renderOver(); return; }
+        if (!snapped) { T.snap(); snapped = true; } zuletzt = sig;
+        const o = T.page().items.find(i => i.id === o0.id) || o0, n = { ...o, d: { ...o.d, r3: true, dy, dp } };
+        if (!o.d.r3) { const g0 = T.genObj(o.k, o.d, false), g1 = T.genObj(o.k, n.d, false), s = o.w / g0.w, cx = o.x + o.w / 2, cy = o.y + o.h / 2; n.w = g1.w * s; n.h = g1.h * s; n.x = cx - n.w / 2; n.y = cy - n.h / 2; } /* erstes Drehen: Schrägbild → 3D-Ansicht, Mitte bleibt */
+        T.replaceItem(n); T.render(); T.renderOver();
+      },
+      up() { T.overlay.label = null; T.renderOver(); if (snapped) T.changed && T.changed(); }
+    };
+  }
   const K = KG[o0.k], B = T.BAUSTEINE[o0.k], d0 = daten(o0), g0 = T.genObj(o0.k, d0, false), s = o0.w / g0.w, A0 = anker(K, o0.k, d0);
   const W0 = T.svgZuWelt(o0, g0, A0[0], A0[1]), feld = (B.felder || []).find(f => f.k === q.k) || {}, lo = feld.min || 0.5, hi = feld.max || 30;
   const a = (o0.r || 0) * Math.PI / 180, co = Math.cos(a), si = Math.sin(a);

@@ -343,7 +343,7 @@ function videoPop(el) {
       h('button', { class: 'big', title: 'YouTube, Vimeo oder Link zu einer Video-Datei', onclick: zu(videoLink) }, '🔗 YouTube / Link')),
     h('h4', { style: { marginTop: '14px' } }, 'Live hinter der Tafel'), spalte(
       h('button', { class: 'big' + (kameraAn ? ' on' : ''), title: 'Webcam oder Dokumentenkamera live hinter der Tafel – darauf schreiben, festhalten', onclick: zu(() => T.kamera && T.kamera('kamera')) }, '📷 Kamera / Dokumentenkamera'),
-      h('button', { class: 'big', title: 'Ein anderes Fenster (z. B. digitales Schulbuch, PDF) live hinter der Tafel', onclick: zu(() => T.kamera && T.kamera('fenster')) }, '🖥 Fenster als Hintergrund'),
+      navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && !T.istIpad ? h('button', { class: 'big', title: 'Ein anderes Fenster (z. B. digitales Schulbuch, PDF) live hinter der Tafel', onclick: zu(() => T.kamera && T.kamera('fenster')) }, '🖥 Fenster als Hintergrund') : '', /* Tablet: geht dort nicht – nicht anbieten */
       kameraAn || hgAktiv ? h('button', { class: 'big warn', onclick: zu(() => { if (kameraAn) T.kameraAus(); hgAus(); }) }, '✕ Live-Bild aus') : ''));
 }
 const vk = document.getElementById('bVideo'); if (vk) vk.onclick = e => videoPop(e.currentTarget);

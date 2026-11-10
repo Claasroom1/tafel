@@ -266,7 +266,8 @@ function faltSzene(d, t) {
 T.faltSzene = faltSzene; /* für Tests */
 const newellZ = q => q.reduce((s, v, i) => { const w = q[(i + 1) % q.length]; return s + (v[0] - w[0]) * (v[1] + w[1]); }, 0);
 function faltProjektion(d, t) {
-  const S = faltSzene(d, t), ctr = S.ctr, ps = t * (d.koerper === 'kegel' ? 70 : 30) * Math.PI / 180, /* Kegel: von der Seite, nicht entlang der Achse */ ph = t * 55 * Math.PI / 180, cs = Math.cos(ps), sn = Math.sin(ps), cp = Math.cos(ph), sp = Math.sin(ph);
+  const S = faltSzene(d, t), ctr = S.ctr, dr = !!d.r3, /* 🔄 Drehen: Blickrichtung frei (dy rundherum, dp Neigung) */
+    ps = (dr ? +d.dy || 0 : t * (d.koerper === 'kegel' ? 70 : 30)) * Math.PI / 180, /* Kegel: von der Seite, nicht entlang der Achse */ ph = (dr ? +d.dp || 0 : t * 55) * Math.PI / 180, cs = Math.cos(ps), sn = Math.sin(ps), cp = Math.cos(ph), sp = Math.sin(ph);
   const cam = v => { const x = v[0] - ctr[0], y = v[1] - ctr[1], z = v[2], x2 = x * cs - y * sn, y2 = x * sn + y * cs; return [x2, y2 * cp - z * sp, y2 * sp + z * cp]; };
   return S.faces.map(Fa => { const q = Fa.q.map(cam);
     return { q, tiefe: q.reduce((s, v) => s + v[2], 0) / q.length, innen: newellZ(q) * newellZ(Fa.p2) >= 0, g: Fa.g, rand: Fa.rand }; });
@@ -284,6 +285,10 @@ B.faltnetz = { name: 'Faltnetz (animiert)', gruppe: 'Mathe', def: { koerper: 'wu
   gen: (d, P) => {
     const t = T.clamp(+d.t || 0, 0, 1);
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    if (d.r3) { /* 🔄 gedreht: festes Quadrat, das jede Lage und jeden Faltzustand fasst – die Größe springt beim Drehen nicht */
+      let R = 0; [0, 0.25, 0.5, 0.75, 1].forEach(tt => { const Sz = faltSzene(d, tt); Sz.faces.forEach(Fa => Fa.q.forEach(v => { R = Math.max(R, Math.hypot(v[0] - Sz.ctr[0], v[1] - Sz.ctr[1], v[2])); })); });
+      x0 = y0 = -R; x1 = y1 = R;
+    } else
     [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1].forEach(tt => faltProjektion(d, tt).forEach(Fl => Fl.q.forEach(v => { x0 = Math.min(x0, v[0]); x1 = Math.max(x1, v[0]); y0 = Math.min(y0, v[1]); y1 = Math.max(y1, v[1]); })));
     const m = 14, W = (x1 - x0) * CM + 2 * m, H = (y1 - y0) * CM + 2 * m, X = v => f(m + (v[0] - x0) * CM), Y = v => f(m + (v[1] - y0) * CM);
     const fl = faltProjektion(d, t).sort((a, b) => a.tiefe - b.tiefe);
@@ -344,7 +349,8 @@ const KV = T.KACHEL_VARIANTEN = T.KACHEL_VARIANTEN || {};
   KV['faltnetz:' + k] = { name: name + ' (animiert)', d: { koerper: k, ...m }, vorschau: { t: 0.55 } };
 });
 KV['faltnetz:wuerfel'] = { name: 'Würfel (animiert)', d: { koerper: 'wuerfel' }, vorschau: { t: 0.55 } };
-B.faltnetz.schnell = d => [{ l: '▶ Falten', aus: o => falteAnimiert(o, 1) }, { l: '◀ Auffalten', aus: o => falteAnimiert(o, 0) }, { l: 'Regler', el: faltRegler }]
+B.faltnetz.schnell = d => [q3(d.r3 ? '🔄 Drehen aus' : '🔄 Drehen', dd => { dd.r3 = !dd.r3; if (dd.r3) { const t = T.clamp(+dd.t || 0, 0, 1); dd.dy = Math.round(t * (dd.koerper === 'kegel' ? 70 : 30)); dd.dp = Math.round(t * 55); } return dd; }), /* an: Netz mit dem Finger ziehen dreht es (auch beim Falten) */
+  { l: '▶ Falten', aus: o => falteAnimiert(o, 1) }, { l: '◀ Auffalten', aus: o => falteAnimiert(o, 0) }, { l: 'Regler', el: faltRegler }]
   .concat(d.koerper === 'wuerfel' || d.koerper === 'quader' ? [q3('▶ Nächstes Netz', dd => { if (dd.koerper === 'quader') dd.form = String((+dd.form || 1) % 3 + 1); else dd.netz = String((+dd.netz || 1) % 11 + 1); return dd; })] : [])
   .concat([q3('🎨 Gegenflächen ein/aus', dd => { dd.gegen = !dd.gegen; return dd; })]);
 
