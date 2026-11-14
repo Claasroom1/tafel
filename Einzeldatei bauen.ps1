@@ -1,5 +1,5 @@
 ﻿# Baut die ganze Tafel-App in EINE HTML-Datei (für SMART Boards / Geräte, auf die man keine Ordner kopieren kann).
-# Ergebnis: ..\Tafel-App (eine Datei).html  – CSS, Skripte, Symbol, Karten und Skelett-Bilder sind eingebettet.
+# Ergebnis: ..\Tafel-App GitHub (eine Datei).html  – CSS, Skripte, Symbol, Karten und Skelett-Bilder sind eingebettet.
 # Aufruf: Rechtsklick > "Mit PowerShell ausführen"  oder  powershell -ExecutionPolicy Bypass -File "Einzeldatei bauen.ps1"
 $ErrorActionPreference = 'Stop'
 $basis = $PSScriptRoot
@@ -31,6 +31,6 @@ foreach ($d in (Get-ChildItem (Join-Path $basis 'app\karten\*.js')) + (Get-Child
   [void]$daten.Append("<script type=`"text/plain`" data-src=`"$rel`">" + (Sicher ([IO.File]::ReadAllText($d.FullName, [Text.Encoding]::UTF8))) + "</script>`n") }
 $html = $html.Replace('</body>', $daten.ToString() + '</body>')
 
-$ziel = Join-Path (Split-Path $basis -Parent) 'Tafel-App (eine Datei).html'
+$ziel = Join-Path (Split-Path $basis -Parent) 'Tafel-App GitHub (eine Datei).html'   # eigener Name – die Haupt-App baut 'Tafel-App (eine Datei).html'
 [IO.File]::WriteAllText($ziel, $html, $utf8)
 "Fertig: $ziel  ({0:N1} MB)" -f ((Get-Item $ziel).Length / 1MB)

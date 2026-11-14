@@ -30,9 +30,9 @@
   <span id="stiftInfo" title="Was zuletzt auf die Tafel getippt hat"></span>
   <button class="tb" id="bSave" title="Speichern: Tafel speichern · Seite oder Auswahl zu „Meine Aufgaben“ (Strg+S speichert sofort)">💾<span class="tbtxt"> Speichern</span> ▾</button>
   <button class="tb" id="bExport" title="Import: PowerPoint, Word, PDF, Bilder · Export: PNG, PDF, Tafel-Datei">⇅<span class="tbtxt"> Import / Export</span></button>
-  <button class="tb" id="bVideo" title="Video: Anschrieb aufnehmen (Video, Stop-Motion) · Videos abspielen (Datei, YouTube) · Kamera und Fenster als Hintergrund">🎬<span class="tbtxt"> Video</span></button>
+  <button class="tb" id="bVideo" title="Video &amp; Aufnahme: Anschrieb aufnehmen (Video, Stop-Motion) · Videos abspielen (Datei, YouTube) · Kamera und Fenster als Hintergrund">🎬<span class="tbtxt"> Video &amp; Aufnahme</span> ▾</button>
   <button class="tb" id="bAnim" title="Animation: Effekte, Start (Klick/Zeit) und Reihenfolge der Seite – Bereich rechts ein-/ausblenden">✨<span class="tbtxt"> Animation</span></button>
-  <button class="tb" id="bPraes" title="Bildschirmpräsentation starten: Animationen Schritt für Schritt, Seite für Seite">▶<span class="tbtxt"> Präsentieren</span></button>
+  <button class="tb" id="bPraes" title="Präsentieren: Bildschirmpräsentation starten · Animationen bearbeiten">▶<span class="tbtxt"> Präsentieren</span> ▾</button>
   <button class="tb" id="bThema" title="Hell / Dunkel / Automatisch">🌓</button>
   <button class="tb" id="bSettings" title="Einstellungen">⚙</button>
   <button class="tb" id="bFull" title="Vollbild">⛶</button>
@@ -100,7 +100,20 @@
 <script src="app/puzzle.js"></script>
 <script src="app/bruchstuecke.js"></script>
 <script src="app/geodreieck_erkl.js"></script>
-<script src="app/feiern.js"></script>
+<script src="app/schraegbild.js"></script>
+<script src="app/dreiecke_erkl.js"></script>
+<script src="app/stunde.js"></script>
+<script src="app/wirtschaft.js"></script>
+<script src="app/klassenleben.js"></script>
+<script src="app/erarbeiten.js"></script>
+<script src="app/sitzplan.js"></script><script src="app/feiern.js"></script>
+<script src="app/geld.js"></script>
+<script src="app/folie.js"></script>
+<script src="app/vorlagen-kern.js"></script><!-- Vorlagen-Grundlagen, Seitengriffe ↔ ↕ (gemeinsam mit GitHub- und Schüler-Version) -->
+<script src="app/heft.js"></script><!-- 📒 Aufgaben & Notizen (gemeinsam) -->
+<script src="app/mitschrift.js"></script><!-- 📝 Mitschrift- und Lernvorlagen, 🗂 Vokabeltrainer (gemeinsam) -->
+<script src="app/lehrer-vorlagen.js"></script><!-- 📝 Protokollvorlage -->
+<script src="app/sicherung.js"></script><!-- 💾 Sicherung & Wiederherstellen (gemeinsam) -->
 <script>
   // Installierbar/offline nur, wenn die App über eine Web-Adresse läuft (nicht beim Öffnen als Datei)
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});

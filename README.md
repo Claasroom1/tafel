@@ -37,7 +37,7 @@ Hinweise:
 
 ## Eine einzige HTML-Datei bauen (optional)
 
-Für Geräte, auf die man keine Ordner kopieren kann: `Einzeldatei bauen.ps1` (Windows PowerShell) erzeugt daneben `Tafel-App (eine Datei).html` mit allem eingebettet.
+Für Geräte, auf die man keine Ordner kopieren kann: `Einzeldatei bauen.ps1` (Windows PowerShell) erzeugt daneben `Tafel-App GitHub (eine Datei).html` mit allem eingebettet.
 
 ## Datenschutz
 
