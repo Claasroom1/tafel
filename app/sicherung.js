@@ -97,7 +97,7 @@ T.sicherungDialog = async () => {
 // Knopf auf der Startseite (Kopfzeile) + Erinnerung, wenn ohne Ablageordner gearbeitet wird
 const knopf = () => {
   const A = document.getElementById('archiv'); if (!A || getComputedStyle(A).display === 'none') return;
-  const kopf = A.querySelector('.kopf'); if (!kopf || kopf.querySelector('.sich-kopf')) return;
+  const kopf = A.querySelector('.kopf'); if (!kopf || kopf.querySelector('.sich-kopf') || kopf.querySelector('.name-wahl')) return; /* angemeldet: steht im Namensmenü */
   const tage = tageSeit(), alt = !F.supported && (tage == null || tage > 7);
   const b = T.h('button', { class: 'big sich-kopf', title: 'Alles in einer Datei sichern oder wiederherstellen', onclick: () => T.sicherungDialog() }, '💾 Sicherung');
   if (alt) b.append(T.h('span', { class: 'sich-punkt', title: 'Länger nicht gesichert' }, '!'));

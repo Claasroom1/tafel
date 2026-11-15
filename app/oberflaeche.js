@@ -2471,7 +2471,6 @@ async function startSeite(A) {
     }
   } catch (e) {}
   mitte.append(h('button', { class: 'big', style: { marginTop: '8px', alignSelf: 'center' }, onclick: () => dateiOeffnen() }, '📂 Tafel-Datei öffnen'));
-  if (T.ordnerWahlMoeglich && F.intern) mitte.append(h('button', { class: 'big', style: { marginTop: '8px', alignSelf: 'center' }, title: 'Alle Tafeln des Ablageordners (z. B. aus IServ) auf einmal übernehmen – mit Klassen und Fächern', onclick: () => ordnerUebernehmen() }, '📁 Ganzen Ordner übernehmen'));
 }
 T.archiv = (...a) => archiv(...a); /* für Tests */
 async function archiv() {
@@ -2481,11 +2480,13 @@ async function archiv() {
   /* links: Name antippen › Abmelden (und Sperren), gleich daneben ⚙ Einstellungen */
   /* Name antippen: darunter klappt ein kleines Menü auf – 🚪 Abmelden (mit Rückfrage), ⚙ Einstellungen */
   const menue = h('div', { class: 'name-menue', style: { display: 'none' } },
+    h('button', { class: 'big', title: 'Tafel-Datei oder Sicherung öffnen, z. B. aus IServ', onclick: () => { menue.style.display = 'none'; dateiOeffnen(); } }, '📂 Datei öffnen'),
+    T.sicherungDialog ? h('button', { class: 'big', title: 'Alles in einer Datei sichern oder wiederherstellen', onclick: () => { menue.style.display = 'none'; T.sicherungDialog(); } }, '💾 Sicherung') : '',
     h('button', { class: 'big', onclick: async () => {
       menue.style.display = 'none';
       if (await frage(`Wirklich abmelden, ${name}?\n\nDie offene Tafel wird vorher gespeichert und geschlossen; danach erscheint wieder die Startseite für alle.`, { ok: '🚪 Abmelden', abbrechen: 'Abbrechen' })) tafelSchliessenUnd(abmelden); } }, '🚪 Abmelden'),
     h('button', { class: 'big', title: 'Stift, Finger, Darstellung, Sperre, Ablageordner …', onclick: () => { menue.style.display = 'none'; settingsDialog(); } }, '⚙ Einstellungen'));
-  const nameKnopf = h('button', { class: 'name-k', title: 'Antippen: Abmelden, Einstellungen', onclick: e => { e.stopPropagation(); menue.style.display = menue.style.display === 'none' ? 'flex' : 'none'; } }, '👤 ' + name + ' ▾');
+  const nameKnopf = h('button', { class: 'name-k', title: 'Antippen: Datei öffnen, Sicherung, Abmelden, Einstellungen', onclick: e => { e.stopPropagation(); menue.style.display = menue.style.display === 'none' ? 'flex' : 'none'; } }, '👤 ' + name + ' ▾');
   A.onclick = e => { if (!e.target.closest('.name-wahl')) menue.style.display = 'none'; }; /* daneben tippen: zu */
   const kopf = h('div', { class: 'kopf' }, h('div', { class: 'name-wahl' }, nameKnopf, menue), h('span', { class: 'spacer' }),
     S.board ? h('button', { class: 'big', onclick: () => { A.style.display = 'none'; } }, '← Zurück zur Tafel') : '');
@@ -2592,7 +2593,7 @@ async function archiv() {
       rechts.append(h('button', { class: 'big', style: { marginTop: '14px' }, onclick: () => { papierkorbAuf = !papierkorbAuf; pl.style.display = papierkorbAuf ? 'flex' : 'none'; } }, `🗑 Papierkorb (${pk.length})`), pl);
     }
   }
-  A.append(dateiKarte());
+  /* 📂 Datei öffnen und 💾 Sicherung stehen oben im Namensmenü */
   /* ganz unten: PIN und automatisches Speichern */
   const autoBox = h('input', { type: 'checkbox', checked: T.opts.autoSpeichern !== false, style: { width: '24px', height: '24px' }, onchange: e => { if (e.target.checked) delete T.opts.autoSpeichern; else T.opts.autoSpeichern = false; T.saveOpts(); toast(e.target.checked ? '💾 Tafeln werden automatisch gespeichert.' : '💾 Nur noch beim Tippen auf „Speichern“ (Strg+S).', 2500); } });
   lk.append(h('label', { class: 'big', style: { display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px', cursor: 'pointer' } }, autoBox, '💾 Tafeln automatisch speichern (alle 20 s)'));
@@ -2666,13 +2667,7 @@ const dateiOeffnen = () => { if (!dateiKarte.oeffnen) dateiKarte(); return datei
 function dateiKarte() {
   const oeffnen = dateiKarte.oeffnen = async () => {
     try {
-      let b;
-      if (T.dateienWaehlen) { /* mehrere Dateien oder ZIP (ganzer Ordner) → alle übernehmen; eine Tafel → öffnen */
-        const fs = await T.dateienWaehlen(); if (!fs.length) return;
-        if (fs.length > 1 || /\.zip$/i.test(fs[0].name)) { const r = await T.tafelnImportieren(fs); if (r) { toast(T.importMeldung(r), 6000); archiv(); } return; }
-        b = JSON.parse(await fs[0].text());
-      } else b = await F.upload();
-      if (!b) return;
+      const b = await F.upload(); if (!b) return;
       if (F.istSicherung(b)) {
         if (!F.root) { toast('Zum Einspielen einer Sicherung zuerst einen Ablageordner wählen.', 5000); return; }
         const n = await F.einspielen(b); toast(`Sicherung eingespielt: ${n} Datei(en) neu – vorhandene wurden nicht überschrieben.`, 5000); archiv(); return;
@@ -2681,16 +2676,9 @@ function dateiKarte() {
     } catch (e) { toast('Diese Datei ist keine Tafel: ' + e.message); }
   };
   return h('div', { class: 'karte' }, h('div', { class: 'row' },
-    h('button', { class: 'big', onclick: oeffnen }, '📂 Datei öffnen / 📥 Sicherung einspielen'),
-    T.ordnerWahlMoeglich && F.root ? h('button', { class: 'big', title: 'Alle Tafeln eines Ordners (z. B. des Ablageordners in IServ) auf einmal übernehmen – mit Klassen und Fächern', onclick: () => ordnerUebernehmen() }, '📁 Ganzen Ordner übernehmen') : '',
-    F.root ? h('button', { class: 'big', title: 'Alle Tafeln und Notizen in einer Datei sichern', onclick: async () => { try { const n = await F.sicherung(); toast(`Sicherung mit ${n} Datei(en) heruntergeladen.`); } catch (e) { toast('Sicherung fehlgeschlagen: ' + e.message, 5000); } } }, '💾 Sicherung exportieren') : '',
-    h('span', { class: 'hint', style: { flex: 1, minWidth: '220px' } }, 'Tafel-Datei oder Sicherung von woanders öffnen (z. B. aus IServ oder vom USB-Stick). Mehrere Dateien oder eine ZIP-Datei werden alle übernommen.')));
+    h('button', { class: 'big', onclick: oeffnen }, '📂 Datei öffnen / 📥 Sicherung einspielen'),    F.root ? h('button', { class: 'big', title: 'Alle Tafeln und Notizen in einer Datei sichern', onclick: async () => { try { const n = await F.sicherung(); toast(`Sicherung mit ${n} Datei(en) heruntergeladen.`); } catch (e) { toast('Sicherung fehlgeschlagen: ' + e.message, 5000); } } }, '💾 Sicherung exportieren') : '',
+    h('span', { class: 'hint', style: { flex: 1, minWidth: '220px' } }, 'Tafel-Datei oder Sicherung von woanders öffnen (z. B. aus IServ oder vom USB-Stick).')));
 }
-const ordnerUebernehmen = async () => {
-  try { const fs = await T.ordnerWaehlen(); if (!fs.length) return;
-    const r = await T.tafelnImportieren(fs); if (r) { toast(T.importMeldung(r), 6000); archiv(); }
-  } catch (e) { toast('Übernehmen fehlgeschlagen: ' + e.message, 5000); }
-};
 
 // ---------- Export ----------
 function contentRect(pg) {
