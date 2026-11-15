@@ -16,6 +16,21 @@ Läuft komplett im Browser, ohne Installation, ohne Anmeldung und ohne Server: A
 
 Ausführliche Bedienung: [Anleitung.md](Anleitung.md)
 
+## 📥 Für zu Hause herunterladen (Windows-PC)
+
+Damit lassen sich Tafelbilder zu Hause vorbereiten und in der Schule weiterverwenden – es ist dieselbe App wie am Board.
+
+1. Oben auf dieser Seite **Code › Download ZIP** wählen.
+2. Die ZIP-Datei **entpacken** (Rechtsklick › „Alle extrahieren…“) – z. B. nach *Dokumente\Tafel-App*. Nicht direkt aus der ZIP-Datei starten.
+3. Im entpackten Ordner **`Desktop-Verknüpfung erstellen.bat`** doppelklicken – danach liegt „Tafel-App“ auf dem Desktop.
+   Ohne Verknüpfung: `Tafel starten.bat` doppelklicken (öffnet die Tafel in Edge als eigenes Fenster).
+4. Beim ersten Start **👤 Anmelden › 📂 Ordner einrichten** – als Ablageordner am besten denselben, den die Schule nutzt (z. B. den IServ-Ordner über das IServ-Laufwerk oder einen synchronisierten Cloud-Ordner). Dann liegen die zu Hause erstellten Tafeln automatisch auch am Board bereit.
+   Ohne gemeinsamen Ordner: Tafel über **📁 Tafel ▾ › 📤 Speichern unter …** als Datei sichern und in der Schule wieder öffnen.
+
+Windows fragt beim ersten Start evtl. „Möchten Sie diese Datei öffnen?“ – mit „Öffnen“ bestätigen.
+`Tafel starten (ohne SMART Ink).bat` ist nur für Schul-PCs mit SMART-Software gedacht.
+Wer nichts herunterladen möchte, kann die Tafel auch einfach über die Webadresse öffnen und dort installieren (Edge › „App installieren“).
+
 ## Auf dem iPad mit Apple Pencil
 
 1. Die Seite in **Safari** öffnen.

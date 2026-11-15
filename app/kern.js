@@ -242,8 +242,12 @@ T.winkelAt = (wx, wy, px) => {
     if (q.d >= 0) { rel = ((rel % zw) + zw) % zw; return rel <= q.d + 0.05; } rel = -((((-rel) % zw) + zw) % zw); return rel >= q.d - 0.05; };
   /* Beschriftung als breites Rechteck (Winkelart, Maße) */
   const imText = o => o.flach != null && Math.abs(wx - o.x) <= o.r + tol && Math.abs(wy - o.y) <= o.flach + tol;
+  /* 📏 Strecke bzw. Seite mit angezeigter Länge: Tipp auf das mittlere Drittel der Linie */
+  const aufStrecke = q => { if (!q) return false; const dx = q.bx - q.ax, dy = q.by - q.ay, L2 = dx * dx + dy * dy; if (L2 < 1) return false;
+    const t = ((wx - q.ax) * dx + (wy - q.ay) * dy) / L2; if (t < 1 / 3 || t > 2 / 3) return false;
+    return Math.hypot(wx - (q.ax + t * dx), wy - (q.ay + t * dy)) <= 14 * (px || 1) + tol; };
   return orte.find(o => o.flach != null ? imText(o) : (Math.hypot(wx - o.x, wy - o.y) < o.r * 0.7 + tol || Math.hypot(wx - o.vx, wy - o.vy) < o.r * 0.45 + tol))
-    || orte.find(o => imSektor(o.sek)) || null;
+    || orte.find(o => imSektor(o.sek)) || orte.find(o => aufStrecke(o.seg)) || null;
 };
 // Zustand eines Winkels: 'zahl' | 'frage' | 'leer' – ohne Eintrag gilt der Start der Seite (neue Seiten mit Formen: zuerst „?“)
 /* Reihenfolge: einzeln angetippt (wkVerdeckt) › an der Form je Sorte (it.vs: w Winkel, m Längen, u Umfang, f Fläche) › Seite › Voreinstellung (zuerst verdeckt) */
@@ -449,10 +453,10 @@ T.masseMalen = (ctx, pg, dark, px, drag) => {
   const orte = (T._wkOrte || (T._wkOrte = new WeakMap())).get(pg) || []; T._wkOrte.set(pg, orte);
   const fk = []; (T._fkOrte || (T._fkOrte = new WeakMap())).set(pg, fk); /* 🧮 Formelkästen zum Antippen/Verschieben */
   const z = v => T.zahl(v, 1), col = dark ? '#93c5fd' : '#1d4ed8', fs = 19 * px;
-  const schreibe = (txt, x, y, key, fett) => {
+  const schreibe = (txt, x, y, key, fett, seg) => { /* seg: zugehörige Strecke – ihr mittleres Drittel ist ebenfalls antippbar (nur wenn die Länge angezeigt werden soll) */
     const m = /^(.*?) [=≈] /.exec(txt), zust = T.winkelZustand(pg, key), t = zust === 'frage' ? (m ? m[1] + ' = ?' : '?') : zust === 'leer' ? '' : txt; /* verdeckt: „u = ?“, „A = ?“, „a = ?“ */
     if (t) { ctx.font = `${fett ? 700 : 600} ${fs}px Segoe UI`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5 * px; ctx.strokeStyle = dark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.92)'; ctx.strokeText(t, x, y); ctx.fillStyle = col; ctx.fillText(t, x, y); }
-    orte.push({ key, x, y, vx: x, vy: y, r: Math.max(fs * 2, ctx.measureText(txt).width / 2 + fs * 0.6), flach: fs * 1.2 }); /* ganze Beschriftung (auch „?“ oder leer) antippbar */
+    orte.push({ key, x, y, vx: x, vy: y, r: Math.max(fs * 2, ctx.measureText(txt).width / 2 + fs * 0.6), flach: fs * 1.2, seg: seg || null }); /* ganze Beschriftung (auch „?“ oder leer) antippbar */
   };
   const strich = (a, b) => { ctx.save(); ctx.setLineDash([7 * px, 5 * px]); ctx.strokeStyle = col; ctx.lineWidth = 2.5 * px; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.restore(); };
   for (const it of pg.items) {
@@ -477,7 +481,7 @@ T.masseMalen = (ctx, pg, dark, px, drag) => {
           const a = P[i], b = P[(i + 1) % P.length], cx = (a[0] + b[0]) / 2, cy = (a[1] + b[1]) / 2; let nx = -(b[1] - a[1]), ny = b[0] - a[0]; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
           if (W.art === 'vieleck' ? (cx - mx) * nx + (cy - my) * ny < 0 : ny > 0) { nx = -nx; ny = -ny; } /* nach außen bzw. über die Strecke */
           const x = cx + nx * (fs * 1.1 + it.w), y = cy + ny * (fs * 1.1 + it.w);
-          if (it.ms) schreibe(mitName(i, z(W.s[i]) + ' cm'), x, y, it.id + '#m' + i); else if (nm) name(nm[i], x, y);
+          if (it.ms) schreibe(mitName(i, z(W.s[i]) + ' cm'), x, y, it.id + '#m' + i, false, { ax: a[0], ay: a[1], bx: b[0], by: b[1] }); else if (nm) name(nm[i], x, y);
         }
       } else if (W.art === 'kreis' || W.art === 'kreiswinkel') {
         const M = W.M, R = W.r * T.CM, g = W.art === 'kreiswinkel' ? Math.atan2(W.A[1] - M[1], W.A[0] - M[0]) : -Math.PI / 6, E = [M[0] + R * Math.cos(g), M[1] + R * Math.sin(g)];
