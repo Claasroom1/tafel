@@ -2471,6 +2471,7 @@ async function startSeite(A) {
     }
   } catch (e) {}
   mitte.append(h('button', { class: 'big', style: { marginTop: '8px', alignSelf: 'center' }, onclick: () => dateiOeffnen() }, '📂 Tafel-Datei öffnen'));
+  if (T.ordnerWahlMoeglich && F.intern) mitte.append(h('button', { class: 'big', style: { marginTop: '8px', alignSelf: 'center' }, title: 'Alle Tafeln des Ablageordners (z. B. aus IServ) auf einmal übernehmen – mit Klassen und Fächern', onclick: () => ordnerUebernehmen() }, '📁 Ganzen Ordner übernehmen'));
 }
 T.archiv = (...a) => archiv(...a); /* für Tests */
 async function archiv() {
@@ -2665,7 +2666,13 @@ const dateiOeffnen = () => { if (!dateiKarte.oeffnen) dateiKarte(); return datei
 function dateiKarte() {
   const oeffnen = dateiKarte.oeffnen = async () => {
     try {
-      const b = await F.upload(); if (!b) return;
+      let b;
+      if (T.dateienWaehlen) { /* mehrere Dateien oder ZIP (ganzer Ordner) → alle übernehmen; eine Tafel → öffnen */
+        const fs = await T.dateienWaehlen(); if (!fs.length) return;
+        if (fs.length > 1 || /\.zip$/i.test(fs[0].name)) { const r = await T.tafelnImportieren(fs); if (r) { toast(T.importMeldung(r), 6000); archiv(); } return; }
+        b = JSON.parse(await fs[0].text());
+      } else b = await F.upload();
+      if (!b) return;
       if (F.istSicherung(b)) {
         if (!F.root) { toast('Zum Einspielen einer Sicherung zuerst einen Ablageordner wählen.', 5000); return; }
         const n = await F.einspielen(b); toast(`Sicherung eingespielt: ${n} Datei(en) neu – vorhandene wurden nicht überschrieben.`, 5000); archiv(); return;
@@ -2675,9 +2682,15 @@ function dateiKarte() {
   };
   return h('div', { class: 'karte' }, h('div', { class: 'row' },
     h('button', { class: 'big', onclick: oeffnen }, '📂 Datei öffnen / 📥 Sicherung einspielen'),
+    T.ordnerWahlMoeglich && F.root ? h('button', { class: 'big', title: 'Alle Tafeln eines Ordners (z. B. des Ablageordners in IServ) auf einmal übernehmen – mit Klassen und Fächern', onclick: () => ordnerUebernehmen() }, '📁 Ganzen Ordner übernehmen') : '',
     F.root ? h('button', { class: 'big', title: 'Alle Tafeln und Notizen in einer Datei sichern', onclick: async () => { try { const n = await F.sicherung(); toast(`Sicherung mit ${n} Datei(en) heruntergeladen.`); } catch (e) { toast('Sicherung fehlgeschlagen: ' + e.message, 5000); } } }, '💾 Sicherung exportieren') : '',
-    h('span', { class: 'hint', style: { flex: 1, minWidth: '220px' } }, 'Tafel-Datei oder Sicherung von woanders öffnen (z. B. aus IServ oder vom USB-Stick).')));
+    h('span', { class: 'hint', style: { flex: 1, minWidth: '220px' } }, 'Tafel-Datei oder Sicherung von woanders öffnen (z. B. aus IServ oder vom USB-Stick). Mehrere Dateien oder eine ZIP-Datei werden alle übernommen.')));
 }
+const ordnerUebernehmen = async () => {
+  try { const fs = await T.ordnerWaehlen(); if (!fs.length) return;
+    const r = await T.tafelnImportieren(fs); if (r) { toast(T.importMeldung(r), 6000); archiv(); }
+  } catch (e) { toast('Übernehmen fehlgeschlagen: ' + e.message, 5000); }
+};
 
 // ---------- Export ----------
 function contentRect(pg) {
