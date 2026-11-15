@@ -266,7 +266,7 @@ T.winkelAlle = (zust, ids, art) => {
   if (!ids) { /* ganze Seite: alles auf einmal, auch was an den Formen eingestellt war */
     for (const k of Object.keys(v)) if (arten.includes(sorte(k))) delete v[k];
     if (!art) { pg.wkStart = zust; pg.items = pg.items.map(i => i.vs ? (({ vs, ...r }) => r)(i) : i); }
-    else pg.items = pg.items.map(i => i.t === 's' && i.m === 'line' ? { ...i, vs: { ...(i.vs || {}), ...Object.fromEntries(arten.map(a => [a, zust])) } } : i);
+    else pg.items = pg.items.map(i => (i.t === 's' && i.m === 'line') || (T.hatKoerperFormeln && T.hatKoerperFormeln(i)) ? { ...i, vs: { ...(i.vs || {}), ...Object.fromEntries(arten.map(a => [a, zust])) } } : i);
   } else { /* gewählte Formen: Start je Sorte an der Form merken (gilt auch für gerade ausgeblendete Werte), einzeln Angetipptes zurücksetzen */
     for (const k of Object.keys(v)) if (arten.includes(sorte(k)) && ids.some(id => k.startsWith(id + '#') || k.includes(id))) delete v[k];
     pg.items = pg.items.map(i => ids.includes(i.id) ? { ...i, vs: { ...(i.vs || {}), ...Object.fromEntries(arten.map(a => [a, zust])) } } : i);
@@ -442,6 +442,13 @@ T.masseMalen = (ctx, pg, dark, px, drag) => {
   };
   const strich = (a, b) => { ctx.save(); ctx.setLineDash([7 * px, 5 * px]); ctx.strokeStyle = col; ctx.lineWidth = 2.5 * px; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.restore(); };
   for (const it of pg.items) {
+    if (it.t === 'o') { /* 🧊 3D-Körper: Volumen V und Oberfläche O im Formelkasten neben dem Körper (Formeln: koerpergriffe.js) */
+      const KF = T.koerperFormeln && T.koerperFormeln(it); if (!KF || !KF.Z.length) continue;
+      if (it.auf && T.aufZustand && T.aufZustand(pg, it) === false) continue; /* Aufdecken: Körper noch verdeckt */
+      const dr = drag && T.S.sel && T.S.sel.ids.has(it.id) ? drag : null;
+      ctx.save(); if (dr) ctx.translate(dr.dx, dr.dy); T.formelKasten(ctx, pg, it, KF, dark, px, fk, dr); ctx.restore();
+      continue;
+    }
     if (it.t !== 's' || !(it.ms || it.mu || it.mf || it.mo) || !it.p) continue;
     const W = T.formMasse(it); if (!W) continue;
     const FF = it.mo ? T.formFormeln(it, W) : null, nm = FF && FF.namen; /* 🧮 mit Formeln: Seiten heißen a, b, c … */
@@ -485,16 +492,17 @@ T.masseMalen = (ctx, pg, dark, px, drag) => {
 // 🧮 Formelkasten neben der Form: je Formel Überschrift · Formel · Rechnung · Ergebnis (jede Zeile ein-/ausblendbar, antippen = „?“ ↔ offen)
 /* eingefärbt (it.fkc), am Kasten verschiebbar (it.fk = Versatz), Zeilen aus: it.fa = { f, r, e } */
 T.FK_FARBEN = ['#fef3c7', '#dcfce7', '#dbeafe', '#fce7f3', '#ede9fe', '#e5e7eb'];
-const FK_TITEL = { u: 'Umfang', A: 'Flächeninhalt', b: 'Bogenlänge' };
+const FK_TITEL = { u: 'Umfang', A: 'Flächeninhalt', b: 'Bogenlänge', V: 'Volumen', O: 'Oberfläche' };
 T.formelKasten = (ctx, pg, it, FF, dark, px, fk, drag) => {
   const fs = 18 * px, lh = fs * 1.55, pad = fs * 0.75, aus = it.fa || {}, gruppen = [];
-  FF.Z.forEach((zl, j) => {
+  FF.Z.forEach((zl, j0) => {
     const t = zl[3]; if (!t || (it.fh && it.fh[t.l])) return; /* it.fh: abgewählte Formeln (u, A, b) */
+    const j = t.j != null ? t.j : j0; /* 🧊 Körper: feste Nummer je Formel (V 0, O 1, G 2 …) – Zustände bleiben beim Ein-/Ausblenden */
     const zu = s => T.winkelZustand(pg, it.id + '#F' + s + j) === 'frage', zeilen = [];
     if (!aus.f) zeilen.push({ key: it.id + '#Ff' + j, txt: t.l + ' = ' + (zu('f') ? '?' : t.formel) });
     if (!aus.r) zeilen.push({ key: it.id + '#Fr' + j, l: aus.f ? '' : t.l, txt: (aus.f ? t.l + ' ' : '') + (zu('r') ? '= ?' : '= ' + t.zahlen) });
     if (!aus.e) zeilen.push({ key: it.id + '#Fe' + j, l: aus.f && aus.r ? '' : t.l, txt: (aus.f && aus.r ? t.l + ' ' : '') + (zu('e') ? '= ?' : t.erg), fett: true });
-    if (zeilen.length) gruppen.push({ titel: FK_TITEL[t.l] || '', zeilen });
+    if (zeilen.length) gruppen.push({ titel: t.titel || FK_TITEL[t.l] || '', zeilen });
   });
   if (!gruppen.length) return;
   const fT = `700 ${fs * 0.72}px Segoe UI`, fZ = `600 ${fs}px Segoe UI`, fE = `700 ${fs}px Segoe UI`;
@@ -505,8 +513,8 @@ T.formelKasten = (ctx, pg, it, FF, dark, px, fk, drag) => {
     ho += fs * 0.45;
   }
   ho -= fs * 0.45;
-  const P = it.p, v = it.fk || [0, 0], w = br + pad * 2, hh = ho + pad * 2;
-  const x0 = Math.max(...P.map(q => q[0])) + it.w + fs * 3.2 + v[0], y0 = Math.min(...P.map(q => q[1])) + v[1];
+  const P = it.p, v = it.fk || [0, 0], w = br + pad * 2, hh = ho + pad * 2, bo = it.t === 'o' ? T.bbox(it) : null; /* 🧊 Körper: rechts neben dem Bild */
+  const x0 = (bo ? bo.x1 + fs * 1.2 : Math.max(...P.map(q => q[0])) + it.w + fs * 3.2) + v[0], y0 = (bo ? bo.y0 : Math.min(...P.map(q => q[1]))) + v[1];
   const farbe = it.fkc || T.FK_FARBEN[0], r = fs * 0.6;
   ctx.save();
   ctx.beginPath(); ctx.moveTo(x0 + r, y0); ctx.arcTo(x0 + w, y0, x0 + w, y0 + hh, r); ctx.arcTo(x0 + w, y0 + hh, x0, y0 + hh, r); ctx.arcTo(x0, y0 + hh, x0, y0, r); ctx.arcTo(x0, y0, x0 + w, y0, r); ctx.closePath();
@@ -700,7 +708,7 @@ T.paintPage = (ctx, pg, rect, px, o = {}) => {
   if (!pg.winkelAus && pg.items.some(i => i.wk)) T.winkelMalen(ctx, pg, dark, px); // 📐 Winkel zwischen Linien (auf der Seite ausblendbar)
   if (mitKw) T.kreisWinkelMalen(ctx, pg, dark, px, 'text', drag);
   if (pg.items.some(i => i.fz === 'winkel')) T.winkelFormMalen(ctx, pg, dark, px, drag); /* ∠ drehbarer Winkel: Bogen, Gradzahl, Winkelart */
-  if (pg.items.some(i => i.ms || i.mu || i.mf || i.mo)) T.masseMalen(ctx, pg, dark, px, drag); /* 📏 Maße, Umfang, Flächeninhalt */
+  if (pg.items.some(i => i.ms || i.mu || i.mf || i.mo || (i.t === 'o' && i.d && (i.d.volumen || i.d.oberflaeche)))) T.masseMalen(ctx, pg, dark, px, drag); /* 📏 Maße, Umfang, Flächeninhalt – 🧊 Volumen, Oberfläche */
   if (T.zellSchatten) each(it => it.t === 'o' && T.hatZellSchatten(it), it => T.zellSchatten(ctx, it, dark)); // Zellenschatten liegt auch über Handschrift
   each(it => it.t === 'o' && it.k === 'abdeckung', it => T.drawObj(ctx, it, dark, px)); // Abdeckung liegt über allem
 };

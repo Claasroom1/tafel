@@ -49,6 +49,57 @@ const VO = {
   kegel: d => [PI * d.r * d.r * d.h / 3, PI * d.r * (d.r + wurzel(d.r * d.r + d.h * d.h)), true],
   kugel: d => [4 / 3 * PI * d.r ** 3, 4 * PI * d.r * d.r, true]
 };
+// 🧮 Formelkasten für Körper (wie bei den Flächen): je Formel Formel · Rechnung · Ergebnis, jede Zeile einzeln „?“ / offen / aus.
+/* d.volumen / d.oberflaeche schalten V bzw. O ein (Hilfsgrößen G, s, hₛ, M kommen von selbst dazu). Feste Nummern j für die Zustände
+   (Schlüssel id#Ff0 …): V 0 · O 1 · G 2 · s/hₛ 3 · M 4. Eingesetzt werden die Maße (höchstens 2 Nachkommastellen), Hilfsgrößen
+   gerundet auf 2 Nachkommastellen – das Ergebnis ist genau damit gerechnet; „≈“ bei π oder Rundung. Schreibweise je Körper: it.fv[l]. */
+const r2 = v => Math.round(v * 100) / 100, cm = v => T.zahl(r2(v), 2) + ' cm', qu = v => '(' + cm(v) + ')';
+const F3 = {
+  wuerfel: (d, w) => { const a = r2(d.a); return [
+    w('V', 0, '', [['a³', `${qu(a)}³`], ['a · a · a', `${cm(a)} · ${cm(a)} · ${cm(a)}`]], a ** 3, 'cm³'),
+    w('O', 1, '', [['6 · a²', `6 · ${qu(a)}²`], ['6 · a · a', `6 · ${cm(a)} · ${cm(a)}`]], 6 * a * a, 'cm²')]; },
+  quader: (d, w) => { const a = r2(d.a), b = r2(d.b), c = r2(d.c); return [
+    w('V', 0, '', [['a · b · c', `${cm(a)} · ${cm(b)} · ${cm(c)}`]], a * b * c, 'cm³'),
+    w('O', 1, '', [['2 · (a · b + a · c + b · c)', `2 · (${cm(a)} · ${cm(b)} + ${cm(a)} · ${cm(c)} + ${cm(b)} · ${cm(c)})`],
+      ['2 · a · b + 2 · a · c + 2 · b · c', `2 · ${cm(a)} · ${cm(b)} + 2 · ${cm(a)} · ${cm(c)} + 2 · ${cm(b)} · ${cm(c)}`]], 2 * (a * b + a * c + b * c), 'cm²')]; },
+  prisma: (d, w, V, O) => { /* gleichschenkliges Dreieck: Grundseite g, Dreieckshöhe h (Feld hd), Länge l; s = Schenkel des Dreiecks */
+    const g = r2(d.g), h = r2(d.hd), l = r2(d.l), G = r2(g * h / 2), sw = Math.sqrt(g * g / 4 + h * h), s = r2(sw), M = r2((g + 2 * s) * l), ca = Math.abs(sw - s) > 1e-9;
+    return [
+      w('G', 2, 'Grundfläche (Dreieck)', [['g · h : 2', `${cm(g)} · ${cm(h)} : 2`], ['½ · g · h', `½ · ${cm(g)} · ${cm(h)}`]], g * h / 2, 'cm²'),
+      V && w('V', 0, '', [['G · l', `${T.zahl(G, 2)} cm² · ${cm(l)}`]], G * l, 'cm³'),
+      O && w('s', 3, 'Dreiecksseite s', [['√((g : 2)² + h²)', `√(${qu(g / 2)}² + ${qu(h)}²)`]], sw, 'cm'),
+      O && w('M', 4, 'Mantelfläche', [['(g + 2 · s) · l', `(${cm(g)} + 2 · ${cm(s)}) · ${cm(l)}`], ['(g + s + s) · l', `(${cm(g)} + ${cm(s)} + ${cm(s)}) · ${cm(l)}`]], (g + 2 * s) * l, 'cm²', ca),
+      O && w('O', 1, '', [['2 · G + M', `2 · ${T.zahl(G, 2)} cm² + ${T.zahl(M, 2)} cm²`]], 2 * G + M, 'cm²', ca)]; },
+  pyramide: (d, w, V, O) => { /* quadratische Grundfläche a, Höhe h; Seitenhöhe hₛ = √(h² + (a/2)²) */
+    const a = r2(d.a), h = r2(d.h), hw = Math.sqrt(h * h + a * a / 4), hs = r2(hw), ca = Math.abs(hw - hs) > 1e-9;
+    return [
+      w('V', 0, '', [['⅓ · a² · h', `⅓ · ${qu(a)}² · ${cm(h)}`], ['a² · h : 3', `${qu(a)}² · ${cm(h)} : 3`]], a * a * h / 3, 'cm³'),
+      O && w('hₛ', 3, 'Seitenhöhe hₛ', [['√(h² + (a : 2)²)', `√(${qu(h)}² + ${qu(a / 2)}²)`]], hw, 'cm'),
+      O && w('O', 1, '', [['a² + 4 · (½ · a · hₛ)', `${qu(a)}² + 4 · (½ · ${cm(a)} · ${cm(hs)})`], ['a² + 2 · a · hₛ', `${qu(a)}² + 2 · ${cm(a)} · ${cm(hs)}`]], a * a + 2 * a * hs, 'cm²', ca)]; },
+  zylinder: (d, w) => { const r = r2(d.r), h = r2(d.h); return [
+    w('V', 0, '', [['π · r² · h', `π · ${qu(r)}² · ${cm(h)}`]], PI * r * r * h, 'cm³', true),
+    w('O', 1, '', [['2 · π · r² + 2 · π · r · h', `2 · π · ${qu(r)}² + 2 · π · ${cm(r)} · ${cm(h)}`], ['2 · π · r · (r + h)', `2 · π · ${cm(r)} · (${cm(r)} + ${cm(h)})`]], 2 * PI * r * r + 2 * PI * r * h, 'cm²', true)]; },
+  kegel: (d, w, V, O) => { /* Mantellinie s = √(r² + h²) */
+    const r = r2(d.r), h = r2(d.h), sw = Math.sqrt(r * r + h * h), s = r2(sw);
+    return [
+      w('V', 0, '', [['⅓ · π · r² · h', `⅓ · π · ${qu(r)}² · ${cm(h)}`], ['π · r² · h : 3', `π · ${qu(r)}² · ${cm(h)} : 3`]], PI * r * r * h / 3, 'cm³', true),
+      O && w('s', 3, 'Mantellinie s', [['√(r² + h²)', `√(${qu(r)}² + ${qu(h)}²)`]], sw, 'cm'),
+      O && w('O', 1, '', [['π · r² + π · r · s', `π · ${qu(r)}² + π · ${cm(r)} · ${cm(s)}`], ['π · r · (r + s)', `π · ${cm(r)} · (${cm(r)} + ${cm(s)})`]], PI * r * r + PI * r * s, 'cm²', true)]; },
+  kugel: (d, w) => { const r = r2(d.r); return [
+    w('V', 0, '', [['⁴⁄₃ · π · r³', `⁴⁄₃ · π · ${qu(r)}³`], ['4 · π · r³ : 3', `4 · π · ${qu(r)}³ : 3`]], 4 / 3 * PI * r ** 3, 'cm³', true),
+    w('O', 1, '', [['4 · π · r²', `4 · π · ${qu(r)}²`]], 4 * PI * r * r, 'cm²', true)]; }
+};
+T.hatKoerperFormeln = o => !!(o && o.t === 'o' && F3[o.k] && T.BAUSTEINE[o.k]);
+T.koerperFormeln = (o, alle) => { /* alle: auch ausgeschaltete Formeln (für die Schreibweisen im Menü) */
+  if (!T.hatKoerperFormeln(o) || !o.d) return null;
+  const V = !!(alle || o.d.volumen), O = !!(alle || o.d.oberflaeche); if (!V && !O) return null;
+  const d = daten(o), schreib = {};
+  const erg = (v, ca) => { const g = r2(v); return (ca || Math.abs(g - v) > 1e-9 ? '≈ ' : '= ') + T.zahl(g, 2); };
+  const w = (l, j, titel, vs, wert, einh, ca) => { schreib[l] = vs.map(v => v[0]); const i = Math.min(vs.length - 1, (o.fv && o.fv[l]) || 0);
+    return [null, null, null, { l, j, titel, formel: vs[i][0], zahlen: vs[i][1], erg: erg(wert, ca) + ' ' + einh }]; };
+  const Z = F3[o.k](d, w, V, O).filter(Boolean).filter(z => z[3].j !== 0 || V).filter(z => z[3].j !== 1 || O);
+  return { Z, V: Object.fromEntries(Object.entries(schreib).filter(([l, vs]) => vs.length > 1 && Z.some(z => z[3].l === l))) };
+};
 // 🔄 Frei drehen: echte 3D-Ansicht (senkrechte Parallelprojektion) mit Drehung um die senkrechte Achse (dy) und Neigung (dp)
 // Modelle in cm, y nach oben; „glatte“ Kanten (Mantel von Zylinder/Kegel) erscheinen nur als Umriss
 const MODELL = {
@@ -101,13 +152,13 @@ T.dreh3d = dreh3d; T.istKoerper = o => !!(o && o.t === 'o' && (VO[o.k] || o.k ==
 if (T._svg) for (const k of Object.keys(VO)) {
   const Bk = T.BAUSTEINE[k]; if (!Bk) continue;
   const { doc, tx, ln, f } = T._svg, alt0 = Bk.gen, alt = (d, P) => d.r3 ? dreh3d(k, { ...Bk.def, ...d }, P) : alt0(d, P);
-  Bk.felder = (Bk.felder || []).concat([{ k: 'kanten', l: 'Kantenlängen (bzw. r, h) mit Wert anzeigen', typ: 'check' }, { k: 'volumen', l: 'Volumen V anzeigen', typ: 'check' }, { k: 'oberflaeche', l: 'Oberfläche O anzeigen', typ: 'check' },
+  Bk.felder = (Bk.felder || []).concat([{ k: 'kanten', l: 'Kantenlängen (bzw. r, h) mit Wert anzeigen', typ: 'check' }, { k: 'volumen', l: '📦 Volumen V im Formelkasten', typ: 'check' }, { k: 'oberflaeche', l: '🧱 Oberfläche O im Formelkasten', typ: 'check' },
     { k: 'r3', l: '🔄 Gedrehte 3D-Ansicht (aus = wieder Schrägbild) – gewählten Körper mit dem Finger ziehen dreht ihn', typ: 'check' }, { k: 'dy', l: 'Drehung (°)', typ: 'zahl', min: -360, max: 360 }, { k: 'dp', l: 'Neigung (°)', typ: 'zahl', min: -90, max: 90 }]);
   Bk.gen = (d0, P) => {
     const d = d0.r3 ? { ...d0, kanten: false } : d0; /* gedreht: Kantenbeschriftung passt nicht zur Lage */
-    const g = alt(d, P); if (!d.volumen && !d.oberflaeche && !d.kanten) return g;
-    const dd = { ...Bk.def, ...d }, z = v => T.zahl(v, 1), [V, O, ca] = VO[k](dd), gl = ca ? ' ≈ ' : ' = ';
-    const L = versatz(d), unten = d.kanten ? 30 : 0;
+    const g = alt(d, P); if (!d.kanten) return g; /* 📦 Volumen und 🧱 Oberfläche stehen im Formelkasten neben dem Körper (kern.js › masseMalen) */
+    const dd = { ...Bk.def, ...d }, z = v => T.zahl(v, 1);
+    const L = versatz(d), unten = 30;
     let s = g.svg.replace('<svg ', `<svg x="${L}" y="0" `);
     if (d.kanten) {
       const A = KG[k].anker(dd, g);
@@ -118,22 +169,32 @@ if (T._svg) for (const k of Object.keys(VO)) {
         s += tx(x, y, q.t + ' = ' + z(q.v) + ' cm', P.acc, 23, q.n[0] > 0.3 ? 'start' : q.n[0] < -0.3 ? 'end' : 'middle', 'font-weight="700"');
       }
     }
-    const zeilen = [d.volumen ? 'V' + gl + z(V) + ' cm³' : '', d.oberflaeche ? 'O' + gl + z(O) + ' cm²' : ''].filter(Boolean);
-    const W = Math.max(g.w + 2 * L, 300), H = g.h + unten + (zeilen.length ? 10 + zeilen.length * 36 : 0);
-    s += zeilen.map((t, i) => tx(W / 2, g.h + unten + 24 + i * 36, t, P.ink, 26, 'middle', 'font-weight="700"')).join('');
+    const W = Math.max(g.w + 2 * L, 300), H = g.h + unten;
     void f;
     return { ...g, svg: doc(W, H, s), w: W, h: H };
   };
   const altS = Bk.schnell;
   // Symbolzeile: 📏 Kanten · 📦 Volumen · 🧱 Oberfläche – ein Tipp schaltet um
-  const schalter = (akt, k) => b => { const o = akt(); if (!o) return; T.bausteinAendern(o, { f: dd => ({ d: { ...dd, [k]: !dd[k] } }) }); const n = akt(); b.classList.toggle('on', !!(n && n.d[k])); };
+  const schalter = (akt, k) => b => { const o = akt(); if (!o) return; T.bausteinAendern(o, { f: dd => ({ d: { ...dd, [k]: !dd[k] } }) }); const n = akt(); b.classList.toggle('on', !!(n && n.d[k]));
+    if ((k === 'volumen' || k === 'oberflaeche' || k === 'kanten') && T.selMenueNeu) T.selMenueNeu(); }; /* 📏 Bemaßung darunter passt sich an */
   Bk.schnell = d => [{ el: akt => T.chipZeile ? T.chipZeile([
     { sym: '🔄', title: 'Drehen: an = Körper mit dem Finger ziehen dreht ihn (waagerecht rundherum, senkrecht neigen), verschieben am ✥ · aus = wieder Schrägbild', an: !!d.r3, fn: schalter(akt, 'r3') },
     { sym: '📏', title: 'Kantenlängen (bzw. r, h) mit Wert', an: !!d.kanten, fn: schalter(akt, 'kanten') },
     { sym: '📦', title: 'Volumen V', an: !!d.volumen, fn: schalter(akt, 'volumen') },
-    { sym: '🧱', title: 'Oberfläche O', an: !!d.oberflaeche, fn: schalter(akt, 'oberflaeche') }]) : document.createElement('span') }]
+    { sym: '🧱', title: 'Oberfläche O', an: !!d.oberflaeche, fn: schalter(akt, 'oberflaeche') }]) : document.createElement('span') },
+    { el: akt => { const o = akt(); return o && T.koerperBemass ? T.koerperBemass([o.id], () => T.selMenueNeu && T.selMenueNeu()) : document.createElement('span'); } }] /* 📏 Bemaßung: V, O, Formel/Rechnung/Ergebnis an/aus und verdeckt – wie bei den Flächen */
     .concat(typeof altS === 'function' ? altS(d) : altS || []);
 }
+// Ältere Tafeln: V und O standen als Zeilen unter dem Körper im Bild (Bild war höher, ohne Kanten mind. 300 breit) – Bildgröße anpassen, Lage oben links bleibt
+if (T.checkBoard) { const altCB = T.checkBoard; T.checkBoard = b => { const r = altCB(b);
+  for (const p of r.pages) p.items.forEach((o, i) => { try {
+    if (o.t !== 'o' || !VO[o.k] || !o.d || !(o.d.volumen || o.d.oberflaeche) || !(o.w > 0 && o.h > 0)) return;
+    const g = T.genObj(o.k, o.d, false), n = (o.d.volumen ? 1 : 0) + (o.d.oberflaeche ? 1 : 0), mitK = o.d.kanten && !o.d.r3;
+    const wA = mitK ? g.w : Math.max(g.w, 300), hA = g.h + 10 + n * 36, q = o.h / o.w;
+    if (Math.abs(q - hA / wA) >= Math.abs(q - g.h / g.w)) return; /* schon im neuen Format */
+    const s = o.w / wA; p.items[i] = { ...o, w: g.w * s, h: g.h * s };
+  } catch (e) { /* Körper bleibt, wie er ist */ } });
+  return r; }; }
 // Griffe in Tafel-Koordinaten (für Zeichnen und Antippen)
 T.koerperGriffe = o => {
   const K = o && o.t === 'o' && !o.fest && KG[o.k]; if (!K) return [];

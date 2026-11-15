@@ -627,6 +627,49 @@ function bemassTabelle(ids, nachher, ohneTitel) {
   return h('div', { class: 'bm' }, ohneTitel || Z.length ? '' : h('div', { class: 'bm-titel' }, '📏 Bemaßung'), ...teile); /* mit Zeilen steht „📏 Bemaßung“ als erste Zeile mit an/aus und Auge */
 }
 T.bemassTabelle = bemassTabelle;
+// 🧊 Bemaßung der 3D-Körper – wie bei den Flächen: 📦 Volumen V, 🧱 Oberfläche O (Formelkasten neben dem Körper), 📏 Kantenlängen;
+// ↳ Formel / Rechnung / Ergebnis je Zeile an/aus (it.fa) und verdeckt (Sorten Ff, Fr, Fe); ✏️ Schreibweise (it.fv), 🎨 Kastenfarbe (it.fkc)
+function koerperBemass(ids, nachher) {
+  const pg = T.page(), sel = pg.items.filter(i => ids.includes(i.id) && T.hatKoerperFormeln && T.hatKoerperFormeln(i)); if (!sel.length) return h('span');
+  const akt = i => pg.items.find(x => x.id === i.id) || i, an = k => sel.every(i => i.d && i.d[k]);
+  const fertig = () => { T.changed && T.changed(); T.render(); T.renderOver(); requestAnimationFrame(() => requestAnimationFrame(() => nachher && nachher())); };
+  const knopf = (svg, ein, titel, fn) => { const b = h('button', { class: 'bm-k' + (ein ? ' on' : ''), title: titel, onclick: e => { e.preventDefault(); e.stopPropagation(); fn(); fertig(); } }); b.innerHTML = svg; return b; };
+  const dSetzen = (k, wert) => sel.forEach(i => { const o = akt(i); if (!!(o.d && o.d[k]) !== wert) T.bausteinAendern(o, { f: dd => ({ d: { ...dd, [k]: wert } }) }); }); /* Kanten ändern die Bildgröße – wie im ✏️ Bearbeiten */
+  const zust = art => T.verdecktAn(sel.map(i => i.id), art);
+  const Z = [['📦 Volumen V', an('volumen'), () => dSetzen('volumen', !an('volumen')), null], ['🧱 Oberfläche O', an('oberflaeche'), () => dSetzen('oberflaeche', !an('oberflaeche')), null],
+    ['📏 Kantenlängen', an('kanten'), () => dSetzen('kanten', !an('kanten')), null]];
+  const moAn = sel.some(i => i.d && (i.d.volumen || i.d.oberflaeche));
+  if (moAn) for (const [s, l] of [['f', 'Formel'], ['r', 'Rechnung'], ['e', 'Ergebnis']]) {
+    const ein = sel.every(i => !(i.fa && i.fa[s]));
+    Z.push(['　↳ ' + l, ein, () => { T.snap(); sel.forEach(i => { const o = akt(i), fa = { ...(o.fa || {}) }; if (ein) fa[s] = 1; else delete fa[s]; const n = { ...o, fa }; if (!Object.keys(fa).length) delete n.fa; T.replaceItem(n); }); }, 'F' + s]);
+  }
+  const tab = h('div', { class: 'bm-tab' }, h('span', { class: 'bm-kopf' }, ''), h('span', { class: 'bm-kopf' }, 'an/aus'), h('span', { class: 'bm-kopf' }, 'verdeckt'));
+  const haupt = Z.filter(r => !/↳/.test(r[0])), allesAn = haupt.every(r => r[1]), arten = moAn ? ['Ff', 'Fr', 'Fe'] : [], allesZu = arten.length && arten.every(a => zust(a));
+  tab.append(h('span', { class: 'bm-name bm-gesamt' }, '📏 Bemaßung'),
+    knopf(ICON_AN(allesAn), allesAn, allesAn ? 'Alles an – antippen: alles aus' : 'antippen: alles an', () => { const ziel = !allesAn; haupt.forEach(r => { if (!!r[1] !== ziel) r[2](); }); }),
+    arten.length ? knopf(ICON_ZU(allesZu), allesZu, allesZu ? 'Alles verdeckt – antippen: alles zeigen' : 'antippen: alles als „?“ verdecken', () => T.winkelAlle(allesZu ? 'zahl' : 'frage', sel.map(i => i.id), arten)) : h('span', { class: 'bm-leer' }, ''));
+  for (const [l, ein, fn, art] of Z) {
+    let zu = h('span', { class: 'bm-leer' }, '');
+    if (art) { const z = zust(art); zu = knopf(ICON_ZU(z), z, z ? 'Verdeckt (als „?“) – antippen: anzeigen' : 'Sichtbar – antippen: als „?“ verdecken', () => T.winkelAlle(z ? 'zahl' : 'frage', sel.map(i => i.id), art)); }
+    tab.append(h('span', { class: 'bm-name' }, l), knopf(ICON_AN(ein), ein, ein ? 'an – antippen: aus' : 'aus – antippen: an', fn), zu);
+  }
+  const teile = [tab];
+  if (moAn) {
+    const F = T.koerperFormeln(akt(sel[0])) || { V: {} };
+    for (const [l, vs] of Object.entries(F.V || {})) { /* ✏️ Schreibweise der Formel (z. B. O = 2 · π · r² + 2 · π · r · h oder O = 2 · π · r · (r + h)) */
+      const ak = Math.min(vs.length - 1, (sel[0].fv && sel[0].fv[l]) || 0);
+      teile.push(h('div', { class: 'fk-schreib' }, h('span', { class: 'bm-name' }, '✏️ ' + l + ' ='),
+        ...vs.map((f, i) => h('button', { class: 'fk-sw' + (i === ak ? ' on' : ''), title: 'Schreibweise der Formel', onclick: e => { e.stopPropagation(); T.snap();
+          sel.forEach(it => { const o = akt(it), fv = { ...(o.fv || {}) }; if (i) fv[l] = i; else delete fv[l]; const n = { ...o, fv }; if (!Object.keys(fv).length) delete n.fv; T.replaceItem(n); }); fertig(); } }, f))));
+    }
+    const kf = sel[0].fkc || T.FK_FARBEN[0]; /* 🎨 Farbe des Formelkastens · Kasten zurück neben den Körper */
+    teile.push(h('div', { class: 'fk-farben', title: 'Farbe des Formelkastens' }, h('span', { class: 'bm-name' }, '🎨 Kasten'),
+      ...T.FK_FARBEN.map(c => h('button', { class: 'fk-f' + (c === kf ? ' on' : ''), style: { background: c }, title: 'Kastenfarbe', onclick: e => { e.stopPropagation(); T.snap(); sel.forEach(i => T.replaceItem({ ...akt(i), fkc: c })); fertig(); } })),
+      sel.some(i => i.fk) ? h('button', { class: 'fk-zurueck', title: 'Formelkasten wieder neben den Körper setzen', onclick: e => { e.stopPropagation(); T.snap(); sel.forEach(i => { const n = { ...akt(i) }; delete n.fk; T.replaceItem(n); }); fertig(); } }, '↺') : ''));
+  }
+  return h('div', { class: 'bm' }, ...teile);
+}
+T.koerperBemass = koerperBemass;
 function formChips(g, sel) {
   const pg = T.page();
   const neuBauen = () => { selbar.dataset.key = ''; T.renderOver(); };
@@ -1102,6 +1145,7 @@ $('zoomInfo').onclick = e => {
 const selbar = $('selbar');
 // Kontextmenü in Stufen: 0 = nur ☰ neben dem Objekt, 1 = was zum Objekt gehört (Form-Symbole, Baustein, Feld), 2 = alles (Bearbeiten, Kopieren, Anordnen …)
 let selStufe = 0, selStufeIds = '';
+T.selMenueNeu = () => { selbar.dataset.key = ''; T.renderOver(); }; /* Kontextmenü neu aufbauen (z. B. 🧊 Körper-Bemaßung nach dem Umschalten) */
 T.selMenueZu = () => { if (selStufe) { selStufe = 0; selbar.dataset.key = ''; } }; /* Objekt erneut angetippt: Menü wieder klein */
 T.placeSelBar = anchor => {
   if (!anchor || !S.sel) { selbar.style.display = 'none'; if (eigenOffen) { eigenOffen = false; eigenZeichnen(); } return; }
