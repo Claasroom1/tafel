@@ -142,11 +142,13 @@ function zeichnen() {
 function malen() { if (!aufBox) return; const b = aufBox.querySelector('.sp-flaeche'); b.innerHTML = svgPlan(plan, false).svg; const svg = b.querySelector('svg'); svg.style.width = '100%'; svg.style.height = '100%'; svg.setAttribute('preserveAspectRatio', 'xMidYMid meet'); }
 function leiste() {
   const l = aufBox.querySelector('.sp-leiste'); l.innerHTML = '';
-  const ks = Object.keys(klassen()).sort((a, b) => a.localeCompare(b, 'de', { numeric: true }));
+  const ks = alleKlassen.length ? alleKlassen : sortKl([klasse]);
   const k = (t, fn, on, title) => h('button', { class: 'big' + (on ? ' on' : ''), title: title || '', onclick: fn }, t);
+  const tt = aufBox.querySelector('.sp-titel'); if (tt) tt.textContent = '🪑 Sitzplan – Klasse ' + klasse;
   const nf = (wert, min, max, setz, breite = 64) => h('input', { type: 'number', class: 'feld', min, max, value: wert, style: { width: breite + 'px' }, onchange: e => setz(+e.target.value) });
   l.append(
-    h('div', { class: 'sp-gruppe' }, h('b', {}, 'Klasse:'), ...(ks.length ? ks : ['']).map(x => k(x || 'ohne Liste', () => { sichern(); laden(x); zeichnen(); }, x === klasse))),
+    h('div', { class: 'sp-gruppe' }, h('b', {}, 'Klasse:'), ...ks.map(x => k(x, () => { sichern(); laden(x); zeichnen(); }, x === klasse, (klassen()[x] || []).length ? 'Klassenliste vorhanden' : 'ohne Klassenliste – Tische nummeriert')),
+      k('＋ Klasse', async () => { const n = await klasseNeu(); if (n) { sichern(); laden(n); zeichnen(); } }, false, 'Sitzplan für eine weitere Klasse anlegen')),
     h('div', { class: 'sp-gruppe' }, h('b', {}, 'Anordnung:'),
       k('▤ Reihen', () => { festModus = false; anordnen(plan, 'reihen'); sichern(); zeichnen(); }, plan.modus === 'reihen', 'Links 4, Gang, rechts 3 Tische je Reihe'),
       k('⊞ Gruppen', () => { anordnen(plan, 'gruppen'); sichern(); zeichnen(); }, plan.modus === 'gruppen', 'Gruppentische'),
@@ -172,7 +174,83 @@ function leiste() {
       groesseNeu != null && plan.tische.some(t => t.i === groesseNeu) ? k('📏 Diese Tischgröße für alle', () => fuerAlle(groesseNeu), true, 'Alle Tische bekommen dieselbe Größe (jeder bleibt an seinem Platz und in seiner Richtung)') : '',
       (plan.entfernt || []).length ? k(`↺ Alle Tische (${plan.entfernt.length} weg)`, () => { delete plan.entfernt; anordnen(plan, plan.modus); sichern(); zeichnen(); }, false, 'Entfernte Tische zurückholen') : '',
       wahl ? k('🗑 Möbel weg', () => { plan.moebel = plan.moebel.filter(m => m.id !== wahl); wahl = null; sichern(); zeichnen(); }) : ''),
+    teilenGruppe(k),
     h('div', { class: 'sp-gruppe' }, k('⤓ Auf die Tafel', aufTafel, false, 'Den Plan als Bild auf die Tafel legen'), k('✕ Schließen', schliessen)));
+}
+/* ---------- 👥 Sitzpläne teilen: „_Sitzpläne/<Klasse> – <Lehrkraft>.json“ im gemeinsamen Ordner (gemeinsam.js: F.gdir), sonst im Ablageordner.
+   Fremde Dateien werden nie überschrieben oder gelöscht – „Übernehmen“ legt eine eigene Kopie an. ---------- */
+const SP_ORDNER = '_Sitzpläne';
+const spKann = () => { const F = T.ablage; return !!(F && (F.root || F.gemRoot) && T.opts.lehrkraft); };
+const spDir = create => { const F = T.ablage; return (F.gdir || F.dir)([SP_ORDNER], create); };
+const spDatei = k => T.ablage.safe(k) + ' – ' + T.ablage.safe(T.opts.lehrkraft) + '.json';
+const spOrt = () => { const F = T.ablage; return F.gemRoot ? 'den gemeinsamen Ordner »' + F.gemName() + '«' : 'den Ablageordner »' + F.name() + '«'; };
+let geteilt = { klasse: null, liste: [] };
+async function spGeteiltLesen(k) {
+  const out = []; if (!spKann()) return out; let d; try { d = await spDir(false); } catch (e) { return out; }
+  for await (const [n, fh] of d.entries()) { if (fh.kind !== 'file' || !n.endsWith('.json')) continue;
+    try { const j = JSON.parse(await (await fh.getFile()).text()); if (j && j.plan && Array.isArray(j.plan.tische) && j.klasse === k) out.push({ ...j, datei: n }); } catch (e) {} }
+  return out.sort((a, b) => String(a.lehrkraft).localeCompare(String(b.lehrkraft), 'de'));
+}
+T._sitzplanGeteilt = spGeteiltLesen; /* für Tests */
+function spNeuLesen() { const k = klasse; geteilt = { klasse: k, liste: geteilt.klasse === k ? geteilt.liste : [] };
+  spGeteiltLesen(k).then(l => { if (klasse !== k) return; geteilt = { klasse: k, liste: l }; if (aufBox) leiste(); }).catch(() => {}); }
+const spMein = () => geteilt.klasse === klasse ? geteilt.liste.find(g => g.datei === spDatei(klasse)) : null;
+async function spSchreiben() {
+  sichern();
+  const inhalt = JSON.stringify({ app: 'Tafel-App-Sitzplan', klasse, lehrkraft: T.opts.lehrkraft, datum: new Date().toISOString(), namen: namenListe(), plan }), datei = spDatei(klasse);
+  const d = await spDir(true), w = await (await d.getFileHandle(datei, { create: true })).createWritable();
+  await w.write(inhalt); await w.close();
+}
+function teilenGruppe(k) {
+  if (!spKann()) return '';
+  if (geteilt.klasse !== klasse) spNeuLesen();
+  const mein = spMein(), fremde = geteilt.klasse === klasse ? geteilt.liste.filter(g => g.datei !== spDatei(klasse)) : [];
+  return h('div', { class: 'sp-gruppe' }, h('b', {}, 'Teilen:'),
+    mein ? k('👥 Geteilt ✓', spGeteiltDialog, true, 'Dieser Plan liegt als Kopie für Kolleginnen und Kollegen bereit – antippen: neuen Stand teilen oder Teilen beenden')
+      : k('👥 Teilen', spTeilen, false, 'Eine Kopie dieses Sitzplans für Kolleginnen und Kollegen bereitlegen'),
+    fremde.length ? k(`📥 Geteilte Sitzpläne (${fremde.length})`, spFremdeDialog, false, 'Sitzpläne dieser Klasse von Kolleginnen und Kollegen') : '');
+}
+async function spTeilen() {
+  if (!await T.frage(`Sitzplan der Klasse ${klasse} mit Kolleginnen und Kollegen teilen?\n\nEine Kopie kommt in ${spOrt()} (Unterordner „${SP_ORDNER}“). Der Plan enthält die Vornamen der Klassenliste – bitte nur teilen, wenn diesen Ordner ausschließlich Lehrkräfte sehen.`, { ok: '👥 Teilen' })) return;
+  try { await spSchreiben(); T.toast && T.toast(`👥 Sitzplan ${klasse} ist geteilt. Neuer Stand: beim Schließen des Sitzplans oder über „👥 Geteilt ✓“.`, 3500); } catch (e) { T.toast && T.toast('Teilen fehlgeschlagen: ' + (e.message || e), 5000); }
+  spNeuLesen();
+}
+function spGeteiltDialog() {
+  const m = spMein();
+  T.openDlg([h('h2', {}, `👥 Sitzplan ${klasse} – geteilt`),
+    h('p', { class: 'hint' }, `Liegt in ${spOrt()}${m && m.datum ? ', Stand ' + new Date(m.datum).toLocaleString('de-DE') : ''}. Beim Schließen des Sitzplans wird der geteilte Stand automatisch aktualisiert.`),
+    h('div', { class: 'row', style: { flexWrap: 'wrap', gap: '8px' } },
+      h('button', { class: 'big prim', onclick: async () => { try { await spSchreiben(); T.closeDlg(); T.toast && T.toast('👥 Neuer Stand geteilt.', 2000); } catch (e) { T.toast && T.toast('Fehlgeschlagen: ' + (e.message || e), 5000); } spNeuLesen(); } }, '🔄 Neuen Stand teilen'),
+      h('button', { class: 'big warn', onclick: async () => {
+        if (!await T.frage(`Sitzplan ${klasse} nicht mehr teilen?\n\nDie geteilte Kopie wird entfernt, Ihr eigener Plan bleibt.`, { ok: 'Teilen beenden' })) return;
+        try { const d = await spDir(false); await d.removeEntry(spDatei(klasse)); T.closeDlg(); T.toast && T.toast('Wird nicht mehr geteilt.', 2000); } catch (e) { T.toast && T.toast('Fehlgeschlagen: ' + (e.message || e), 4000); }
+        spNeuLesen(); } }, 'Teilen beenden'))]);
+}
+/* Namen der Kollegin auf die eigene Klassenliste abbilden (gleiche Vornamen = gleicher Platz); ohne eigene Liste bleibt die Reihenfolge */
+function umordnen(p, alt, neu) {
+  if (!Array.isArray(alt) || !alt.length || !neu.length) return p;
+  const frei = new Map(); neu.forEach((n, j) => { if (!frei.has(n)) frei.set(n, []); frei.get(n).push(j); });
+  const map = {}, benutzt = new Set();
+  alt.forEach((n, i) => { const l = frei.get(n); if (l && l.length) { const j = l.shift(); map[i] = j; benutzt.add(j); } });
+  const rest = [...Array(Math.max(neu.length, (p.reihenfolge || []).length)).keys()].filter(j => !benutzt.has(j));
+  p.reihenfolge = (p.reihenfolge || []).map(i => map[i] != null ? map[i] : rest.length ? rest.shift() : i);
+  if (p.gruppenFest) { const g = {}; for (const [i, v] of Object.entries(p.gruppenFest)) if (map[i] != null) g[map[i]] = v; p.gruppenFest = g; }
+  return p;
+}
+function spFremdeDialog() {
+  const fremde = geteilt.liste.filter(g => g.datei !== spDatei(klasse));
+  const uebernehmen = async g => {
+    if (lesen()[klasse || '-'] && !await T.frage(`Sie haben schon einen eigenen Sitzplan für ${klasse}.\n\nDurch den Plan von ${g.lehrkraft} ersetzen? Ihr bisheriger Plan geht dabei verloren.`, { ok: 'Ersetzen', abbrechen: 'Abbrechen' })) return;
+    const p = umordnen(JSON.parse(JSON.stringify(g.plan)), g.namen, namenListe());
+    plan = p; wahl = null; wahlT = null; festModus = false; festWahl = null; sichern(); T.closeDlg(); zeichnen();
+    T.toast && T.toast(`📥 Sitzplan von ${g.lehrkraft} übernommen – das ist jetzt Ihre eigene Kopie.` + (namenListe().length ? '' : ' Für Namen: Classroom › 📋 Klassenliste.'), 4000);
+  };
+  T.openDlg([h('h2', {}, `📥 Geteilte Sitzpläne der Klasse ${klasse}`),
+    h('p', { class: 'hint' }, '„Übernehmen“ legt eine eigene Kopie an. Die geteilten Pläne bleiben unverändert.'),
+    h('div', { class: 'liste' }, ...fremde.map(g => h('div', { class: 'eintrag' },
+      h('span', { class: 'd' }, g.datum ? new Date(g.datum).toLocaleDateString('de-DE') : ''),
+      h('span', { class: 't' }, 'von ' + (g.lehrkraft || '?') + ' · ' + (g.plan.modus === 'gruppen' ? 'Gruppentische' : g.plan.modus === 'kreis' ? 'Sitzkreis' : 'Reihen') + ' · ' + g.plan.tische.length + ' Tische'),
+      h('button', { class: 'big prim', onclick: () => uebernehmen(g) }, '📥 Übernehmen'))))]);
 }
 /* ✋ Tisch (mit seinem Namen) in eine Gruppe setzen – die Gruppentische ordnen sich neu */
 function inGruppe(i, g) {
@@ -255,7 +333,8 @@ function aufTafel() {
 }
 T.BAUSTEINE.sitzplanbild = { name: 'Sitzplan (Bild)', gruppe: 'Struktur', def: { svg: '', w: 400, h: 300 }, felder: [],
   gen: d => d.svg ? { svg: d.svg, w: d.w, h: d.h } : { svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#fafaf7" stroke="#37474f" stroke-width="4"/><text x="200" y="150" text-anchor="middle" font-size="28">🪑 Sitzplan</text></svg>', w: 400, h: 300 } };
-function schliessen() { sichern(); if (aufBox) { aufBox.remove(); aufBox = null; } }
+function schliessen() { sichern(); if (spKann() && spMein()) spSchreiben().catch(() => {}); geteilt = { klasse: null, liste: [] }; /* geteilter Plan: neuen Stand mitnehmen */
+  if (aufBox) { aufBox.remove(); aufBox = null; } document.removeEventListener('keydown', tasten); }
 
 /* ---------- Ziehen mit dem Finger (auch Stift/Maus); Doppeltipp dreht einen Tisch ---------- */
 function ziehenEinrichten(flaeche) {
@@ -313,14 +392,34 @@ function ziehenEinrichten(flaeche) {
     else if (art === 't' && !b) { wahlT = wahlT === obj.i ? null : obj.i; wahl = null; zeichnen(); } }; /* Tisch angetippt: Drehgriff zeigen */
   flaeche.addEventListener('pointerup', ende); flaeche.addEventListener('pointercancel', ende);
 }
-T.sitzplan = () => {
+/* Jeder Sitzplan gehört zu einer Klasse: Klassen aus den Klassenlisten, aus der Ablage (Lehrkraft › Klasse …), der Klasse der Tafel
+   und den schon gespeicherten Sitzplänen. Ohne Klasse wird zuerst gefragt. */
+let alleKlassen = [];
+const sortKl = a => [...new Set(a.filter(Boolean))].sort((x, y) => x.localeCompare(y, 'de', { numeric: true }));
+async function klassenSammeln() {
+  const F = T.ablage; let abl = [];
+  try { if (F && F.root && T.opts.lehrkraft) abl = await F.klassen(T.opts.lehrkraft); } catch (e) {}
+  alleKlassen = sortKl([...Object.keys(klassen()), ...abl, ...Object.keys(lesen()).filter(k => k !== '-'), (T.S.board && T.S.board.klasse) || '', klasse]);
+  return alleKlassen;
+}
+async function klasseNeu() {
+  const n = await T.frage('Für welche Klasse ist der Sitzplan?', { feld: { wert: '', platzhalter: 'z. B. 7a' }, ok: '✔ Weiter' });
+  if (!n || !String(n).trim()) return null;
+  const k = String(n).trim().replace(/^Klasse\s+/i, ''); alleKlassen = sortKl([...alleKlassen, k]); return k;
+}
+function tasten(e) { if (e.key === 'Escape' && aufBox && !document.querySelector('#modal.auf, #modal[open]')) schliessen(); }
+T.sitzplan = async () => {
   if (aufBox) { aufBox.remove(); aufBox = null; }
-  const ks = Object.keys(klassen()), start = (T.S.board && T.S.board.klasse && ks.includes(T.S.board.klasse)) ? T.S.board.klasse : (ks.includes(klasse) ? klasse : ks[0] || '');
+  const ks = await klassenSammeln();
+  let start = (T.S.board && T.S.board.klasse) || (ks.includes(klasse) ? klasse : '') || (ks.length === 1 ? ks[0] : '');
+  if (!start) { start = await klasseNeu(); if (!start) return; }
   laden(start);
-  aufBox = h('div', { id: 'sitzplanBox' }, h('div', { class: 'sp-kopf' }, h('b', {}, '🪑 Sitzplan'), h('span', { class: 'sp-hinweis' }, 'Verschieben mit dem Finger · antippen: ⟳-Griff zum Drehen (15°-Schritte, mit zweitem Finger frei) · Doppeltipp = 90° · Möbel: 🗑 entfernen')), h('div', { class: 'sp-leiste' }), h('div', { class: 'sp-flaeche' }));
+  aufBox = h('div', { id: 'sitzplanBox' }, h('div', { class: 'sp-kopf' }, h('b', { class: 'sp-titel' }, ''), h('span', { class: 'sp-hinweis' }, 'Verschieben mit dem Finger · antippen: ⟳-Griff zum Drehen (15°-Schritte, mit zweitem Finger frei) · Doppeltipp = 90° · Möbel: 🗑 entfernen'),
+    h('span', { style: { flex: 1 } }), h('button', { class: 'nzu sp-x', title: 'Sitzplan schließen (wird gespeichert) – auch mit Esc', onclick: schliessen }, '✕')), h('div', { class: 'sp-leiste' }), h('div', { class: 'sp-flaeche' }));
   aufBox.addEventListener('pointerdown', e => e.stopPropagation());
   document.body.append(aufBox); ziehenEinrichten(aufBox.querySelector('.sp-flaeche')); zeichnen();
-  if (!ks.length) T.toast && T.toast('Noch keine Klassenliste – Tische sind nummeriert. Namen: Classroom › 📋 Klassenliste.', 4000);
+  document.removeEventListener('keydown', tasten); document.addEventListener('keydown', tasten);
+  if (!namenListe().length) T.toast && T.toast(`Für Klasse ${klasse} gibt es noch keine Klassenliste – die Tische sind nummeriert. Namen: Classroom › 📋 Klassenliste.`, 4500);
 };
 T._sitzplan = { anordnen, neuerPlan, svgPlan, get plan() { return plan; } }; /* für Tests */
 })();

@@ -496,8 +496,8 @@ function zielVon(karte, items) { // Ablagefeld bzw. Lücke, in der die Kartenmit
   }
   return null;
 }
-T.teilAtAlle = (o, x, y) => { const g = T.genObj(o.k, o.d, false); if (!g.teile) return null; const [lx, ly] = T.objLocal(o, x, y), sx = (lx + o.w / 2) * g.w / o.w, sy = (ly + o.h / 2) * g.h / o.h;
-  const t = g.teile.find(t => sx >= t.x && sx <= t.x + t.w && sy >= t.y && sy <= t.y + t.h); return t ? t.id : null; };
+T.teilAtAlle = (o, x, y, filt) => { const g = T.genObj(o.k, o.d, false); if (!g.teile) return null; const [lx, ly] = T.objLocal(o, x, y), sx = (lx + o.w / 2) * g.w / o.w, sy = (ly + o.h / 2) * g.h / o.h;
+  const t = g.teile.find(t => sx >= t.x && sx <= t.x + t.w && sy >= t.y && sy <= t.y + t.h && (!filt || filt(t.id))); return t ? t.id : null; }; /* filt: nur Teile, die der Baustein beim Antippen meint */
 const zielRechteck = (z, teil) => { if (!teil) return z; const g = T.genObj(z.k, z.d, false), t = g.teile.find(x => x.id === teil), [ax, ay] = T.svgZuWelt(z, g, t.x, t.y), [bx, by] = T.svgZuWelt(z, g, t.x + t.w, t.y + t.h); return { x: ax, y: ay, w: bx - ax, h: by - ay }; };
 T.uebungEinrasten = karte => { // Kärtchen mittig in Ablagefeld/Lücke setzen; mehrere Kärtchen im Feld werden untereinander gestapelt
   const pg = T.page(), items = pg.items.filter(i => i.d && i.d.uid === karte.d.uid), z = zielVon(karte, items);
@@ -631,7 +631,7 @@ function diagramm(d, P) {
   }
   const xNum = ['punkte', 'linie'].includes(d.art) && rows.every(r => isFinite(zahlen(r[0])));
   const alle = werte.flat().filter(isFinite), xs = rows.map(r => zahlen(r[0]));
-  let ymin = Math.min(0, ...alle), ymax = Math.max(...alle, 1); const sy = schoen((ymax - ymin) / 6); ymin = Math.floor(ymin / sy) * sy; ymax = Math.ceil(ymax / sy) * sy;
+  const { ymin, ymax, sy } = diaSkala(d, alle);
   let xmin = 0, xmax = rows.length, sx = 1;
   if (xNum) { xmin = Math.min(0, ...xs); xmax = Math.max(...xs); sx = schoen((xmax - xmin) / 8 || 1); xmin = Math.floor(xmin / sx) * sx; xmax = Math.ceil(xmax / sx) * sx || 1; }
   const balken = d.art === 'balken';
@@ -663,8 +663,57 @@ function diagramm(d, P) {
     }
     if (reihen > 1) s += rc(ml + 10 + j * 190, top - 26, 18, 18, 'none', farbe, 0, 'rx="4"') + tx(ml + 34 + j * 190, top - 17, kopf[j + 1], P.ink, 16, 'start');
   }
-  return fertig(s, W, H);
+  /* 🎚 Griffe: Säulenoberkante, Balkenende, Linienpunkt – Wert ziehen (nicht bei Punkt- und Kreisdiagramm) */
+  const teile = [];
+  if (['saeulen', 'balken', 'linie'].includes(d.art)) for (let j = 0; j < reihen; j++) rows.forEach((r, i) => {
+    const v = werte[i][j]; if (!isFinite(v)) return;
+    const quer = top + slot * (i + 0.15) + j * bb + (bb - 4) / 2, gx = balken ? VX(v) : d.art === 'linie' ? (xNum ? X(xs[i]) : ml + slot * (i + 0.5)) : ml + slot * (i + 0.15) + j * bb + (bb - 4) / 2, gy = balken ? quer : Y(v);
+    s += diaGriff(gx, gy, DFARB[j % 6], balken);
+    teile.push({ id: 'w' + i + '_' + j, x: gx - 20, y: gy - 20, w: 40, h: 40, zieh: true });
+  });
+  const erg = fertig(s, W, H); if (teile.length) erg.teile = teile;
+  return erg;
 }
+/* y-Achse: ohne Ziehen aus den Daten; während des Ziehens eingefroren (d._achse), damit der Griff nicht davonläuft */
+function diaSkala(d, alle) {
+  const a = d._achse; if (a && alle.every(v => v >= a.ymin && v <= a.ymax + (a.ymax - a.ymin) / 2)) return a;
+  let ymin = Math.min(0, ...alle), ymax = Math.max(...alle, 1); const sy = schoen((ymax - ymin) / 6); ymin = Math.floor(ymin / sy) * sy; ymax = Math.ceil(ymax / sy) * sy;
+  return { ymin, ymax, sy };
+}
+const diaGriff = (x, y, col, quer) => {
+  const p = quer ? `M ${f(x - 10)} ${f(y)} L ${f(x + 10)} ${f(y)} M ${f(x - 5)} ${f(y - 5)} L ${f(x - 10)} ${f(y)} L ${f(x - 5)} ${f(y + 5)} M ${f(x + 5)} ${f(y - 5)} L ${f(x + 10)} ${f(y)} L ${f(x + 5)} ${f(y + 5)}`
+    : `M ${f(x)} ${f(y - 10)} L ${f(x)} ${f(y + 10)} M ${f(x - 5)} ${f(y - 5)} L ${f(x)} ${f(y - 10)} L ${f(x + 5)} ${f(y - 5)} M ${f(x - 5)} ${f(y + 5)} L ${f(x)} ${f(y + 10)} L ${f(x + 5)} ${f(y + 5)}`;
+  return `<circle cx="${f(x)}" cy="${f(y)}" r="20" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="2"/><circle cx="${f(x)}" cy="${f(y)}" r="18" fill="${col}" stroke="#ffffff" stroke-width="3"/>` +
+    `<path d="${p}" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+};
+/* Wert ziehen: Raster = Zehnerpotenz der Achseneinteilung (Achse 2 / 5 / 10 → 1 / 1 / 10, bei lauter ganzen Zahlen mindestens 1); geändert wird nur die eine Zelle in d.daten */
+B.diagramm.ziehen = (d, id, sxp, syp, ende) => {
+  const m = /^w(\d+)_(\d+)$/.exec(id); if (!m) return null;
+  const j = +m[2], { _achse, ...rest } = d;
+  const Z = String(d.daten || '').split(/\r?\n/).map(l => l.split(/;|\t/).map(s => s.trim())).filter(r => r.some(Boolean)), rows = Z.slice(1);
+  const alle = rows.map(r => r.slice(1).map(zahlen)).flat().filter(isFinite), A = diaSkala(d, alle), balken = d.art === 'balken';
+  const top = d.titel ? 70 : 30, ml = 90, pw = 900 - ml - 30, ph = 600 - top - 80, spann = A.ymax - A.ymin;
+  /* welche Säule / welcher Punkt: der quer zur Werterichtung nächste (bei kleinen Diagrammen überlappen die Griffe) */
+  const n = rows.length, reihen = Math.max(1, (Z[0] || []).length - 1), slot = (balken ? ph : pw) / Math.max(1, n), bb = slot * 0.7 / reihen, xs = rows.map(r => zahlen(r[0]));
+  let X = null; if (d.art === 'linie' && rows.every(r => isFinite(zahlen(r[0])))) { const sx = schoen((Math.max(...xs) - Math.min(0, ...xs)) / 8 || 1), x0 = Math.floor(Math.min(0, ...xs) / sx) * sx, x1 = Math.ceil(Math.max(...xs) / sx) * sx || 1; X = v => ml + (v - x0) / (x1 - x0) * pw; }
+  const quer = i => d.art === 'linie' ? (X ? X(xs[i]) : ml + slot * (i + 0.5)) : (balken ? top : ml) + slot * (i + 0.15) + j * bb + (bb - 4) / 2;
+  let i = +m[1], best = Infinity;
+  rows.forEach((r, k) => { const a = Math.abs(quer(k) - (balken ? syp : sxp)); if (isFinite(zahlen(r[j + 1])) && a < best) { best = a; i = k; } });
+  if (!rows[i]) return null;
+  const raster = Math.max(10 ** Math.floor(Math.log10(A.sy) + 1e-9), alle.every(Number.isInteger) ? 1 : 0); /* nur ganze Zahlen in der Tabelle (Anzahl …) → ganze Zahlen */
+  const roh = balken ? A.ymin + (sxp - ml) / pw * spann : A.ymin + (top + ph - syp) / ph * spann;
+  const oben = A.ymax + Math.floor((balken ? 30 / pw : top / ph) * spann / raster) * raster;
+  const v = +(T.clamp(Math.round(roh / raster) * raster, A.ymin, oben)).toFixed(6), alt = zahlen(rows[i][j + 1]);
+  if (v === alt) return ende && _achse ? rest : null;
+  const nl = /\r\n/.test(d.daten) ? '\r\n' : '\n'; let nr = -1;
+  const daten = String(d.daten).split(/\r?\n/).map(l => {
+    if (!l.split(/;|\t/).some(s => s.trim())) return l;
+    if (++nr !== i + 1) return l;
+    const t = l.split(/(;|\t)/); while (t.length < 2 * (j + 1) + 1) t.push(t[1] || ';', '');
+    const z = String(v); t[2 * (j + 1)] = /\./.test(t[2 * (j + 1)]) && !/,/.test(t[2 * (j + 1)]) ? z : z.replace('.', ','); return t.join('');
+  }).join(nl);
+  return ende ? { ...rest, daten } : { ...rest, daten, _achse: A };
+};
 const dq = (l, fn) => ({ l, f: d => ({ d: fn({ ...d }) }) });
 B.diagramm.schnell = ['saeulen', 'balken', 'linie', 'punkte', 'kreis'].map((a, i) => dq(['▮ Säulen', '▬ Balken', '📈 Linie', '✕ Punkte', '◔ Kreis'][i], d => { d.art = a; return d; }))
   .concat([dq('Ausgleichsgerade', d => { d.ausgleich = !d.ausgleich; return d; }), dq('📋 Tabelle ein/aus', d => { d.tabelle = !d.tabelle; return d; }), { l: '✏️ Werte ändern', aus: o => T.editObj && T.editObj(o) }]);
@@ -685,8 +734,23 @@ B.messwerte.schnell = [
   dq('＋ Messung', d => { d.zeilen = Math.round(d.zeilen) + 1; return d; }), dq('＋ Größe', d => { d.groessen += ';Neue Größe in …'; return d; }),
   { l: '📊 Diagramm daraus', aus: o => { const g = String(o.d.groessen).split(';').map(s => s.trim()), w = String(o.d.werte || '').split(/\r?\n/).filter(l => l.trim());
     if (!w.length) { T.toast('Erst Messwerte eintragen (✏️ Bearbeiten) – dann entsteht das Diagramm.', 4000); return; }
-    const d = { ...B.diagramm.def, art: 'punkte', ausgleich: true, titel: '', daten: g.join(';') + '\n' + w.join('\n') }, gg = T.genObj('diagramm', d, false), k = o.h / gg.h * 1.6;
-    T.snap(); T.addItem({ t: 'o', k: 'diagramm', d, x: o.x + o.w + 40, y: o.y, w: gg.w * k, h: gg.h * k, r: 0 }); T.toast('Diagramm steht neben der Tabelle.'); } }];
+    const d = { ...B.diagramm.def, art: 'punkte', ausgleich: true, titel: '', daten: g.join(';') + '\n' + w.join('\n'), quelle: o.id }, gg = T.genObj('diagramm', d, false), k = o.h / gg.h * 1.6;
+    T.snap(); T.addItem({ t: 'o', k: 'diagramm', d, x: o.x + o.w + 40, y: o.y, w: gg.w * k, h: gg.h * k, r: 0 }); T.toast('Diagramm steht neben der Tabelle – es ist mit ihr verbunden: neue Werte in der Tabelle = neues Diagramm.', 3500); } }];
+/* 🔗 Diagramm aus der Messwerttabelle bleibt verbunden (d.quelle = id der Tabelle): ändern sich die Messwerte oder Größen,
+   zeichnet sich das Diagramm vor dem nächsten Bild neu – gleicher Maßstab, linke obere Ecke bleibt. „⛓ Verbindung lösen“ macht es unabhängig. */
+const mwDaten = q => { const g = String(q.groessen || '').split(';').map(s => s.trim()), w = String(q.werte || '').split(/\r?\n/).filter(l => l.trim()); return w.length ? g.join(';') + '\n' + w.join('\n') : null; };
+function diagrammeAbgleichen() {
+  const pg = T.S && T.S.board && T.page && T.page(); if (!pg) return;
+  for (const it of pg.items) {
+    if (it.k !== 'diagramm' || !it.d || !it.d.quelle) continue;
+    const q = pg.items.find(x => x.id === it.d.quelle); if (!q || q.k !== 'messwerte') continue;
+    const neu = mwDaten(q.d); if (!neu || neu === it.d.daten) continue;
+    const g0 = T.genObj('diagramm', it.d, false), k = it.w / g0.w; it.d = { ...it.d, daten: neu, zahlen: {}, texte: {} };
+    const g1 = T.genObj('diagramm', it.d, false); it.w = g1.w * k; it.h = g1.h * k;
+  }
+}
+if (T.render) { const renderAlt = T.render; T.render = (...a) => { try { diagrammeAbgleichen(); } catch (e) {} return renderAlt(...a); }; }
+{ const sAlt = B.diagramm.schnell; B.diagramm.schnell = d => (typeof sAlt === 'function' ? sAlt(d) : (sAlt || [])).concat(d.quelle ? [{ l: '⛓ Verbindung zur Tabelle lösen', f: dd => { const n = { ...dd }; delete n.quelle; return { d: n }; } }] : []); }
 
 // ---------- Formelsammlung ----------
 // {Zähler|Nenner} wird als Bruch gesetzt

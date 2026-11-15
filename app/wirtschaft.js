@@ -116,9 +116,12 @@ B.wi_kreislauf = { name: 'Einfacher Wirtschaftskreislauf', gruppe: 'Gesellschaft
   } };
 
 // ---------- Preisbildung am Markt ----------
-B.wi_markt = { name: 'Preisbildung am Markt', gruppe: 'Gesellschaft', def: { beschriftung: true }, felder: [{ k: 'beschriftung', l: 'Überhänge beschriften', typ: 'check' }],
+/* Preislinie: preis 0 … 100 (5er-Schritte), 50 = Gleichgewichtspreis; leer = keine Linie. Höhe über der Mengenachse = 40 + 3,6 · preis */
+const MK_Y0 = 540, mkPreis = d => { if (d.preis == null || String(d.preis).trim() === '') return null; const p = parseFloat(String(d.preis).replace(',', '.')); return isFinite(p) ? T.clamp(Math.round(p / 5) * 5, 0, 100) : null; };
+B.wi_markt = { name: 'Preisbildung am Markt', gruppe: 'Gesellschaft', def: { beschriftung: true, preis: '' },
+  felder: [{ k: 'beschriftung', l: 'Überhänge beschriften', typ: 'check' }, { k: 'preis', l: 'Preislinie (0–100, 50 = GP; leer = keine Linie)', typ: 'text' }],
   gen: (d, P) => {
-    const W = 1000, H = 640, x0 = 100, y0 = 540, xw = 500, yh = 430; let s = '';
+    const W = 1000, H = 640, x0 = 100, y0 = MK_Y0, xw = 500, yh = 430, pr = mkPreis(d); let s = '';
     s += pfeil(x0, y0, x0 + xw + 30, y0, P.ink, 3) + pfeil(x0, y0, x0, y0 - yh - 30, P.ink, 3);
     s += text(x0 + xw + 10, y0 + 30, 'Menge', 20, P.ink, fett) + text(x0 - 10, y0 - yh - 40, 'Preis', 20, P.ink, 'text-anchor="end" ' + fett);
     const N = t => [x0 + 30 + t * 400, y0 - 400 + t * 360], A = t => [x0 + 30 + t * 400, y0 - 40 - t * 360];
@@ -126,15 +129,42 @@ B.wi_markt = { name: 'Preisbildung am Markt', gruppe: 'Gesellschaft', def: { bes
     s += `<line x1="${A(0)[0]}" y1="${A(0)[1]}" x2="${A(1)[0]}" y2="${A(1)[1]}" stroke="${ORANGE}" stroke-width="5" stroke-linecap="round"/>` + text(A(1)[0] - 4, A(1)[1] - 22, 'Angebot (A)', 20, ORANGE, 'text-anchor="middle" ' + fett);
     const G = [x0 + 30 + 0.5 * 400, y0 - 220];
     s += `<line x1="${x0}" y1="${G[1]}" x2="${G[0]}" y2="${G[1]}" stroke="${ROT}" stroke-width="2.5" stroke-dasharray="8 6"/><line x1="${G[0]}" y1="${G[1]}" x2="${G[0]}" y2="${y0}" stroke="${ROT}" stroke-width="2.5" stroke-dasharray="8 6"/><circle cx="${G[0]}" cy="${G[1]}" r="9" fill="${ROT}"/>`;
-    s += text(x0 - 10, G[1], 'GP', 20, ROT, 'text-anchor="end" ' + fett) + mitte(G[0], y0 + 26, 'GM', 20, ROT, fett);
-    if (d.beschriftung) { s += mitte(G[0], G[1] - 120, 'Angebotsüberhang', 18, GRAU, 'font-style="italic"') + mitte(G[0], G[1] - 98, '(Preis zu hoch)', 16, GRAU);
+    s += text(x0 - (pr == null ? 10 : 26), G[1], 'GP', 20, ROT, 'text-anchor="end" ' + fett) + mitte(G[0], y0 + 26, 'GM', 20, ROT, fett);
+    let teile;
+    if (pr != null) { /* 🎚 Preislinie mit Griff an der Preisachse: Angebots- und Nachfragemenge bei diesem Preis, Überhang als Strecke */
+      const yp = y0 - 40 - 3.6 * pr, xN = x0 + 30 + 400 * (1 - pr / 100), xA = x0 + 30 + 4 * pr;
+      s += `<line x1="${x0}" y1="${f(yp)}" x2="${x0 + xw}" y2="${f(yp)}" stroke="${LILA}" stroke-width="3"/>`;
+      if (pr === 50) s += text(G[0] + 140, yp - 22, 'Gleichgewicht', 20, ROT, fett) + text(G[0] + 140, yp + 22, 'Angebot = Nachfrage', 17, ROT);
+      else {
+        const senk = (x, col) => `<line x1="${f(x)}" y1="${f(yp)}" x2="${f(x)}" y2="${y0}" stroke="${col}" stroke-width="2.5" stroke-dasharray="6 5"/><circle cx="${f(x)}" cy="${f(yp)}" r="8" fill="${col}"/>`;
+        s += senk(xN, BLAU) + senk(xA, ORANGE);
+        s += mitte(xN, y0 + (xN < xA ? 52 : 76), 'Nachfragemenge', 17, BLAU, fett) + mitte(xA, y0 + (xN < xA ? 76 : 52), 'Angebotsmenge', 17, ORANGE, fett);
+        const ueber = pr > 50, xl = Math.min(xN, xA), xr = Math.max(xN, xA), col = ueber ? ORANGE : BLAU, oben = ueber || yp + 64 > y0, yt = oben ? yp - 22 : yp + 24;
+        s += `<line x1="${f(xl)}" y1="${f(yp)}" x2="${f(xr)}" y2="${f(yp)}" stroke="${col}" stroke-width="9" stroke-opacity=".55" stroke-linecap="round"/>`;
+        s += `<path d="M ${f(xl)} ${f(yt - 8)} L ${f(xl)} ${f(yt + 8)} M ${f(xr)} ${f(yt - 8)} L ${f(xr)} ${f(yt + 8)} M ${f(xl)} ${f(yt)} L ${f(xr)} ${f(yt)}" stroke="${col}" stroke-width="2.5" fill="none"/>`;
+        s += mitte((xl + xr) / 2, oben ? yt - 22 : yt + 22, ueber ? 'Angebotsüberhang' : 'Nachfrageüberhang', 20, col, fett);
+      }
+      s += `<circle cx="${x0}" cy="${f(yp)}" r="22" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="2"/><circle cx="${x0}" cy="${f(yp)}" r="20" fill="${LILA}" stroke="#ffffff" stroke-width="3"/>` +
+        `<path d="M ${x0} ${f(yp - 11)} L ${x0} ${f(yp + 11)} M ${x0 - 5} ${f(yp - 5)} L ${x0} ${f(yp - 11)} L ${x0 + 5} ${f(yp - 5)} M ${x0 - 5} ${f(yp + 5)} L ${x0} ${f(yp + 11)} L ${x0 + 5} ${f(yp + 5)}" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+      teile = [{ id: 'preis', x: x0 - 22, y: yp - 22, w: 44, h: 44, zieh: true }];
+    }
+    if (d.beschriftung && pr == null) { s += mitte(G[0], G[1] - 120, 'Angebotsüberhang', 18, GRAU, 'font-style="italic"') + mitte(G[0], G[1] - 98, '(Preis zu hoch)', 16, GRAU);
       s += mitte(G[0], G[1] + 110, 'Nachfrageüberhang', 18, GRAU, 'font-style="italic"') + mitte(G[0], G[1] + 132, '(Preis zu niedrig)', 16, GRAU); }
     const L = ['Je höher der Preis, desto weniger wird nachgefragt.', 'Je höher der Preis, desto mehr wird angeboten.', 'Im Schnittpunkt treffen sich Angebot und Nachfrage:',
       'GP = Gleichgewichtspreis', 'GM = Gleichgewichtsmenge', 'Hier wird am meisten verkauft – der Markt ist „geräumt“.'];
     let yL = 110; L.forEach((z, i) => { const rot = i >= 3 && i <= 4; s += zeilenText(660, yL, z, 30, 19, rot ? ROT : P.ink, 25, rot ? fett : ''); yL += umbruch(z, 30).length * 25 + (i === 2 || i === 4 ? 26 : 12); });
-    return tafel('Preisbildung am Markt', W, H, s, P);
+    const t = tafel('Preisbildung am Markt', W, H, s, P);
+    if (teile) t.teile = teile;
+    return t;
+  },
+  /* Preislinie senkrecht ziehen: 5er-Schritte von 0 bis 100 */
+  ziehen: (d, id, sx, sy) => {
+    if (id !== 'preis') return null;
+    const p = T.clamp(Math.round((MK_Y0 - 40 - sy) / 3.6 / 5) * 5, 0, 100);
+    return p === mkPreis(d) ? null : { ...d, preis: p };
   } };
-B.wi_markt.schnell = [{ l: '🏷 Überhänge ein/aus', f: dd => ({ d: { ...dd, beschriftung: !dd.beschriftung } }) }];
+B.wi_markt.schnell = [{ l: '🏷 Überhänge ein/aus', f: dd => ({ d: { ...dd, beschriftung: !dd.beschriftung } }) },
+  { l: '🎚 Preislinie ein/aus', f: dd => ({ d: { ...dd, preis: mkPreis(dd) == null ? 75 : '' } }) }];
 
 // ---------- Haushaltsplan ----------
 B.wi_haushalt = { name: 'Haushaltsplan (Einnahmen / Ausgaben)', gruppe: 'Gesellschaft', def: { titel: 'Mein Taschengeld im Monat', zeilen: 6 },

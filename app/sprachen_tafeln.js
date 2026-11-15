@@ -293,7 +293,26 @@ B.en_time = { name: 'Telling the time', gruppe: 'Sprache', def: { beschriftung: 
     } else s += kreis(cx, cy, 10, ROT);
     s += text(40, 735, 'a.m. = before noon (0:00 – 11:59)   ·   7 a.m. = 7:00', 20, P.ink);
     s += text(40, 768, 'p.m. = after noon (12:00 – 23:59)   ·   7 p.m. = 19:00', 20, P.ink);
-    return tafel('Telling the time', W, H, s, P, EN);
+    const t = tafel('Telling the time', W, H, s, P, EN);
+    if (d.zeiger) { /* 🎚 Griffe an den Zeigerenden: Minutenzeiger (blau) und Stundenzeiger (orange) drehen */
+      const h = Math.round(T.clamp(+d.stunde || 12, 1, 12)), m = Math.round(T.clamp(+d.minute || 0, 0, 55) / 5) * 5;
+      const ah = ((h % 12) + m / 60) * Math.PI / 6, am = m * Math.PI / 30, mx = cx + 160 * Math.sin(am), my = cy - 160 * Math.cos(am), hx = cx + 105 * Math.sin(ah), hy = cy - 105 * Math.cos(ah);
+      const knopf = (x, y, col) => kreis(x, y, 22, 'none', 'rgba(0,0,0,.35)', 2) + kreis(x, y, 20, col, '#ffffff', 3) + kreis(x, y, 8, 'none', '#ffffff', 3);
+      t.svg = t.svg.replace(/<\/svg>\s*$/, knopf(hx, hy, ORANGE) + knopf(mx, my, BLAU) + '</svg>');
+      t.teile = [{ id: 'minute', x: mx - 22, y: my - 22, w: 44, h: 44, zieh: true }, { id: 'stunde', x: hx - 22, y: hy - 22, w: 44, h: 44, zieh: true }];
+    }
+    return t;
+  },
+  /* Minutenzeiger im 5-Minuten-Raster (über 12 hinweg zählt die Stunde mit), Stundenzeiger in ganzen Stunden */
+  ziehen: (d, id, sx, sy) => {
+    let h = Math.round(T.clamp(+d.stunde || 12, 1, 12)), m = Math.round(T.clamp(+d.minute || 0, 0, 55) / 5) * 5;
+    const w = (Math.atan2(sx - 500, 390 - sy) + 2 * Math.PI) % (2 * Math.PI), schritt = Math.PI / 6;
+    if (id === 'minute') { const nm = Math.round(w / schritt) % 12 * 5;
+      if (m >= 45 && nm <= 15) h = h % 12 + 1; else if (m <= 15 && nm >= 45) h = (h + 10) % 12 + 1;
+      m = nm; }
+    else if (id === 'stunde') { const nh = Math.round(w / schritt - m / 60); h = ((nh % 12) + 12) % 12 || 12; }
+    else return null;
+    return h === +d.stunde && m === +d.minute ? null : { ...d, stunde: h, minute: m };
   } };
 B.en_time.schnell = [{ l: '🏷 Ausdrücke ein/aus', f: dd => ({ d: { ...dd, beschriftung: !dd.beschriftung } }) }, { l: '🕒 Zeiger ein/aus', f: dd => ({ d: { ...dd, zeiger: !dd.zeiger } }) },
   { l: '+5 min', f: dd => { let h = Math.round(T.clamp(+dd.stunde || 12, 1, 12)), m = Math.round(T.clamp(+dd.minute || 0, 0, 55) / 5) * 5 + 5; if (m >= 60) { m = 0; h = h % 12 + 1; } return { d: { ...dd, stunde: h, minute: m } }; } }];

@@ -17,6 +17,10 @@ const pal = (dark, ink) => ({
 });
 // deckender Hintergrund (Hundertertafel, schriftliches Rechnen): Karos/Linien der Tafel scheinen nicht durch; Deckkraft einstellbar
 const F_HG = { k: 'hg', l: 'Hintergrund deckend (%) – 0 = durchsichtig', typ: 'zahl', min: 0, max: 100 };
+/* 🎚 runder Griff für ziehbare Regler (Bruchstreifen, Bruchkreis): art 'h' = ↔, 'ring' = zum Drehen */
+const bruchGriff = (x, y, art) => `<circle cx="${f(x)}" cy="${f(y)}" r="22" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="2"/><circle cx="${f(x)}" cy="${f(y)}" r="20" fill="#1e6fd9" stroke="#ffffff" stroke-width="3"/>` +
+  (art === 'ring' ? `<circle cx="${f(x)}" cy="${f(y)}" r="8" fill="none" stroke="#ffffff" stroke-width="3"/>`
+    : `<path d="M ${f(x - 11)} ${f(y)} L ${f(x + 11)} ${f(y)} M ${f(x - 5)} ${f(y - 5)} L ${f(x - 11)} ${f(y)} L ${f(x - 5)} ${f(y + 5)} M ${f(x + 5)} ${f(y - 5)} L ${f(x + 11)} ${f(y)} L ${f(x + 5)} ${f(y + 5)}" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`);
 const hgRect = (d, P, W, H) => { const a = T.clamp(d.hg == null ? 100 : +d.hg, 0, 100) / 100; return a > 0 ? rc(0, 0, W, H, 'none', P.papier, 0, `fill-opacity="${a}" rx="6"`) : ''; };
 
 // ---------- 3D-Körper (Schrägbild: Tiefe 45°, verkürzt auf die Hälfte) ----------
@@ -178,7 +182,21 @@ T.BAUSTEINE = {
       } else if (zq) { W = kW + 2 * m; H = kH + 2 * m; s = kaest(m, m); }
       else { W = 2 * R + 2 * m; H = W; s = kreis(m, m); }
       if (d.zeigen) { const cx = W / 2, y = H + 2; s += tx(cx, y + 20, k, P.ink, 24) + ln(cx - 18, y + 36, cx + 18, y + 36, P.ink, 2.5) + tx(cx, y + 52, n, P.ink, 24); H += 70; }
-      return { svg: doc(W, H, s), w: W, h: H };
+      let teile;
+      if (zk) { /* 🎚 Griff am Rand des gefärbten Sektors: rundherum ziehen ändert den Zähler */
+        const kx = zq ? (neben ? m : m + (W - 2 * m - 2 * R) / 2) : m, ky = zq ? (neben ? m + (Math.max(2 * R, kH) + 2 * m - 2 * m - 2 * R) / 2 : m) : m, cx = kx + R, cy = ky + R;
+        const a = -Math.PI / 2 + k * 2 * Math.PI / n, gx = cx + R * Math.cos(a), gy = cy + R * Math.sin(a);
+        s += bruchGriff(gx, gy, 'ring'); teile = [{ id: 'zaehler', x: gx - 22, y: gy - 22, w: 44, h: 44, zieh: true, cx, cy }];
+      }
+      const erg = { svg: doc(W, H, s), w: W, h: H }; if (teile) erg.teile = teile;
+      return erg;
+    },
+    ziehen: (d, id, sx, sy) => {
+      const g = id === 'zaehler' && T.genObj('bruchkreis', d, false), t = g && (g.teile || []).find(x => x.id === 'zaehler'); if (!t) return null;
+      const n = T.clamp(Math.round(d.n), 1, 100), alt = T.clamp(Math.round(d.k), 0, n), w = (Math.atan2(sx - t.cx, t.cy - sy) + 2 * Math.PI) % (2 * Math.PI);
+      let k = Math.round(w / (2 * Math.PI) * n);
+      if (n > 1 && (k === 0 || k === n)) k = alt > n / 2 ? n : 0; /* über „12 Uhr“ hinweg: voll bleibt voll, leer bleibt leer */
+      return k === alt ? null : { ...d, k };
     } },
   bruchstreifen: { name: 'Bruchstreifen', gruppe: 'Mathe', def: { n: 5, k: 2, laenge: 14, farbe: '#4fc3f7', zeigen: false },
     felder: [{ k: 'k', l: 'Zähler (gefärbte Teile) – oben', typ: 'zahl', min: 0, max: 40 }, { k: 'n', l: 'Nenner (Teile insgesamt) – unten', typ: 'zahl', min: 1, max: 40 }, { k: 'laenge', l: 'Länge (cm)', typ: 'zahl', min: 4, max: 40 }, { k: 'farbe', l: 'Farbe', typ: 'farbe' }, { k: 'zeigen', l: 'Bruch daneben schreiben', typ: 'check' }],
@@ -189,7 +207,14 @@ T.BAUSTEINE = {
       for (let i = 1; i < n; i++) s += ln(m + i * L / n, m, m + i * L / n, m + h, P.ink, 2);
       s += rc(m, m, L, h, P.ink, 'none', 3);
       if (d.zeigen) s += tx(m + L + 40, m + h / 2 - 16, k, P.ink, 22) + ln(m + L + 26, m + h / 2, m + L + 54, m + h / 2, P.ink, 2.5) + tx(m + L + 40, m + h / 2 + 16, n, P.ink, 22);
-      return { svg: doc(W, H, s), w: W, h: H };
+      /* 🎚 Griff am Ende der gefärbten Fläche: waagerecht ziehen ändert den Zähler */
+      const gx = m + k * L / n; s += bruchGriff(gx, m + h / 2, 'h');
+      return { svg: doc(W, H, s), w: W, h: H, teile: [{ id: 'zaehler', x: gx - 22, y: m - 6, w: 44, h: h + 12, zieh: true }] };
+    },
+    ziehen: (d, id, sx) => {
+      if (id !== 'zaehler') return null;
+      const n = Math.max(1, Math.round(d.n)), alt = T.clamp(Math.round(d.k), 0, n), k = T.clamp(Math.round((sx - 14) / (d.laenge * CM / n)), 0, n);
+      return k === alt ? null : { ...d, k };
     } },
   rechnen: { name: 'Schriftlich rechnen', gruppe: 'Mathe', def: { art: 'plus', stellen: 5, zeilen: 2, teiler: 2, faktor2: 2, kopf: true, hg: 100 },
     felder: [{ k: 'art', l: 'Rechenart', typ: 'auswahl', opts: [['plus', 'Addition (+)'], ['minus', 'Subtraktion (−)'], ['mal', 'Multiplikation (·)'], ['geteilt', 'Division (:)']] }, { k: 'stellen', l: 'Stellen (bei · der 1. Faktor, bei : die Zahl, die geteilt wird)', typ: 'zahl', min: 2, max: 9 },
@@ -313,7 +338,7 @@ T.BAUSTEINE = {
       }[d.art] || [];
       return tabelle({ zeilen: Math.round(d.zeilen) + 1, spalten: M.length, kopf: true, breite: 5.2, hoehe: 1.5, inhalt: M.map(x => x[0]).join(';') + '\n' + (d.inhalt || ''), farben: P.ink === '#1a1a1a' ? M.map(x => x[1]) : null }, P);
     } },
-  mindmap: { name: 'Brainstorming / Mindmap', gruppe: 'Sprachen', def: { mitte: 'Thema', aeste: 6, inhalt: '' },
+  mindmap: { name: 'Brainstorming (Äste getippt)', gruppe: 'Sprachen', def: { mitte: 'Thema', aeste: 6, inhalt: '' },
     felder: [{ k: 'mitte', l: 'Thema in der Mitte', typ: 'text' }, { k: 'aeste', l: 'Anzahl Äste', typ: 'zahl', min: 2, max: 12 }, { k: 'inhalt', l: 'Ast-Beschriftungen (optional)', typ: 'liste' }],
     gen: (d, P) => {
       const n = Math.round(d.aeste), W = 26 * CM, H = 17 * CM, cx = W / 2, cy = H / 2, z = zeilen(d.inhalt);

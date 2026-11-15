@@ -320,7 +320,10 @@ T.puzzleAus = bild => {
 };
 
 // ---------- Tafelbild-Vorlagen: Seite speichern und wiederverwenden ----------
+/* Seit 2026-11: ganze Seiten liegen mit den übrigen eigenen Vorlagen in 📌 Meine Vorlagen (meineaufgaben.js, Ablageordner) –
+   „⭐ Als Vorlage speichern“ und „📋 Neue Seite aus Vorlage“ führen dorthin; die alte Fassung unten bleibt als Rückfall */
 T.vorlageSpeichern = async () => {
+  if (T.alsVorlage) return T.alsVorlage(true);
   const pg = T.page(); if (!pg.items.length) { T.toast('Diese Seite ist leer.'); return; }
   const name = await T.frage('Name der Vorlage:', { feld: { wert: pg.titel || (S.board.titel || 'Tafelbild') }, ok: '⭐ Speichern' }); if (!name || !name.trim()) return;
   const liste = lies('vorlagen', []); liste.unshift({ name: name.trim(), datum: T.today(), bg: pg.bg, abstand: pg.abstand || null, items: pg.items });
@@ -328,6 +331,7 @@ T.vorlageSpeichern = async () => {
   T.toast('Vorlage „' + name.trim() + '“ gespeichert – Seiten › 📋 Aus Vorlage.', 3500);
 };
 T.vorlageWaehlen = () => {
+  if (T.einfuegenKategorie && T.vorlagenPanel) return T.einfuegenKategorie('Vorlagen');
   const liste = lies('vorlagen', []);
   const karte = (v, i) => h('div', { class: 'seite-karte vorlage-karte' },
     h('div', { class: 'seite-bild', onclick: () => einsetzen(v) }, T.seitenBild({ bg: v.bg, abstand: v.abstand, items: v.items, view: { x: 0, y: 0, z: 1 } })),

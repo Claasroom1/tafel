@@ -966,6 +966,8 @@ body.seite-links.notizFrei.notizAuf #nreiter { left: var(--dockW); }
 .ma-kasten { margin-top: 12px; border-color: #a78bfa; background: #f3eefe; }
 .ma-kasten h4 { color: #5b21b6; }
 .ma-kasten .big:not(.prim) { background: #fff; border-color: #c4b5fd; }
+.ma-kasten.vl-kasten { border-color: #34d399; background: #ecfdf5; } .ma-kasten.vl-kasten h4 { color: #047857; } .ma-kasten.vl-kasten .big:not(.prim) { border-color: #6ee7b7; } /* 📌 Vorlage: grün statt violett */
+:root[data-theme="dark"] .ma-kasten.vl-kasten { background: rgba(52,211,153,.14); } :root[data-theme="dark"] .ma-kasten.vl-kasten h4 { color: #6ee7b7; }
 :root[data-theme="dark"] .sp-kasten { background: rgba(245,158,11,.14); }
 :root[data-theme="dark"] .sp-kasten h4 { color: #fcd34d; }
 :root[data-theme="dark"] .ma-kasten { background: rgba(167,139,250,.16); }

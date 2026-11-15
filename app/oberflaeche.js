@@ -65,19 +65,22 @@ const INSTR = [['lineal', 'Lineal'], ['geodreieck', 'Geodreieck'], ['winkelmesse
 
 // Reihenfolge der Werkzeugleiste – unter ⚙ Einstellungen anpassbar (T.opts.leiste); „|“ = Trennstrich
 /* „|“ trennt eigenständige Felder: 🖱 PC · Verlauf · Stift (mit Farbe und Stärke) · Inhalte · Seite (mit Zoom, Home, Folie) */
-const LEISTE_STD = ['pc', '|', 'seiten', '|', 'undo', 'wischen', 'redo', '|', 'stift', 'hervor', 'radierer', 'auswahl', 'farben', 'groessen', '|',
-  'werkzeuge', 'einfuegen', '|', 'classroom']; /* rechts: Werkzeuge, Einfügen (darin fest ◇ Formen und 🧮 Aufgaben), dann Classroom eigenes Feld; Favoriten nur noch über ⚙ */
-const LEISTE_NAME = { pc: 'PC: Verschieben · Text', auswahl: 'Auswahl', stift: 'Stift', hervor: 'Hervorheben', radierer: 'Schwamm', undo: 'Zurück', redo: 'Vor', wischen: 'Wischen', hand: 'Tafel verschieben', form: 'Formen', text: 'Text', favoriten: 'Favoriten',
+const LEISTE_STD = ['pc', '|', 'seiten', '|', 'undo', 'wischen', 'redo', '|', 'stift', 'groessen', 'farben', 'radierer', 'auswahl', 'text', '|', 'hervor', '|',
+  'werkzeuge', 'einfuegen', '|', 'classroom']; /* Stift-Feld: Stift, Stärke, Farben, Schwamm, Auswahl, Text – Hervorheben eigenes Feld rechts daneben (wie Classroom) */ /* 🔤 Text fest neben Auswahl (nicht mehr nur unter 🖱 PC); rechts: Werkzeuge, Einfügen (darin fest ◇ Formen und 🧮 Aufgaben), dann Classroom eigenes Feld; Favoriten nur noch über ⚙ */
+const LEISTE_NAME = { pc: 'Tafel verschieben', auswahl: 'Auswahl', stift: 'Stift', hervor: 'Hervorheben', radierer: 'Schwamm', undo: 'Zurück', redo: 'Vor', wischen: 'Wischen', hand: 'Tafel verschieben', form: 'Formen', text: 'Text', favoriten: 'Favoriten',
   farben: 'Farben', groessen: 'Stärken', werkzeuge: 'Werkzeuge', einfuegen: 'Einfügen', aufgaben: 'Aufgaben', classroom: 'Classroom', seiten: 'Seiten ◀ 1/3 ▶ Neu', '|': '│' };
 function leisteReihenfolge() {
   const o = Array.isArray(T.opts.leiste) ? T.opts.leiste.filter(id => id === '|' || LEISTE_STD.includes(id)) : [];
   if (!o.length) return LEISTE_STD.slice();
-  for (const id of LEISTE_STD) if (id !== '|' && !o.includes(id)) o.push(id); // neue Knöpfe hängen hinten an
+  for (const id of LEISTE_STD) if (id !== '|' && !o.includes(id)) { const i = LEISTE_STD.indexOf(id), vor = LEISTE_STD[i - 1], p = vor ? o.indexOf(vor) : -1; if (p >= 0) o.splice(p + 1, 0, id); else o.push(id); } // neue Knöpfe: an ihren Platz (hinter den Vorgänger), sonst hinten an
   return o;
 }
 const NAV_IN = ['zoomInfo', 'navHome', 'navAlles', 'navFolie']; /* ＋/− nicht in der Leiste: Zoomen mit zwei Fingern bzw. Mausrad – „100 %“ antippen öffnet − 100 % ＋ */ /* Zoom & Co. wohnen im Feld „Seite“ */
 function buildToolbar() {
   if ((T.opts.leisteVersion || 1) < 7) { delete T.opts.leiste; delete T.opts.leisteAus; T.opts.leisteVersion = 7; T.saveOpts(); } /* neue Feld-Leiste: einmal auf den Standard */
+  if (T.opts.leisteVersion < 8) { /* „🖱 PC“ ist jetzt direkt „Tafel verschieben“ – war das alte PC-Feld ausgeblendet, einmal wieder zeigen */
+    if (Array.isArray(T.opts.leisteAus)) T.opts.leisteAus = T.opts.leisteAus.filter(x => x !== 'pc'); T.opts.leisteVersion = 8; T.saveOpts(); }
+  if (T.opts.leisteVersion < 9) { delete T.opts.leiste; T.opts.leisteVersion = 9; T.saveOpts(); } /* neue Reihenfolge im Stift-Feld, Hervorheben eigenes Feld – ausgeblendete Knöpfe bleiben ausgeblendet */
   const tb = $('toolbar'), nav = $('nav');
   for (const id of NAV_IN) { const el = $(id); if (el && nav && el.parentNode !== nav) nav.append(el); } /* vor dem Neuaufbau zurücklegen */
   tb.innerHTML = ''; tb.classList.add('felder');
@@ -87,10 +90,8 @@ function buildToolbar() {
     if (id === '|') return h('div', { class: 'sep' });
     if (TL[id]) return btn(id, TL[id], I[id], ev => toolClick(id, ev.currentTarget));
     switch (id) {
-      case 'pc': { /* 🖱 nur für die Vorbereitung am PC: Auswahl, Tafel verschieben, Text – mit der Maus klappen sie von selbst auf */
-        const k = h('button', { class: 'tool pc-knopf', id: 't_pc', title: 'PC-Werkzeuge: Tafel verschieben, Text (für die Vorbereitung mit der Maus – am Board geht alles mit Stift und Finger)',
-          onclick: () => { const an = !document.body.classList.contains('pcAuf'); document.body.classList.toggle('pcAuf', an); pcVonHand = true; } , html: '<span class="ico">🖱</span><span>PC</span>' });
-        return [k, ...['auswahl', 'hand', 'text'].filter(t => !leisteReihenfolge().includes(t)).map(t => { /* Auswahl steht jetzt im Stift-Feld */ const b = btn(t, TL[t], I[t], ev => toolClick(t, ev.currentTarget)); b.classList.add('pc-tool'); return b; })]; }
+      case 'pc': /* früher 🖱 PC zum Aufklappen – übrig ist nur noch „Tafel verschieben“: gleich direkt zeigen (Auswahl und Text stehen im Stift-Feld) */
+        return ['auswahl', 'hand', 'text'].filter(t => !leisteReihenfolge().includes(t)).map(t => btn(t, TL[t], I[t], ev => toolClick(t, ev.currentTarget)));
       case 'farben': return [h('div', { id: 'farben', class: 'row', style: { flexWrap: 'nowrap', gap: '5px' } }), h('button', { class: 'sw', id: 'mehrFarben', title: 'Weitere Farben', style: { background: 'conic-gradient(red,yellow,lime,cyan,blue,magenta,red)' }, onclick: ev => farbPop(ev.currentTarget) })];
       case 'groessen': return h('div', { id: 'groessen', class: 'row', style: { flexWrap: 'nowrap', gap: '0' } });
       case 'werkzeuge': return btn('werkzeuge', 'Werkzeuge', I.geodreieck, () => leisteOderDock('werkzeuge'), 'Lineal, Geodreieck, Zirkel, Rechner, Timer …');
@@ -284,7 +285,7 @@ function aufgabenKnopf(e) {
     ...AUF_FAECHER.map(([v, l]) => h('button', { class: 'big' + ((S.aufFach || 'alle') === v ? ' on' : ''), onclick: () => { S.aufFach = v; T.closePops(); zeigeDock('aufgaben'); updateToolbar(); } }, l))));
 }
 // ⧉ Seitenleiste als Schwebemenü: dasselbe Menü in einem verschiebbaren Fenster, das offen bleibt
-const dockSchwebe = {};
+const dockSchwebe = {}, zwScroll = {};
 function dockInhalt(art) {
   dockKnoepfe = [];
   const inhalt = art === 'werkzeuge' ? werkzeugePanel() : art === 'einfuegen' ? einfuegenPanel() : art === 'classroom' ? classroomPanel() : art === 'mathe-rechenwege' ? T.rechenwegePanel() : aufgabenPanel();
@@ -292,12 +293,17 @@ function dockInhalt(art) {
   const zwei = !!(inhalt && inhalt.links);
   const body = zwei ? h('div', { class: 'dbody zweiteilig' }, h('div', { class: 'zw-links' }, ...inhalt.links), h('div', { class: 'zw-rechts' }, ...[].concat(inhalt.rechts)))
     : h('div', { class: 'dbody' }, ...[].concat(inhalt));
+  if (zwei) { /* Kategorienliste bleibt beim Antippen einer Kategorie dort stehen, wo man war */
+    const links = body.firstChild; links.addEventListener('scroll', () => { zwScroll[art] = links.scrollTop; }, { passive: true });
+    const merk = zwScroll[art], hin = () => { if (merk && links.isConnected && links.scrollTop !== merk) links.scrollTop = merk; };
+    setTimeout(hin, 0); requestAnimationFrame(hin);
+  }
   return { body, zwei, knoepfe: dockKnoepfe };
 }
 function dockAlsSchwebe(art) {
   schliesseDock(); dockArt = null;
   const w = schwebeMenue('dock-' + art, DOCK_TITEL[art], neu => { dockSchwebe[art] = neu; const r = dockInhalt(art); setTimeout(() => { const f = schwebeOffen['dock-' + art]; if (f) favSterne(art, f); }, 0); /* ☆ auch im schwebenden Fenster */ return [r.knoepfe.length ? h('div', { class: 'row' }, ...r.knoepfe) : '', r.body]; }, art === 'einfuegen' || art === 'aufgaben' ? 760 : 460);
-  if (w) { w.classList.add('dock-schwebe'); const alt = w.onclose; w.onclose = () => { delete dockSchwebe[art]; alt && alt(); }; }
+  if (w) { w.classList.add('dock-schwebe'); const alt = w.onclose; w.onclose = () => { delete dockSchwebe[art]; delete zwScroll[art]; alt && alt(); }; }
   updateToolbar();
 }
 /* Seitenleiste immer auf der anderen Seite als Notizen/Störungen (die liegen links bei „Bedienseite links“, sonst rechts) */
@@ -323,6 +329,7 @@ function zeigeDock(art, umschalten) {
   T.closePops(); updateToolbar(); favSterne(art); /* ☆ Favoriten für die Leiste unten */
 }
 function schliesseDock() {
+  if (dockArt) delete zwScroll[dockArt]; /* nach dem Schließen beginnt die Kategorienliste wieder oben */
   dockArt = null; $('dock').classList.remove('auf'); document.body.classList.remove('dockAuf');
   T.ox = 0; document.documentElement.style.setProperty('--dockW', '0px'); document.documentElement.style.setProperty('--dockR', '0px'); T.render(); T.renderOver(); updateToolbar(); vorhangPlatz();
 }
@@ -364,7 +371,7 @@ function classroomPanel() {
   return [h('h3', {}, 'Klasse'), h('div', { class: 'tiles klein' }, kachel('📋', 'Klassenliste', () => klassenliste()), T.sitzplan ? kachel('🪑', 'Sitzplan', T.sitzplan) : ''),
     h('h3', {}, 'Zeit'), h('div', { class: 'tiles klein' }, kachel('⏳', 'Phasentimer', phasenWidget), kachel('⏱', 'Timer / Stoppuhr', timerWidget), kachel('🏁', 'Mehrere Stoppuhren', C.stoppuhren), kachel('🕘', 'Uhr & Datum', C.uhr)),
     h('h3', {}, 'Klasse führen'), h('div', { class: 'tiles klein' }, kachel('🤫', 'Arbeits­symbole', C.arbeit), kachel('🚦', 'Ampel', C.ampel), kachel('🔊', 'Lautstärke', C.laut)),
-    h('h3', {}, 'Mitmachen'), h('div', { class: 'tiles klein' }, kachel('📊', 'Umfrage', C.umfrage), kachel('🏆', 'Punkte­stand', C.punkte), C.quiz ? kachel('🔔', 'Team-Quiz (Buzzer)', C.quiz) : '', C.buzzer ? kachel('🛎', 'Buzzer richtig / falsch', C.buzzer) : '', C.ruhe ? kachel('📢', 'Ruhe!', C.ruhe) : ''),
+    h('h3', {}, 'Mitmachen'), h('div', { class: 'tiles klein' }, kachel('📊', 'Umfrage', C.umfrage), kachel('🏆', 'Punkte­stand', C.punkte), C.quiz ? kachel('🔔', 'Team-Quiz (Buzzer)', C.quiz) : '', C.buzzer ? kachel('🛎', 'Buzzer richtig / falsch', C.buzzer) : ''), /* 📢 Ruhe-Buzzer entfernt (Wunsch der Lehrkraft) */
     h('h3', {}, 'Zufall & Gruppen'), h('div', { class: 'tiles klein' }, kachel('🎯', 'Namen ziehen', zufallWidget), kachel('🎡', 'Glücksrad', C.gluecksrad), kachel('👥', 'Gruppen bilden', C.gruppen), kachel('🎲', 'Würfel', wuerfelWidget)),
     h('h3', {}, 'Teilen'), h('div', { class: 'tiles klein' }, kachel('🔳', 'QR-Code', C.qr)),
     T.feiernDialog ? h('h3', {}, 'Feiern') : '', T.feiernDialog ? h('div', { class: 'tiles klein' }, kachel('🎉', 'Feiern', () => T.feiernDialog())) : '', /* Konfetti, Geburtstag, Glückwunsch */
@@ -1104,7 +1111,7 @@ T.placeSelBar = anchor => {
   const alleFest = items.length && items.every(i => i.fest);
   const idsK = items.map(i => i.id).join(); if (idsK !== selStufeIds) { selStufeIds = idsK; selStufe = 0; } /* neue Auswahl: Menü zu */
   if (teil && selStufe < 1) selStufe = 1; /* Feld angetippt: Feld-Menü gleich zeigen */
-  const key = items.map(i => i.id + (i.t === 's' ? (i.kw ? 'k' : '') + (i.wk ? 'w' : '') + (i.wkAus ? 'a' : '') : '')).join() + (T.page().winkelAus ? 'W' : '') + (one ? one.k + (one.r ? 'r' : '') + ((one.d && one.d.art) || '') + ((one.d && (one.d.form || one.d.koerper)) || '') : '') + (alleFest ? 'f' : '') + '|' + (teil || '') + '|s' + selStufe;
+  const key = items.map(i => i.id + (i.t === 's' ? (i.kw ? 'k' : '') + (i.wk ? 'w' : '') + (i.wkAus ? 'a' : '') : '')).join() + (T.page().winkelAus ? 'W' : '') + (one ? one.k + (one.r ? 'r' : '') + ((one.d && one.d.art) || '') + ((one.d && (one.d.form || one.d.koerper)) || '') + (one.d && one.d.texteDirekt ? 'T' : '') + (one.d && one.d.erarbeiten ? 'E' : '') : '') + (alleFest ? 'f' : '') + '|' + (teil || '') + '|s' + selStufe;
   if (selbar.dataset.key !== key) {
     selbar.dataset.key = key; selbar.innerHTML = '';
     const akt = () => T.page().items.find(i => i.id === one.id); // immer die aktuelle Fassung des Bausteins
@@ -1595,7 +1602,8 @@ let uebNv = 2; // Niveau beim Einfügen: 1 = ★, 2 = ★★, 3 = ★★★
 // Einfügen nach Fach: allgemeine Vorlagen stehen immer da, Fachvorlagen nur im passenden Fach („Alle Fächer“ zeigt alles)
 const NAWI = ['NaWi', 'Biologie', 'Chemie', 'Physik', 'Technik'], GESELL = ['Erdkunde', 'Geschichte', 'Politik', 'Wirtschaft'];
 const EINF_KAT = [
-  ['Medien', '🖼️ Bilder & Text'], ['Vorlagen', '📌 Meine Vorlagen'], ['Emojis', '😀 Emojis'], ['Geld', '💶 Geld (€)'], ['Struktur', '🧠 Strukturieren'], ['Diagramme', '📊 Diagramme'], ['Stunde', '📋 Stunde & Rückmeldung'], ['Methoden', '🧩 Methoden'], ['Klassenleben', '🤝 Klassenleben & Lernen'], ['Uebungen', '🎲 Übungen'], ['Gebete', '🙏 Gebet / Impuls'],
+  ['Medien', '🖼️ Bilder & Text'], ['Vorlagen', '📌 Meine Vorlagen'], ['Emojis', '😀 Emojis'], ['Geld', '💶 Geld (€)'], ['Struktur', '🧠 Strukturieren'], ['Diagramme', '📊 Diagramme'], ['Stunde', '📋 Stunde & Organisation'], ['Mitschrift', '📝 Mitschrift & Heft'], ['Lernen', '🎓 Lernen lernen'], ['Feedback', '💬 Feedback & Gefühle'], ['Bewertung', '⭐ Bewertung'],
+  ['Klassenleben', '🤝 Klassenleben'], ['Belehrungen', '🦺 Belehrungen'], ['Uebungen', '🎲 Übungen'], ['Gebete', '🙏 Gebet / Impuls'],
   ['Mathe', '➗ Mathe', ['Mathe']], ['Körper', '🧊 Körper und Netze', ['Mathe']], ['Formeln', '📐 Formeln', ['Mathe', 'Physik', 'Chemie', 'NaWi', 'Technik']],
   ['Sprachen', '💬 Sprache', ['Deutsch', 'Englisch', 'Französisch']],
   ['NaWi', '🔬 Naturwissenschaft', NAWI], ['Skelette', '🦴 Skelette', ['NaWi', 'Biologie']],
@@ -1604,28 +1612,37 @@ const EINF_KAT = [
   ['Technik', '💻 Technik & Informatik', ['Technik', 'Informatik']]
 ];
 const EINF_TEILE = { // welche Vorlagen in welcher Kategorie stehen
-  Stunde: ['stundenablauf', 'stundenablauf:leer', 'blitzlicht', 'exitticket', 'kl_av', 'kl_sv', 'kl_praes:plakat', 'kl_praes:pc', 'kl_praes:bewertung', 'kl_praes:leer'],
+  Stunde: ['stundenablauf', 'stundenablauf:leer', 'al_auftrag', 'al_fertig:leer', 'al_fertig:beispiel', 'al_rollen', 'al_stationen:tafel', 'al_stationen:laufzettel', 'al_tagesplan:leer', 'al_tagesplan:beispiel'],
+  Feedback: ['blitzlicht', 'exitticket', 'kl_gefuehle:karten', 'kl_gefuehle:satz', 'kl_gefuehle:barometer', 'kl_impuls', 'kl_smart:erklaert', 'kl_smart:leer', 'al_redemittel:de', 'al_redemittel:en', 'al_redemittel:leer'],
+  /* 🎓 Lernen lernen: Lernmethoden, Tipps, kooperative Methoden, Präsentieren; dazu (in kachelListe) Vokabeltrainer und Lernplan */
+  Lernen: ['ln_kompetenz', 'ln_lernzettel', 'ln_fehler', 'ln_karten', 'ln_karten:drehen', 'ln_karten:leitner', 'ln_lesen', 'ln_lesen:erklaerung', 'ln_tagebuch', 'ln_tagebuch:woche', 'ln_lernzeit',
+    'kl_lernen:methoden', 'kl_lernen:tipps', 'me_tps', 'me_tps:leer', 'me_placemat', 'me_lerntempo', 'me_lerntempo:leer', 'me_ichduwir', 'me_ichduwir:leer', 'me_viereecken', 'kl_praes:plakat', 'kl_praes:pc'],
+  Bewertung: ['kl_av', 'kl_sv', 'kl_praes:bewertung', 'kl_praes:leer'],
+  /* 📝 Mitschrift & Lernen (mitschrift.js, lehrer-vorlagen.js): eigene Kacheln in kachelListe; Versuchsprotokoll steht nur hier */
+  Mitschrift: ['ms_cornell', 'ms_heft', 'ms_begriffe', 'ms_stichpunkte', 'ms_stundenplan', 'ms_versuch', 'ms_lesetagebuch', 'ms_buch', 'ms_protokoll'],
   Diagramme: ['diagramm:saeulen', 'diagramm:balken', 'diagramm:kreis', 'diagramm:linie', 'messwerte'],
-  Klassenleben: ['kl_regeln:weg', 'kl_regeln:plakat', 'kl_lernen:methoden', 'kl_lernen:tipps', 'kl_kalender', 'kl_gefuehle:karten', 'kl_gefuehle:satz', 'kl_gefuehle:barometer', 'kl_impuls'],
-  Wirtschaft: ['wi_maslow', 'wi_bedarf', 'wi_gueter', 'wi_prinzip', 'wi_kreislauf', 'wi_markt', 'wi_haushalt'],
-  Struktur: ['ablauf', 'mindmap', 'wortwolke', 'venn', 'tabelle', 'zuordnung', 'zeitstrahl', 'diagramm'],
+  Klassenleben: ['kl_regeln:weg', 'kl_regeln:plakat', 'kl_kalender', 'al_dienste', 'al_klassenrat', 'al_geburtstage'],
+  Belehrungen: [], /* wird in belehrungen_tafeln.js gefüllt (alle be_-Bausteine) */
+  Wirtschaft: ['wi_maslow', 'wi_bedarf', 'wi_gueter', 'wi_prinzip', 'wi_kreislauf', 'wi_kreislauf2:offen', 'wi_kreislauf2:geschlossen', 'wi_kreislauf2:rechnen', 'wi_kreislauf2:rechnenleer', 'wi_markt', 'wi_haushalt'],
+  Struktur: ['ablauf', 'mindmap', 'ms_mindmap', 'wortwolke', 'al_wortspeicher:wortarten', 'al_wortspeicher:begriffe', 'venn', 'tabelle', 'zuordnung', 'zeitstrahl'],
   Mathe: ['koord', 'zahlenmauer', 'zahlenstrahl', 'zahlengerade','bruchkreis', 'bruchstreifen', 'bruchstuecke', 'geoerkl', 'schraegerkl', 'dreieckerkl', 'rechnen', 'stellenwert', 'hunderter', 'uhr', 'ma_prozent', 'ma_prozent:leer', 'ma_bdp', 'ma_bdp:leer', 'ma_baum'],
   Körper: ['wuerfelnetz', 'faltnetz:wuerfel', 'koerpernetz:quader', 'faltnetz:quader', 'koerpernetz:prisma', 'faltnetz:prisma', 'koerpernetz:pyramide', 'faltnetz:pyramide',
     'koerpernetz:tetraeder', 'faltnetz:tetraeder', 'koerpernetz:zylinder', 'faltnetz:zylinder', 'koerpernetz:kegel', 'faltnetz:kegel', 'wuerfelgebaeude', 'wuerfel', 'quader', 'pyramide', 'prisma', 'zylinder', 'kegel', 'kugel'],
   Sprachen: ['vokabeln', 'satzbau', 'wortarten', 'silbenboegen', 'satzglieder',
     'de_erzaehlkurve', 'de_erzaehlkurve:leer', 'de_argument', 'de_argument:leer', 'de_figuren', 'de_zeitformen', 'de_zeitformen:leer', 'de_wortfeld:sagen', 'de_wortfeld:gehen', 'de_wortfeld:leer',
-    'en_tenses', 'en_tenses:leer', 'en_signalwords', 'en_signalwords:leer', 'en_questionwords', 'en_questionwords:leer', 'en_wordorder', 'en_wordorder:leer', 'en_time', 'en_time:leer', 'en_dates'],
-  NaWi: ['protokoll', 'messwerte', 'periodensystem', 'schaltzeichen', 'nawi_energiefluss','bio_pflanzenzelle', 'bio_tierzelle', 'bio_bluete', 'bio_auge', 'bio_herz', 'bio_mikroskop',
+    'en_tenses', 'en_tenses:leer', 'en_signalwords', 'en_signalwords:leer', 'en_questionwords', 'en_questionwords:leer', 'en_wordorder', 'en_time', 'en_time:leer', 'en_dates'],
+  NaWi: ['periodensystem', 'schaltzeichen', 'nawi_energiefluss','bio_pflanzenzelle', 'bio_tierzelle', 'bio_bluete', 'bio_auge', 'bio_herz', 'bio_mikroskop',
     'nw_aggregat', 'nw_nahrung:kette', 'nw_nahrung:netz', 'nw_nahrung:leer', 'nw_fotosynthese'],
-  Gesellschaft: ['klima', 'bevoelkerung', 'diagramm', 'ge_epochen', 'ge_epochen:leer', 'ge_quellen', 'ge_quellen:leer', 'ge_karikatur', 'ge_karikatur:leer', 'ge_gewalten', 'ge_gewalten:leer',
+  Gesellschaft: ['klima', 'bevoelkerung', 'ge_epochen', 'ge_epochen:leer', 'ge_quellen', 'ge_quellen:leer', 'ge_karikatur', 'ge_karikatur:leer', 'ge_gewalten', 'ge_gewalten:leer',
     'ge_wahl', 'ge_wahl:leer', 'ge_kompass', 'ge_kompass:leer', 'ge_klimazonen', 'ge_klimazonen:leer'],
   Religion: ['re_kirchenjahr', 're_kirchenjahr:leer', 're_weltreligionen', 're_weltreligionen:leer', 're_dilemma'],
-  Methoden: ['me_tps', 'me_tps:leer', 'me_placemat', 'me_lerntempo', 'me_lerntempo:leer', 'me_ichduwir', 'me_ichduwir:leer', 'me_viereecken'],
   Musik: ['mu_notenwerte', 'mu_klavier', 'mu_klavier:cdur', 'mu_klavier:leer', 'mu_rhythmus', 'mu_takt', 'mu_instrumente'],
-  Kunst: ['ku_farbkreis', 'ku_farbkreis:komplementaer', 'ku_farbkreis:warmkalt', 'ku_farbkreis:leer', 'ku_perspektive:eins', 'ku_perspektive:zwei', 'ku_bildanalyse', 'ku_bildanalyse:ebenen'],
-  Sport: ['sp_feld:fussball', 'sp_feld:handball', 'sp_feld:basketball', 'sp_feld:volleyball', 'sp_feld:halle', 'sp_stationen', 'sp_teams'],
-  Technik: ['it_binaer', 'it_binaer:leer', 'it_dreitafel', 'it_dreitafel:leer', 'ablauf']
+  Kunst: ['ku_farbkreis', 'ku_farbkreis:komplementaer', 'ku_farbkreis:warmkalt', 'ku_farbkreis:leer', 'ku_perspektive:eins', 'ku_perspektive:zwei', 'ku_bildanalyse', 'ku_bildanalyse:ebenen', 'ku_drittel:raster', 'ku_drittel:beispiel', 'ku_drittel:gold', 'ku_drittel:folie'],
+  Sport: ['sp_feld:fussball', 'sp_feld:handball', 'sp_feld:basketball', 'sp_feld:volleyball', 'sp_feld:halle', 'sp_stationen', 'sp_teams', 'sp_turnier:ko', 'sp_turnier:gruppen', 'sp_turnier:liga'],
+  Technik: ['it_eva:computer', 'it_eva:toaster', 'it_eva:leer', 'it_binaer', 'it_binaer:leer', 'it_ascii', 'it_ascii:leer', 'it_dreitafel', 'it_dreitafel:leer']
 };
+T.einfuegenKategorie = kat => { einfKat = kat; einfSuche = ''; zeigeDock('einfuegen'); }; /* z. B. 📑 Seiten › „📋 Neue Seite aus Vorlage“ → 📌 Meine Vorlagen */
+T.MS_KATEGORIE = true; /* Mitschrift-Vorlagen in eigener Kategorie statt in „Stunde“ einschieben */
 const FORMEL_FACH = { Mathe: /^Mathe/, Physik: /^Physik/, Chemie: /^Chemie/, NaWi: /^(Physik|Chemie)/, Technik: /^Physik/ };
 // zweigeteilt: links die Kategorien (immer das erste Element), rechts die Inhalte
 function einfuegenPanel() { const a = [].concat(einfuegenInhalt()); return { links: [a[0]], rechts: a.slice(1) }; }
@@ -1692,12 +1709,44 @@ function uebungInhalt(neu) {
       h('p', { class: 'hint' }, 'Tipp: Tabellen aus Word oder Excel einfach in ein Feld einfügen (Strg+V) – Zeilen und Spalten werden übernommen. Enter springt ins nächste Feld. Auf der Tafel: Kärtchen ziehen bzw. antippen, „✓ Prüfen“, „💡 Lösung“.'));
     return [h('div', { class: 'ue-zwei' }, links, rechts)];
   }
+// 🔍 Suche über den Kategorien: findet Vorlagen in allen Kategorien (Name der Kachel) und Kategorien selbst
+let einfSuche = '';
+const SUCH_SONDER = ['Karten', 'Uebungen', 'Gebete', 'Emojis', 'Geld', 'Formeln', 'Vorlagen', 'Skelette'];
+const suchNorm = s => String(s).toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[–-]/g, ' ');
 function einfuegenInhalt() {
+  const a = [].concat(einfuegenInhaltKat());
+  const ergebnis = h('div', { class: 'einf-treffer', style: { display: 'none' } }), normal = h('div', { class: 'einf-normal' }, ...a.slice(1));
+  let index = null;
+  const tile = (img, name, fn) => h('button', { class: 'tile', onclick: fn }, img, name);
+  const suchen = q => {
+    const n = suchNorm(q.trim());
+    normal.style.display = n ? 'none' : ''; ergebnis.style.display = n ? '' : 'none'; ergebnis.innerHTML = ''; if (!n) return;
+    if (!index) { index = []; for (const [id, l] of EINF_KAT) {
+      if (!SUCH_SONDER.includes(id) && id !== 'Medien') { try { for (const el of [].concat(kachelListe(id, tile))) if (el && el.textContent) index.push({ kat: l, el, t: suchNorm(el.textContent) }); } catch (e) {} }
+      index.push({ kat: l, id, t: suchNorm(l) });
+      if (id === 'Uebungen' && T.UEBUNGEN) for (const [k, u] of Object.entries(T.UEBUNGEN)) index.push({ kat: l, id, t: suchNorm(u.n + ' übung'), name: '🎲 ' + u.n, ueb: k });
+    } }
+    const woerter = n.split(/\s+/).filter(Boolean), treffer = index.filter(x => woerter.every(w => x.t.includes(w) || suchNorm(x.kat).includes(w)));
+    const kacheln = treffer.filter(x => x.el), kats = treffer.filter(x => !x.el);
+    if (kats.length) ergebnis.append(h('div', { class: 'row', style: { flexWrap: 'wrap', gap: '6px', marginBottom: '8px' } }, ...kats.map(x => h('button', { class: 'big', onclick: () => {
+      einfSuche = ''; einfKat = x.id; if (x.ueb) { uebTyp = x.ueb; zeigeDock('einfuegen'); uebFenster(); } else zeigeDock('einfuegen'); } }, x.name || ('→ ' + x.kat)))));
+    if (kacheln.length) { let letzte = ''; let box = null;
+      for (const x of kacheln) { if (x.kat !== letzte) { letzte = x.kat; ergebnis.append(h('h3', {}, x.kat)); box = h('div', { class: 'tiles' }); ergebnis.append(box); } box.append(x.el); } }
+    if (!treffer.length) ergebnis.append(h('p', { class: 'hint' }, 'Nichts gefunden – anderes Wort versuchen (z. B. „Bruch“, „Feedback“, „Spielfeld“).'));
+  };
+  const feld = h('input', { type: 'search', class: 'feld einf-suche', placeholder: '🔍 Vorlage suchen …', value: einfSuche, style: { width: '100%', marginBottom: '8px', boxSizing: 'border-box' },
+    oninput: e => { einfSuche = e.target.value; suchen(einfSuche); }, onkeydown: e => { if (e.key === 'Escape') { e.target.value = einfSuche = ''; suchen(''); } } });
+  if (einfSuche) setTimeout(() => suchen(einfSuche), 0);
+  return [h('div', { class: 'einf-links' }, feld, a[0]), normal, ergebnis];
+}
+function einfuegenInhaltKat() {
   const fach = S.board ? S.board.fach : '';
-  const sichtbar = EINF_KAT; // immer alle Kategorien – kein Filter nach Fach
+  /* immer alle Kategorien – kein Filter nach Fach; nur Kategorien ohne einen einzigen vorhandenen Baustein fallen weg (z. B. in der Schüler-Version) */
+  const da = k => !!T.BAUSTEINE[k.split(':')[0]];
+  const sichtbar = EINF_KAT.filter(([id]) => id === 'Belehrungen' ? Object.keys(T.BAUSTEINE).some(k => /^be_/.test(k)) : (!EINF_TEILE[id] || EINF_TEILE[id].some(da)));
   if (!sichtbar.some(([id]) => id === einfKat)) einfKat = 'Medien';
   const tile = (img, name, fn) => h('button', { class: 'tile', onclick: fn }, img, name);
-  const kats = h('div', { class: 'kats' }, ...sichtbar.map(([id, l]) => h('button', { class: 'kat' + (einfKat === id ? ' on' : ''), onclick: () => { einfKat = id; zeigeDock('einfuegen'); } }, l)));
+  const kats = h('div', { class: 'kats' }, ...sichtbar.map(([id, l]) => h('button', { class: 'kat' + (einfKat === id ? ' on' : ''), onclick: () => { einfKat = id; einfSuche = ''; zeigeDock('einfuegen'); } }, l)));
   let tiles;
   if (einfKat === 'Karten') {
     const stile = h('div', { class: 'kats' }, ...[['politisch', '🗺 Politisch'], ['physisch', '⛰ Physisch'], ['stumm', '◻ Stumm']].map(([v, l]) =>
@@ -1759,12 +1808,33 @@ function einfuegenInhalt() {
       h('p', { class: 'hint', style: { margin: '4px 0 0' } }, 'Bild einfügen, antippen › ☰: 🧩 Puzzle zum Zusammensetzen · 🔲 Aufdeck-Kacheln · 🏷 Beschriften / Zuordnen. Auch unter 🎲 Übungen › „Mit einem Bild“.')) : '', einfKat === 'Karten' ? h('p', { class: 'hint' }, 'Die Karten sind selbst gezeichnet und stark vereinfacht.') : ''];
 }
 // Kacheln einer Einfügen-Kategorie – im Seitenbereich und im Schwebemenü dieselben
+let lernenVorn = false;
 function kachelListe(kat, tile) {
   if (kat === 'Medien') return [
     tile(h('div', { class: 'em' }, '🖼️'), 'Bild', () => bildEinfuegen()),
     tile(h('div', { class: 'em' }, '📄'), 'PDF-Seiten', () => pdfEinfuegen()),
     tile(h('div', { class: 'em' }, '🔤'), 'Text', () => T.textDialog(null)),
     tile(h('img', { src: T.thumb('abdeckung'), alt: '' }), 'Abdeckung', () => insertObj('abdeckung', { ...T.BAUSTEINE.abdeckung.def }))];
+  if (kat === 'Belehrungen' && !EINF_TEILE.Belehrungen.length) { /* alle be_-Tafeln (belehrungen_tafeln.js): Übersicht zuerst, Varianten mit */
+    const KV0 = T.KACHEL_VARIANTEN || {}, ks = Object.keys(T.BAUSTEINE).filter(k => /^be_/.test(k)).sort((a, b) => (a === 'be_uebersicht' ? -1 : b === 'be_uebersicht' ? 1 : 0));
+    EINF_TEILE.Belehrungen = ks.flatMap(k => { const v = Object.keys(KV0).filter(x => x.split(':')[0] === k); return v.length ? v : [k]; });
+  }
+  if (kat === 'Mitschrift') { /* 📝 eigene Kacheln: Heft und Vokabeltrainer, dann die Schreibvorlagen (Einfügen wie in vorlagen-kern.js) */
+    const VL = T.VL || {}, B0 = T.BAUSTEINE;
+    return [T.hausaufgabenheft ? tile(h('div', { class: 'em' }, '📒'), T.SCHUELER ? 'Hausaufgabenheft' : 'Aufgaben & Notizen', () => T.hausaufgabenheft()) : '',
+      ...EINF_TEILE.Mitschrift.filter(k => B0[k]).map(k => tile(h('img', { src: T.thumb(k), alt: '' }), B0[k].name, () => (VL.einfuegen ? VL.einfuegen(k) : insertObj(k, { ...B0[k].def }))))].filter(Boolean);
+  }
+  if (kat === 'Lernen' && !lernenVorn) { /* 🎓 vorn: Vokabeltrainer und Lernplan (mitschrift.js), dahinter die übrigen Kacheln wie üblich */
+    const VL = T.VL || {}, B0 = T.BAUSTEINE; lernenVorn = true;
+    try { return [T.vokabeltrainer ? tile(h('div', { class: 'em' }, '🗂'), 'Vokabeltrainer', () => T.vokabeltrainer()) : '',
+      B0.ms_lernplan ? tile(h('img', { src: T.thumb('ms_lernplan'), alt: '' }), B0.ms_lernplan.name, () => (VL.einfuegen ? VL.einfuegen('ms_lernplan') : insertObj('ms_lernplan', { ...B0.ms_lernplan.def }))) : ''].filter(Boolean).concat(kachelListe(kat, tile)); }
+    finally { lernenVorn = false; }
+  }
+  if (kat === 'Feedback' && !lernenVorn && T.CR && T.CR.umfrage) { /* 📊 Umfrage wie unter Classroom › Mitmachen – vorn in Feedback & Gefühle */
+    lernenVorn = true;
+    try { return [tile(h('div', { class: 'em' }, '📊'), 'Umfrage (Abstimmung)', () => { T._wz = '📊'; try { T.CR.umfrage(); } finally { T._wz = null; } })].concat(kachelListe(kat, tile)); }
+    finally { lernenVorn = false; }
+  }
   const vorlagen = ((T.GERUEST_VORLAGEN || {})[kat] || []).map(([em, name, d]) => tile(h('div', { class: 'em' }, em), name, () => { /* 📝 Gerüst als bearbeitbare Vorlage */
     insertObj('geruest', { ...T.BAUSTEINE.geruest.def, ...d }); toast('Gerüst eingefügt – mit „✏️ Bearbeiten“ Texte ändern; im Kontextmenü ★ / ★★ / ★★★ für die Hilfen.', 3500); }));
   const KV = T.KACHEL_VARIANTEN || {}; /* „baustein:variante“ = gleicher Baustein mit voreingestellten Werten */
@@ -2132,6 +2202,9 @@ function settingsDialog() {
       h('label', { class: 'fld' }, 'Lage der Werkzeugleiste', h('select', { onchange: e => { const v = e.target.value; o.leisteOben = v === 'oben'; if (v === 'links' || v === 'rechts') o.leisteSeite = v; else delete o.leisteSeite; T.saveOpts(); leisteLage(); } },
         ...[['unten', 'unten (waagerecht)'], ['oben', 'oben (waagerecht)'], ['links', 'links (senkrecht)'], ['rechts', 'rechts (senkrecht)']].map(([v, l]) => h('option', { value: v, selected: (o.leisteSeite || (o.leisteOben ? 'oben' : 'unten')) === v }, l)))),
       chk('karteImmer', '🗺 Übersichtskarte immer zeigen (sonst nur beim Verschieben und Zoomen)', () => T.render()),
+      abschnitt(T.SCHUELER ? '📲 An ein anderes Gerät senden' : '📲 Tablet → Smartboard'),
+      h('label', { class: 'fld' }, 'Beim Beenden einer Tafel (bzw. Wechsel zur Startseite) fragen und senden:', auswahl('beendenSenden', [['', 'aus'], ['tafel', 'diese Tafel'], ['alles', 'alles (Sicherung: Tafeln, Notizen, Einstellungen, Listen, Vorlagen)']], '')),
+      tipp('Für das iPad bzw. Tablet: Nach dem Beenden erscheint „📲 Ans Smartboard senden?“ – ein Tipp öffnet das Teilen; dort IServ und den Ordner „_Eingang“ im Tafel-Ablageordner wählen (das iPad merkt sich den Ordner). Das Smartboard übernimmt die Datei dann von selbst. An Geräten mit verbundenem Ablageordner (PC, Board) passiert nichts.'),
       abschnitt('Farben in der Werkzeugleiste'), tipp('Antippen nimmt eine Farbe in die Leiste auf bzw. heraus (höchstens 8). Alle weiteren Farben gibt es immer über den Regenbogen-Knopf.'),
       farbWahl('stift', MEHR, 'Stift'), farbWahl('marker', MARKER_MEHR, 'Marker'),
       abschnitt('Werkzeugleiste anpassen'), tipp('Mit ◀ ▶ verschieben, × blendet aus – die Leiste ändert sich sofort. Noch einfacher: lange auf die Werkzeugleiste drücken und die Kärtchen ziehen.'),
@@ -2166,7 +2239,9 @@ function settingsDialog() {
     rechts.innerHTML = ''; rechts.append(h('h3', { style: { marginTop: 0 } }, b[1]), ...b[2]().filter(Boolean)); rechts.scrollTop = 0;
   };
   links.append(...BER.map(([id, l]) => h('button', { class: 'kat', 'data-b': id, onclick: () => zeige(id) }, l)));
-  openDlg([h('h2', {}, '⚙ Einstellungen'), h('div', { class: 'einst' }, links, rechts),
+  openDlg([h('div', { class: 'row', style: { alignItems: 'center', gap: '12px', flexWrap: 'wrap' } }, h('h2', { style: { margin: 0, flex: 1 } }, '⚙ Einstellungen'),
+      T.hilfe ? h('button', { class: 'big prim', title: 'Anleitungen und Lernvideos: Stift, Hervorheben, Wischen, Seite, Werkzeuge, Einfügen, Classroom, Ordner …', onclick: () => { closeDlg(); T.hilfe(); } }, '❓ Hilfe & Lernvideos') : ''),
+    h('div', { class: 'einst' }, links, rechts),
     h('p', { class: 'hint', style: { margin: '8px 0 0' } }, nurBoard ? 'Hier nur die Einstellungen des Boards (Finger, Handballen …). Persönliche Einstellungen – Stift, Leiste, Darstellung, Sperre & PIN, Ordner – nach dem Anmelden.' : T.opts.lehrkraft ? `Gilt für ${T.opts.lehrkraft} (außer Finger, Handballen, Druck und Bildschirmtastatur – die gehören zum Board).` : 'Tipp: Mit gewählter Lehrkraft werden die Einstellungen in ihrem Ordner gespeichert.'),
     h('div', { class: 'acts' }, nurBoard ? h('button', { class: 'big', onclick: () => { closeDlg(); archiv(); anmeldenDialog(); } }, '👤 Anmelden') : '', h('button', { class: 'big prim', onclick: closeDlg }, 'Fertig'))], true);
   zeige(einstBereich);
@@ -3025,14 +3100,17 @@ T.klassenAnwesend = () => { const l = klLesen(), f = fehltLesen(); for (const k 
 const KL_ORDNER = '_Klassenlisten';
 const klTeilDatei = (k, lk) => F.safe(k) + ' (' + F.safe(lk) + ').json';
 const klGeteiltBei = () => Array.isArray(T.opts.klGeteilt) ? T.opts.klGeteilt : [];
+/* mit gemeinsamem Ordner (gemeinsam.js: F.gdir) liegt „_Klassenlisten“ dort, sonst wie bisher im persönlichen Ablageordner */
+const klKannTeilen = () => !!(F.root || F.gemRoot);
+const klDir = create => (F.gdir || F.dir)([KL_ORDNER], create);
 async function klTeilen(k, namen) {
-  if (!F.root || !T.opts.lehrkraft) return false;
-  const d = await F.root.getDirectoryHandle(KL_ORDNER, { create: true }), w = await (await d.getFileHandle(klTeilDatei(k, T.opts.lehrkraft), { create: true })).createWritable();
+  if (!klKannTeilen() || !T.opts.lehrkraft) return false;
+  const d = await klDir(true), w = await (await d.getFileHandle(klTeilDatei(k, T.opts.lehrkraft), { create: true })).createWritable();
   await w.write(JSON.stringify({ app: 'Tafel-App-Klassenliste', klasse: k, namen, von: T.opts.lehrkraft, stand: new Date().toISOString() })); await w.close(); return true;
 }
-async function klTeilenEnde(k) { if (!F.root || !T.opts.lehrkraft) return; try { const d = await F.root.getDirectoryHandle(KL_ORDNER); await d.removeEntry(klTeilDatei(k, T.opts.lehrkraft)); } catch (e) {} }
+async function klTeilenEnde(k) { if (!klKannTeilen() || !T.opts.lehrkraft) return; try { const d = await klDir(false); await d.removeEntry(klTeilDatei(k, T.opts.lehrkraft)); } catch (e) {} }
 async function klGeteiltLesen() {
-  const out = []; if (!F.root) return out; let d; try { d = await F.root.getDirectoryHandle(KL_ORDNER); } catch (e) { return out; }
+  const out = []; if (!klKannTeilen()) return out; let d; try { d = await klDir(false); } catch (e) { return out; }
   for await (const [n, fh] of d.entries()) { if (fh.kind !== 'file' || !n.endsWith('.json')) continue;
     try { const j = JSON.parse(await (await fh.getFile()).text()); if (j && j.app === 'Tafel-App-Klassenliste' && Array.isArray(j.namen)) out.push({ datei: n, ...j }); } catch (e) {} }
   return out.sort((a, b) => String(a.klasse).localeCompare(String(b.klasse), 'de', { numeric: true }) || String(a.von).localeCompare(String(b.von), 'de'));
@@ -3096,10 +3174,10 @@ function klassenliste(start, fertig) {
       h('button', { class: 'big', title: 'Klasse umbenennen', onclick: async () => { const n = await frage('Neuer Name der Klasse:', { ok: 'Umbenennen', feld: { wert: klasse } }); if (!n || !n.trim() || n.trim() === klasse) return;
         const warGeteilt = klGeteiltBei().includes(klasse); if (warGeteilt) { await klTeilenEnde(klasse); klMeinTeil(klasse, false); }
         delete listen[klasse]; klasse = n.trim(); if (warGeteilt) klMeinTeil(klasse, true); sichern(); male(); } }, '✏️ Umbenennen'),
-      F.root ? (klGeteiltBei().includes(klasse)
+      klKannTeilen() ? (klGeteiltBei().includes(klasse)
         ? h('button', { class: 'big on', title: 'Die Liste liegt als Kopie im gemeinsamen Ablageordner (Ordner „_Klassenlisten“) und wird bei jeder Änderung aktualisiert. Antippen: Teilen beenden.', onclick: async () => { await klTeilenEnde(klasse); klMeinTeil(klasse, false); geteilt = await klGeteiltLesen(); male(); toast(`„${klasse}“ wird nicht mehr geteilt.`, 2200); } }, '👥 Geteilt ✓')
         : h('button', { class: 'big', title: 'Eine Kopie dieser Liste in den gemeinsamen Ablageordner legen – Kolleginnen und Kollegen mit demselben Ordner können sie übernehmen', onclick: async () => {
-            if (!await frage(`Liste „${klasse}“ mit Kolleginnen und Kollegen teilen?\n\nEine Kopie kommt in den Ablageordner »${F.name()}« (Unterordner „_Klassenlisten“). Bitte nur teilen, wenn diesen Ordner ausschließlich Lehrkräfte sehen.`, { ok: '👥 Teilen' })) return;
+            if (!await frage(`Liste „${klasse}“ mit Kolleginnen und Kollegen teilen?\n\nEine Kopie kommt in den ${F.gemRoot ? 'gemeinsamen Ordner »' + F.gemName() + '«' : 'Ablageordner »' + F.name() + '«'} (Unterordner „_Klassenlisten“). Die Liste enthält Vornamen – bitte nur teilen, wenn diesen Ordner ausschließlich Lehrkräfte sehen.`, { ok: '👥 Teilen' })) return;
             sichern(); try { await klTeilen(klasse, listen[klasse] || []); klMeinTeil(klasse, true); geteilt = await klGeteiltLesen(); male(); toast(`„${klasse}“ ist geteilt – Änderungen werden automatisch übernommen.`, 3000); } catch (e) { toast('Teilen fehlgeschlagen: ' + e.message, 5000); } } }, '👥 Teilen')) : '',
       h('button', { class: 'big', title: 'Alle Klassenlisten als CSV-Datei speichern – z. B. per IServ-Mail weitergeben; einlesen über „📥 Aus Excel / CSV“', onclick: () => { sichern(); klAlsCsv(listen); } }, '💾 Als Datei'),
       h('button', { class: 'big warn', onclick: async () => { if (!await frage(`Klassenliste „${klasse}“ löschen?`, { ok: 'Löschen' })) return; if (klGeteiltBei().includes(klasse)) { await klTeilenEnde(klasse); klMeinTeil(klasse, false); } delete listen[klasse]; klSchreiben(listen); klasse = Object.keys(listen)[0] || ''; namen = (listen[klasse] || []).slice(); geaendert = false; male(); } }, '🗑 Klasse löschen')),
@@ -3176,14 +3254,29 @@ addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.fil
 
 // ---------- Start ----------
 /* offene Tafel sichern (automatisch bzw. nachfragen) – true, wenn es weitergehen darf */
+T.tafelSichern = (...a) => tafelSichern(...a); /* für 📥 Eingang (eingang.js): offene Tafel sichern, bevor eine andere geöffnet wird */
 async function tafelSichern() {
   if (!S.board || !S.dirty) return true;
   if (angemeldet() && (F.root || F.intern)) { if (T.opts.autoSpeichern !== false || await frage('Änderungen an dieser Tafel speichern?', { ok: '💾 Speichern', abbrechen: 'Nicht speichern' })) await speichern(false); return true; }
   return await frage('Diese Tafel ist nicht gespeichert (nicht angemeldet). Trotzdem schließen?\n\nZum Behalten: Abbrechen › 💾 Speichern (lädt eine Datei herunter).', { ok: 'Schließen', abbrechen: 'Abbrechen' });
 }
 /* Tafel beenden: sichern, schließen, dann weiter (Startseite / Abmelden) */
+/* 📲 Beim Beenden ans Smartboard senden (⚙ Einstellungen; nur am Tablet ohne echten Ablageordner sinnvoll):
+   Nach dem Schließen fragt ein Fenster „Jetzt senden?“ – ein Tipp öffnet das Teilen (IServ › _Eingang), die Datei ist schon fertig */
+const amTablet = () => !F.root || F.intern;
+async function nachBeendenSenden(b) {
+  const art = T.opts.beendenSenden; if (!art || !b || !amTablet()) return;
+  let datei = null;
+  try { datei = art === 'alles' && T.sicherungBlob ? await T.sicherungBlob() : { blob: new Blob([JSON.stringify(b)], { type: 'application/json' }), name: `${F.safe(b.titel || 'Tafel')}.tafel.json` }; } catch (e) { return; }
+  openDlg([h('h2', {}, '📲 Ans Smartboard senden?'),
+    h('p', {}, art === 'alles' ? 'Alles (Tafeln, Notizen, Einstellungen, Listen, Vorlagen) als eine Datei – ' : `„${b.titel || 'Tafel'}“ – `, T.eingangHinweis ? T.eingangHinweis() : ''),
+    h('div', { class: 'acts' }, h('button', { class: 'big', onclick: closeDlg }, 'Nicht jetzt'),
+      h('button', { class: 'big prim', onclick: () => { closeDlg(); if (T.dateiTeilen) T.dateiTeilen(datei.blob, datei.name); else T.downloadBlob(datei.blob, datei.name); } }, '📲 Jetzt senden'))]);
+}
 async function tafelSchliessenUnd(weiter) {
   if (S.board && !await tafelSichern()) return;
+  const fuerSenden = S.board && T.opts.beendenSenden && amTablet() ? JSON.parse(JSON.stringify(S.board)) : null;
+  setTimeout(() => nachBeendenSenden(fuerSenden), 400);
   if (S.board) { S.board = null; S.file = null; S.dirty = false; S.sel = null; S.inst = []; document.title = 'Tafel-App'; for (const k of ['cMain', 'cLive', 'cOver']) { const c = T.cv[k + 'X']; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, T.cv[k].width, T.cv[k].height); } $('titel').value = ''; $('ablageInfo').textContent = ''; try { await T.idbSet('backup', null); } catch (e) {} }
   (weiter || archiv)();
 }
@@ -3194,13 +3287,15 @@ $('bArchiv').onclick = e => {
   const zeile = (txt, fn, titel) => h('button', { class: 'big', style: { width: '100%', justifyContent: 'flex-start' }, title: titel || '', onclick: () => { T.closePops(); fn(); } }, txt);
   openPop(el, h('h4', {}, an ? '📁 Tafel · ' + T.opts.lehrkraft : '📁 Tafel'),
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '250px' } },
-      zeile('🏠 Startseite – Tafeln auswählen', async () => { if (await tafelSichern()) archiv(); }),
+      zeile('🏠 Startseite – Tafeln auswählen', async () => { if (await tafelSichern()) { const b = S.board && T.opts.beendenSenden && amTablet() ? JSON.parse(JSON.stringify(S.board)) : null; archiv(); setTimeout(() => nachBeendenSenden(b), 400); } }),
       zeile('＋ Neue Tafel', async () => { if (await tafelSichern()) neueTafel(an ? T.opts.lehrkraft : 'Lehrkraft', 'Sonstiges', null); }, 'Leere Tafel – liegt dann unter „Sonstige“'),
       h('h4', { style: { marginTop: '6px' } }, 'Speichern'), /* 💾 und ⇅ wohnen jetzt hier – oben bleibt es ruhig */
       zeile('💾 Speichern (Strg+S)', () => speichern(true)),
       zeile('📤 Speichern unter … (als Datei)', speichernUnter, 'Als Datei an einem Ort Ihrer Wahl sichern (USB-Stick, IServ, OneDrive, am iPad: „In Dateien sichern“)'),
       zeile('⭐ Zu „Meine Aufgaben“ …', () => $('bSave').onclick({ currentTarget: el }), 'Diese Seite oder die Auswahl als eigene Aufgabe speichern'),
+      T.alsVorlage ? zeile('📌 Als Vorlage speichern …', () => $('bSave').onclick({ currentTarget: el }), 'Diese Seite oder die Auswahl als Vorlage speichern – später unter Einfügen › 📌 Meine Vorlagen') : '',
       zeile('⇅ Import / Export …', () => exportPop(el), 'Import: PowerPoint, Word, PDF, Bilder · Export: PNG, PDF, Tafel-Datei'),
+      an && T.tafelTeilen && (F.root || F.gemRoot) ? zeile('👥 Tafel teilen …', () => T.tafelTeilen(), 'Eine Kopie dieser Tafel für Kolleginnen und Kollegen in den gemeinsamen Ordner legen') : '',
       h('h4', { style: { marginTop: '6px' } }, 'Tafel'),
       zeile('⏹ Tafel beenden', () => tafelSchliessenUnd(), 'Speichern und schließen'),
       an ? zeile('🔒 Sperren', async () => { const n = T.opts.lehrkraft; if (await F.pinLesen(n).catch(() => null)) sperrbildschirm(n); else toast('Zum Sperren zuerst einen PIN festlegen: 🏠 Startseite › ganz unten „🔑 PIN festlegen“.', 4500); }, 'Tafel abdecken – weiter nur mit PIN') : '',
@@ -3220,7 +3315,7 @@ async function speichernUnter() {
       const w = await hd.createWritable(); await w.write(blob); await w.close(); toast('Gespeichert: ' + hd.name); return;
     }
     const datei = new File([blob], name, { type: 'application/json' });
-    if (navigator.canShare && navigator.canShare({ files: [datei] })) { await navigator.share({ files: [datei], title: b.titel }); return; }
+    if (navigator.canShare && navigator.canShare({ files: [datei] })) { if (T.eingangHinweis) toast(T.eingangHinweis(), 7000); await navigator.share({ files: [datei], title: b.titel }); return; }
   } catch (e) { if (e && e.name === 'AbortError') return; }
   T.downloadBlob(blob, name); toast('Als Datei heruntergeladen: ' + name, 3000);
 }
@@ -3233,7 +3328,12 @@ $('bSave').onclick = e => {
       h('h4', {}, '⭐ Zu „Meine Aufgaben“ hinzufügen'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch' } },
         h('button', { class: 'big', title: 'Alles auf dieser Seite (getippte Aufgaben, Bilder, Bausteine, Handschrift)', onclick: zu(() => T.seiteZuMeinenAufgaben(false)) }, '📄 Diese Seite'),
         h('button', { class: 'big', disabled: !n, title: n ? 'Nur die ausgewählten Elemente' : 'Erst auf der Tafel etwas auswählen', onclick: zu(() => T.seiteZuMeinenAufgaben(true)) }, '☑ Auswahl' + (n ? ` (${n})` : ' – erst etwas auswählen'))),
-      h('div', { class: 'row', style: { marginTop: '10px' } }, h('button', { class: 'big prim', onclick: zu(() => { matheWahl = 'meine'; zeigeDock('aufgaben'); }) }, '⭐ Meine Aufgaben öffnen'))));
+      h('div', { class: 'row', style: { marginTop: '10px' } }, h('button', { class: 'big prim', onclick: zu(() => { matheWahl = 'meine'; zeigeDock('aufgaben'); }) }, '⭐ Meine Aufgaben öffnen'))),
+    T.alsVorlage ? h('div', { class: 'ma-kasten vl-kasten' }, /* 📌 Vorlage: Tafelbild zum Wiederverwenden (keine Aufgabe) – landet in Einfügen › 📌 Meine Vorlagen */
+      h('h4', {}, '📌 Als Vorlage speichern'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch' } },
+        h('button', { class: 'big', title: 'Die ganze Seite – kommt später als neue Seite (Einfügen › 📌 Meine Vorlagen › 📄 Ganze Seiten)', onclick: zu(() => T.alsVorlage(true)) }, '📄 Diese Seite als Vorlage'),
+        h('button', { class: 'big', disabled: !n, title: n ? 'Nur die ausgewählten Elemente – kommen später in die Mitte der Seite' : 'Erst auf der Tafel etwas auswählen', onclick: zu(() => T.alsVorlage(false)) }, '☑ Auswahl als Vorlage' + (n ? ` (${n})` : ' – erst etwas auswählen'))),
+      h('div', { class: 'row', style: { marginTop: '10px' } }, h('button', { class: 'big prim', onclick: zu(() => T.einfuegenKategorie('Vorlagen')) }, '📌 Meine Vorlagen öffnen'))) : '');
 };
 $('bExport').onclick = e => exportPop(e.currentTarget);
 $('bSettings').onclick = settingsDialog;

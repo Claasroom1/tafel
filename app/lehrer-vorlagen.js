@@ -49,6 +49,7 @@ dehnen.ms_protokoll = (d, dy) => ({ zeilen: Math.round(T.clamp((+d.zeilen || 4) 
 
 // Kachel vorn in Einfügen › 📋 Stunde & Rückmeldung
 nachDemZeichnen.push(() => document.querySelectorAll('.tiles').forEach(box => {
+  if (T.MS_KATEGORIE) return; /* steht jetzt in der Kategorie „📝 Mitschrift & Lernen“ */
   if (box.querySelector('.lv-tile') || ![...box.children].some(c => /^(Blitzlicht|Exit-Ticket)/.test(c.textContent.trim()))) return;
   const b = document.createElement('button'); b.className = 'tile lv-tile'; b.onclick = () => einfuegen('ms_protokoll');
   const img = document.createElement('img'); img.src = bild('ms_protokoll'); img.alt = ''; b.append(img, B.ms_protokoll.name);

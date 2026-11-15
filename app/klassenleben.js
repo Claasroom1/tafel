@@ -234,8 +234,33 @@ B.kl_praes = { name: 'Präsentieren', gruppe: 'Struktur', def: { thema: 'plakat'
 B.kl_praes.schnell = [{ l: '🪧 Plakat', f: dd => ({ d: { ...dd, thema: 'plakat' } }) }, { l: '💻 PowerPoint', f: dd => ({ d: { ...dd, thema: 'pc' } }) }, { l: '⭐ Bewerten', f: dd => ({ d: { ...dd, thema: 'bewertung' } }) }, { l: '⬜ Leeres Raster', f: dd => ({ d: { ...dd, thema: 'leer' } }) },
   { l: '＋ Zeile', f: dd => ({ d: { ...dd, zeilen: Math.min(16, (+dd.zeilen || 10) + 1) } }) }, { l: '− Zeile', f: dd => ({ d: { ...dd, zeilen: Math.max(4, (+dd.zeilen || 10) - 1) } }) }];
 
+// ---------- 🎯 SMART-Ziele (Feedback: aus der Rückmeldung ein eigenes Ziel machen) ----------
+const SMART = [['S', 'Spezifisch', 'Was genau will ich erreichen?', 'Ich lerne die englischen Vokabeln von Unit 3.', BLAU],
+  ['M', 'Messbar', 'Woran merke ich, dass ich es geschafft habe?', 'Im Vokabeltest habe ich mindestens 8 von 10 richtig.', GRUEN],
+  ['A', 'Attraktiv', 'Warum ist mir das Ziel wichtig?', 'Dann kann ich im Unterricht besser mitreden.', ORANGE],
+  ['R', 'Realistisch', 'Kann ich das mit meiner Zeit schaffen?', 'Jeden Tag 10 Minuten – das passt in meinen Nachmittag.', LILA],
+  ['T', 'Terminiert', 'Bis wann will ich es schaffen?', 'Bis zum Vokabeltest am Freitag in zwei Wochen.', ROT]];
+B.kl_smart = { name: 'SMART-Ziele setzen', gruppe: 'Struktur', def: { thema: 'erklaert' },
+  felder: [{ k: 'thema', l: 'Tafel', typ: 'auswahl', opts: [['erklaert', 'Erklärt mit Beispiel'], ['leer', 'Leer: eigenes Ziel planen']] }],
+  gen: (d, P) => {
+    const leer = d.thema === 'leer', W = 1000, zh = leer ? 104 : 112, y0 = 84; let s = '';
+    SMART.forEach(([b, wort, frage, bsp, col], i) => {
+      const y = y0 + i * zh;
+      s += box(30, y, 940, zh - 12, col, 'none', 14) + `<circle cx="78" cy="${y + (zh - 12) / 2}" r="34" fill="${col}"/>` + mitte(78, y + (zh - 12) / 2, b, 40, '#ffffff', fett);
+      s += text(130, y + 26, wort, 24, col, fett) + text(300, y + 26, frage, 20, P.ink);
+      if (leer) s += linien(130, 950, y + 72, 1);
+      else s += text(130, y + 68, 'Beispiel: ' + bsp, 19, P.ink, 'font-style="italic"');
+    });
+    const yZ = y0 + 5 * zh + 6;
+    s += box(30, yZ, 940, 120, RAND, 'none', 14) + text(50, yZ + 30, '🎯 Mein SMARTes Ziel:', 22, P.ink, fett) + linien(300, 950, yZ + 44, 1) + linien(50, 950, yZ + 92, 1);
+    if (!leer) s += text(30, yZ + 142, 'Ein gutes Ziel erfüllt alle fünf Punkte.', 19, P.ink, fett) + text(30, yZ + 170, 'Nach dem Termin prüfen: Geschafft? Was mache ich als Nächstes?', 19, P.ink);
+    return tafel('🎯', 'SMART-Ziele setzen', W, yZ + (leer ? 140 : 196), s, P);
+  } };
+B.kl_smart.schnell = [{ l: '🔁 Erklärt ↔ leer', f: dd => ({ d: { ...dd, thema: dd.thema === 'leer' ? 'erklaert' : 'leer' } }) }];
+
 // Kacheln unter Einfügen › 🤝 Klassenleben & Lernen (gleicher Baustein, voreingestellte Tafel)
 const KV = T.KACHEL_VARIANTEN = T.KACHEL_VARIANTEN || {};
+KV['kl_smart:erklaert'] = { name: 'SMART-Ziele (erklärt)', d: { thema: 'erklaert' } }; KV['kl_smart:leer'] = { name: 'SMART-Ziele (leer, eigenes Ziel)', d: { thema: 'leer' } };
 KV['kl_regeln:weg'] = { name: 'Klassenregeln erarbeiten', d: { thema: 'weg' } }; KV['kl_regeln:plakat'] = { name: 'Unsere Klassenregeln (Plakat)', d: { thema: 'plakat' } };
 KV['kl_lernen:methoden'] = { name: 'Lernen lernen: Methoden', d: { thema: 'methoden' } }; KV['kl_lernen:tipps'] = { name: 'Lernen lernen: Tipps', d: { thema: 'tipps' } };
 KV['kl_gefuehle:karten'] = { name: 'Gefühlskarten', d: { thema: 'karten' } }; KV['kl_gefuehle:satz'] = { name: 'Über Gefühle sprechen', d: { thema: 'satz' } }; KV['kl_gefuehle:barometer'] = { name: 'Stimmungsbarometer', d: { thema: 'barometer' } };

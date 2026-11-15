@@ -62,6 +62,7 @@ function down(e) {
   stiftLog(S.board ? 'down' : 'down-ohne-tafel', e);
   if (!S.board) return;
   e.preventDefault();
+  T.leinwandPruefen && T.leinwandPruefen();
   if (!T.teilung && T.opts.finger !== 'schreiben') {
     if (e.pointerType === 'pen') for (const q of ptrs.values()) if (q.type === 'touch' && q.h && q.h.kind !== 'idle') { if (q.h.cancel) q.h.cancel(q); q.h = idle(); } /* Hand lag schon auf: deren Verschieben abbrechen */
     if (e.pointerType === 'touch' && stiftAktiv()) { ptrs.set(e.pointerId, { id: e.pointerId, type: 'touch', sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), h: idle() }); return; }
@@ -156,6 +157,19 @@ function choose(P, e, wx, wy) {
   { /* 🧩 Puzzleteil: mit Finger, Stift und Maus direkt greifen und ziehen – rastet an der richtigen Stelle magnetisch ein */
     const pz = S.tool !== 'radierer' && topObjAt(wx, wy);
     if (pz && pz.d && pz.d.puzzle && !pz.d.puzzle.ok && !pz.fest) { select([pz.id]); return moveSel(P, wx, wy, pz, false); } }
+  { /* 🎚 Regler in Vorlagen (Prozentstreifen, Binärzahl …): Griff = Teil mit „zieh: true“ – mit Finger, Stift und Maus anfassen und verschieben */
+    const ro = S.tool !== 'radierer' && S.tool !== 'auswahl' && topObjAt(wx, wy), Bt = ro && T.BAUSTEINE[ro.k];
+    /* ✏️ Texte direkt ändern (zahlen.js): im Bearbeiten-Modus öffnet auch ein Stift-Tipp auf eine Zeile das Eingabefeld */
+    const te = S.tool !== 'radierer' && topObjAt(wx, wy), Bte = te && T.BAUSTEINE[te.k]; /* auch mit dem Auswahl-Werkzeug */
+    if (te && te.d && te.d.texteDirekt && Bte && Bte.tippen && T.teilAtAlle) { const tid = T.teilAtAlle(te, wx, wy, id => /^x\d+$/.test(id));
+      if (tid) return { kind: 'idle', up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 16) Bte.tippen(T.page().items.find(i => i.id === te.id) || te, tid); } }; }
+    if (Bt && Bt.ziehen) { const g0 = T.genObj(ro.k, ro.d, false), [lx, ly] = T.objLocal(ro, wx, wy), sx = (lx + ro.w / 2) * g0.w / ro.w, sy = (ly + ro.h / 2) * g0.h / ro.h, rand = 14 * g0.w / ro.w * px();
+      const griff = (g0.teile || []).find(t => t.zieh && sx >= t.x - rand && sx <= t.x + t.w + rand && sy >= t.y - rand && sy <= t.y + t.h + rand);
+      if (griff) { let bewegt = false; const k = ro.w / g0.w;
+        const setze = (Q, ende) => { const cur = T.page().items.find(i => i.id === ro.id); if (!cur) return; const [x, y] = world(Q.x, Q.y), [ax, ay] = T.objLocal(cur, x, y);
+          const nd = Bt.ziehen({ ...Bt.def, ...cur.d }, griff.id, (ax + cur.w / 2) / k, (ay + cur.h / 2) / k, !!ende); if (!nd) return;
+          if (!bewegt) { T.snap(); bewegt = true; } const g = T.genObj(cur.k, nd, false); T.replaceItem({ ...cur, d: nd, w: g.w * k, h: g.h * k }); T.render(); };
+        return { kind: 'move', greift: true, move(Q) { setze(Q, false); }, up(Q) { setze(Q, true); if (bewegt) T.changed && T.changed(); }, cancel() {} }; } } }
   if (nurSchreiben && S.sel) { const eh = eckHit(wx, wy); if (eh) return eh(P); } /* gewählte Form: Ecke auch mit dem Stift ziehen */
   if (nurSchreiben) { if (S.sel) { S.sel = null; T.renderOver(); } return werkzeug(P, e, wx, wy); }
   // Lernuhr: Zeiger anfassen und drehen – auch wenn die Uhr gerade ausgewählt ist
@@ -178,7 +192,7 @@ function choose(P, e, wx, wy) {
   const uo = topObjAt(wx, wy);
   if (uo && uo.k === 'kacheln' && S.tool !== 'auswahl' && S.tool !== 'radierer') return { up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 16) T.kachelAufdecken(uo, wx, wy); } }; // Bild-Puzzle
   { const Bt = uo && T.BAUSTEINE[uo.k]; /* 📋 Stundenablauf, 👍 Blitzlicht: Feld antippen (abhaken bzw. Stimme) – daneben schreibt der Stift ganz normal */
-    if (Bt && Bt.tippen && S.tool !== 'auswahl' && S.tool !== 'radierer' && T.teilAtAlle) { const tid = T.teilAtAlle(uo, wx, wy);
+    if (Bt && Bt.tippen && S.tool !== 'auswahl' && S.tool !== 'radierer' && T.teilAtAlle) { const tid = T.teilAtAlle(uo, wx, wy, Bt.tippenFuer);
       if (tid) return { up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 16) Bt.tippen(T.page().items.find(i => i.id === uo.id) || uo, tid); } }; } }
   if (uo && uo.k === 'loesung' && S.tool !== 'auswahl' && S.tool !== 'radierer') return { up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 16) T.loesungUmschalten(uo); } }; // Lösung antippen = auf-/zudecken
   if (uo && T.istSprachtext && T.istSprachtext(uo) && S.tool !== 'auswahl' && S.tool !== 'radierer') return { up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 16) T.sprachTipp(T.page().items.find(i => i.id === uo.id) || uo, wx, wy); } }; // Deutsch: Wörter antippen = einfärben

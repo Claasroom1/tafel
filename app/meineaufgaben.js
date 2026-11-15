@@ -129,7 +129,7 @@ function seiteEinsetzen(e, neueSeite) {
   if (T.neueGruppen) T.neueGruppen(neu);
   T.snap();
   if (neueSeite) {
-    const p = T.newPage(e.bg || T.page().bg); p.abstand = e.abstand || null; p.items.push(...neu);
+    const p = T.newPage(e.bg || T.page().bg); p.abstand = e.abstand || null; if (e.seite && e.name) p.titel = e.name; p.items.push(...neu);
     S.board.pages.splice(S.page + 1, 0, p); T.gotoPage(S.page + 1);
     T.toast('📄 Als neue Seite ' + (S.page + 1) + ' eingefügt.', 2000);
   } else { T.page().items.push(...neu); T.nachEinfuegen(neu.map(i => i.id)); }
@@ -144,7 +144,17 @@ async function vorlagenLaden() {
   let d = null;
   if (F && F.root && T.opts.lehrkraft) { try { const dir = await F.dir([lk(), '_Meine Vorlagen'], false); d = JSON.parse(await (await (await dir.getFileHandle('vorlagen.json')).getFile()).text()); } catch (e) { d = null; } }
   if (!d) { try { d = await T.idbGet('meineVorlagen:' + lk()); } catch (e) { d = null; } }
-  vorlagen = d && Array.isArray(d.vorlagen) ? d.vorlagen : []; vorlagenFuer = lk(); return vorlagen;
+  vorlagen = d && Array.isArray(d.vorlagen) ? d.vorlagen : []; vorlagenFuer = lk();
+  /* ältere Seiten-Vorlagen (📑 Seiten › Als Vorlage, im Browser-Speicher „tafelapp.vorlagen“) einmalig als Kopie übernehmen – dort wird nichts gelöscht */
+  try {
+    const alt = JSON.parse(localStorage.getItem('tafelapp.vorlagen') || '[]') || [], schon = new Set(JSON.parse(localStorage.getItem('tafelapp.vorlagenUebernommen.' + lk()) || '[]'));
+    const neu = alt.filter(v => v && Array.isArray(v.items) && !schon.has(v.name + '|' + v.datum));
+    if (neu.length) {
+      for (const v of neu) { vorlagen.push({ id: T.uid(), name: v.name, fach: '', seite: true, bg: v.bg, abstand: v.abstand || null, items: v.items, datum: v.datum }); schon.add(v.name + '|' + v.datum); }
+      if (await vorlagenSichern()) localStorage.setItem('tafelapp.vorlagenUebernommen.' + lk(), JSON.stringify([...schon]));
+    }
+  } catch (e) {}
+  return vorlagen;
 }
 async function vorlagenSichern() {
   const daten = { vorlagen, geaendert: new Date().toISOString() };
@@ -155,28 +165,32 @@ async function vorlagenSichern() {
   } catch (e) { T.toast('Nicht gespeichert: ' + (e.message || e), 4000); return false; }
 }
 // 👥 Gemeinsame Vorlagen: im Ablageordner unter „_Gemeinsame Vorlagen“, je Vorlage eine eigene Datei (kein Überschreiben fremder Vorlagen)
+// Mit verbundenem gemeinsamem Ordner (gemeinsam.js: F.gdir/F.gemRoot) liegen sie dort, sonst wie bisher im persönlichen Ordner
 const GEM = '_Gemeinsame Vorlagen';
+const gdir = (parts, create) => (F.gdir || F.dir)(parts, create);
+const kannTeilen = () => !!(F && (F.root || F.gemRoot));
 async function gemeinsamLaden() {
-  if (!F || !F.root) return [];
+  if (!kannTeilen()) return [];
   const out = [];
-  try { const dir = await F.dir([GEM], false); for await (const [n, fh] of dir.entries()) { if (fh.kind !== 'file' || !/\.json$/i.test(n)) continue; try { const v = JSON.parse(await (await fh.getFile()).text()); if (v && Array.isArray(v.items)) out.push({ ...v, datei: n }); } catch (e) {} } } catch (e) {}
+  try { const dir = await gdir([GEM], false); for await (const [n, fh] of dir.entries()) { if (fh.kind !== 'file' || !/\.json$/i.test(n)) continue; try { const v = JSON.parse(await (await fh.getFile()).text()); if (v && Array.isArray(v.items)) out.push({ ...v, datei: n }); } catch (e) {} } } catch (e) {}
   return out.sort((a, b) => String(b.datum || '').localeCompare(String(a.datum || '')));
 }
 async function gemeinsamSichern(e) {
-  try { const dir = await F.dir([GEM], true), fh = await dir.getFileHandle(F.safe(e.name) + ' – ' + e.id + '.json', { create: true }), w = await fh.createWritable(); await w.write(JSON.stringify(e)); await w.close(); return true; }
+  try { const dir = await gdir([GEM], true), fh = await dir.getFileHandle(F.safe(e.name) + ' – ' + e.id + '.json', { create: true }), w = await fh.createWritable(); await w.write(JSON.stringify(e)); await w.close(); return true; }
   catch (x) { T.toast('Nicht freigegeben: ' + (x.message || x), 4000); return false; }
 }
-async function gemeinsamLoeschen(v) { try { const dir = await F.dir([GEM], false); await dir.removeEntry(v.datei); return true; } catch (x) { T.toast('Nicht gelöscht: ' + (x.message || x), 4000); return false; } }
+async function gemeinsamLoeschen(v) { try { const dir = await gdir([GEM], false); await dir.removeEntry(v.datei); return true; } catch (x) { T.toast('Nicht gelöscht: ' + (x.message || x), 4000); return false; } }
 let vorlagenNeu = null; // offenes Einfügen-Menü neu zeichnen
-T.alsVorlage = () => {
-  const pg = T.page(), items = pg.items.filter(i => S.sel && S.sel.ids && S.sel.ids.has(i.id));
-  if (!items.length) { T.toast('Erst etwas auswählen (antippen oder Rahmen ziehen).'); return; }
+/* ganzeSeite = true: die ganze Seite (Hintergrund, Linienabstand, alles darauf) – wird später als neue Seite eingesetzt */
+T.alsVorlage = ganzeSeite => {
+  const pg = T.page(), items = ganzeSeite ? pg.items.slice() : pg.items.filter(i => S.sel && S.sel.ids && S.sel.ids.has(i.id));
+  if (!items.length) { T.toast(ganzeSeite ? 'Diese Seite ist leer.' : 'Erst etwas auswählen (antippen oder Rahmen ziehen).'); return; }
   const kopie = JSON.parse(JSON.stringify(items)); kopie.forEach(i => { delete i.ag; });
-  const e = { id: T.uid(), name: '', fach: tafelFach(), bg: pg.bg, items: kopie };
-  const name = h('input', { class: 'feld', placeholder: 'Name, z. B. „Wochenplan-Tabelle“ oder „Kartenausschnitt“', oninput: ev => { e.name = ev.target.value; } });
+  const e = { id: T.uid(), name: ganzeSeite ? (pg.titel || '') : '', fach: tafelFach(), bg: pg.bg, items: kopie, ...(ganzeSeite ? { seite: true, abstand: pg.abstand || null } : {}) };
+  const name = h('input', { class: 'feld', value: e.name, placeholder: ganzeSeite ? 'Name, z. B. „Stundeneinstieg Wetter“' : 'Name, z. B. „Wochenplan-Tabelle“ oder „Kartenausschnitt“', oninput: ev => { e.name = ev.target.value; } });
   const fach = h('select', { class: 'feld', onchange: ev => { e.fach = ev.target.value; } }, h('option', { value: '' }, 'alle Fächer'), ...faecher(e.fach).map(f => h('option', { value: f, selected: f === e.fach }, f)));
   const bild = h('img', { class: 'ma-bild', alt: '' }); vorschauBild(kopie, pg.bg).then(src => { bild.src = src; e.bild = src; });
-  const teilen = h('input', { type: 'checkbox', disabled: !(F && F.root), style: { width: '24px', height: '24px' } });
+  const teilen = h('input', { type: 'checkbox', disabled: !kannTeilen(), style: { width: '24px', height: '24px' } });
   const speichern = async () => {
     if (!e.name.trim()) { T.toast('Bitte einen Namen eingeben.'); name.focus(); return; }
     e.name = e.name.trim(); e.datum = new Date().toISOString(); if (!e.bild) e.bild = await vorschauBild(kopie, pg.bg);
@@ -184,11 +198,12 @@ T.alsVorlage = () => {
     await vorlagenLaden(); vorlagen.unshift(e);
     if (await vorlagenSichern()) { T.closeDlg(); T.toast('📌 Als Vorlage gespeichert – unter „Einfügen › 📌 Meine Vorlagen“.', 2800); vorlagenNeu && vorlagenNeu(); }
   };
-  T.openDlg([h('h2', {}, `📌 Als Vorlage speichern (${items.length} ${items.length === 1 ? 'Element' : 'Elemente'})`), bild,
+  T.openDlg([h('h2', {}, ganzeSeite ? '📌 Ganze Seite als Vorlage speichern' : `📌 Als Vorlage speichern (${items.length} ${items.length === 1 ? 'Element' : 'Elemente'})`), bild,
     h('label', { class: 'fld' }, 'Name', name), h('label', { class: 'fld' }, 'Fach (zum Sortieren)', fach),
     h('label', { class: 'row', style: { alignItems: 'center', gap: '10px', margin: '6px 0' } }, teilen, h('span', {}, '👥 Für alle Lehrkräfte freigeben'),
-      h('span', { class: 'hint' }, F && F.root ? '(liegt dann im gemeinsamen Ablageordner)' : '(geht nur mit verbundenem Ablageordner)')),
-    h('p', { class: 'hint' }, 'Gespeichert wird alles Markierte so, wie es ist – Bilder, Tabellen, Bausteine, Text und Handschrift.'),
+      h('span', { class: 'hint' }, F && F.gemRoot ? '(liegt dann im gemeinsamen Ordner' + (F.gemName ? ' „' + F.gemName() + '“' : '') + ')' : kannTeilen() ? '(liegt dann im Ablageordner)' : '(geht nur mit verbundenem Ablageordner)')),
+    h('p', { class: 'hint' }, ganzeSeite ? 'Gespeichert wird die ganze Seite – Hintergrund, Bilder, Bausteine (mit angepassten Texten), Text und Handschrift. Später: Einfügen › 📌 Meine Vorlagen › 📄 Ganze Seiten (kommt als neue Seite).'
+      : 'Gespeichert wird alles Markierte so, wie es ist – Bilder, Tabellen, Bausteine, Text und Handschrift.'),
     h('div', { class: 'acts' }, h('button', { class: 'big prim', onclick: speichern }, '📌 Speichern'))]);
   setTimeout(() => name.focus(), 50);
 };
@@ -197,26 +212,33 @@ T.vorlagenPanel = () => {
   let verwalten = false;
   const zeichne = async () => {
     await vorlagenLaden(); const gem = await gemeinsamLaden(); box.innerHTML = '';
+    /* Vorschaubild: fehlt es (z. B. übernommene ältere Seiten-Vorlage), wird es nachgerechnet */
+    const vbild = (v, em) => { if (v.bild) return h('img', { src: v.bild, alt: '' }); const img = h('img', { alt: '' }); vorschauBild(v.items || [], v.bg).then(src => { v.bild = src; img.src = src; }).catch(() => {}); return v.items && v.items.length ? img : h('div', { class: 'em' }, em); };
+    const einsetzenV = (v, sym) => { seiteEinsetzen(v, !!v.seite); if (!v.seite) T.toast(sym + ' „' + v.name + '“ eingesetzt – gleich ausgewählt zum Verschieben.', 2000); };
     const gemKachel = v => {
-      const t = h('button', { class: 'tile vl-tile', title: verwalten ? '' : 'Antippen: in die Mitte der Tafel einsetzen', onclick: () => { if (!verwalten) { seiteEinsetzen(v, false); T.toast('👥 „' + v.name + '“ eingesetzt.', 2000); } } },
-        v.bild ? h('img', { src: v.bild, alt: '' }) : h('div', { class: 'em' }, '👥'), v.name, h('span', { class: 'vl-autor' }, 'von ' + (v.autor || '?')));
+      const t = h('button', { class: 'tile vl-tile', title: verwalten ? '' : (v.seite ? 'Antippen: als neue Seite einfügen' : 'Antippen: in die Mitte der Tafel einsetzen'), onclick: () => { if (!verwalten) einsetzenV(v, '👥'); } },
+        vbild(v, '👥'), (v.seite ? '📄 ' : '') + v.name, h('span', { class: 'vl-autor' }, 'von ' + (v.autor || '?')));
       if (!verwalten || v.autor !== lk()) return t; // löschen darf nur, wer sie freigegeben hat
       return h('div', { class: 'vl-verw' }, t, h('div', { class: 'row' }, h('button', { class: 'big warn', title: 'Freigabe zurücknehmen (für alle löschen)', onclick: async () => { if (await T.frage(`Gemeinsame Vorlage „${v.name}“ für alle löschen?`, { ok: '🗑 Löschen' }) && await gemeinsamLoeschen(v)) zeichne(); } }, '🗑')));
     };
     const gemTeil = () => gem.length ? [h('h3', {}, '👥 Gemeinsam (alle Lehrkräfte)'), h('div', { class: 'tiles' }, ...gem.map(gemKachel))] : [];
-    if (!vorlagen.length) { box.append(h('p', { class: 'hint' }, 'Noch keine eigenen Vorlagen. So geht’s: auf der Tafel ein oder mehrere Objekte markieren (z. B. ein Bild und eine Tabelle) › im Kontextmenü „📌 Als Vorlage speichern“.'), ...gemTeil()); return; }
-    const mein = tafelFach(), faecherDa = [...new Set(vorlagen.map(v => v.fach || ''))].sort((a, b) => (b === mein) - (a === mein) || (a === '') - (b === '') || a.localeCompare(b, 'de'));
-    box.append(h('div', { class: 'row' }, h('button', { class: 'big' + (verwalten ? ' on' : ''), title: 'Umbenennen und Löschen', onclick: () => { verwalten = !verwalten; zeichne(); } }, verwalten ? '✓ Fertig' : '✏️ Verwalten')));
-    for (const fa of faecherDa) {
-      box.append(h('h3', {}, fa || 'Alle Fächer'));
-      box.append(h('div', { class: 'tiles' }, ...vorlagen.filter(v => (v.fach || '') === fa).map(v => {
-        const t = h('button', { class: 'tile vl-tile', title: verwalten ? '' : 'Antippen: in die Mitte der Tafel einsetzen', onclick: () => { if (!verwalten) { seiteEinsetzen(v, false); T.toast('📌 „' + v.name + '“ eingesetzt – gleich ausgewählt zum Verschieben.', 2000); } } },
-          v.bild ? h('img', { src: v.bild, alt: '' }) : h('div', { class: 'em' }, '📌'), v.name);
+    const speichernKnopf = h('button', { class: 'big', title: 'Die aktuelle Seite als Vorlage speichern', onclick: () => T.alsVorlage(true) }, '📄 Diese Seite als Vorlage speichern');
+    if (!vorlagen.length) { box.append(speichernKnopf, h('p', { class: 'hint' }, 'Noch keine eigenen Vorlagen. So geht’s: ganze Seite – Knopf oben oder 📑 Seiten › „⭐ Als Vorlage speichern“; einzelne Teile – auf der Tafel markieren › im Kontextmenü „📌 Als Vorlage speichern“.'), ...gemTeil()); return; }
+    const mein = tafelFach(), faecherDa = [...new Set(vorlagen.filter(v => !v.seite).map(v => v.fach || ''))].sort((a, b) => (b === mein) - (a === mein) || (a === '') - (b === '') || a.localeCompare(b, 'de'));
+    box.append(h('div', { class: 'row', style: { flexWrap: 'wrap', gap: '6px' } }, speichernKnopf, h('button', { class: 'big' + (verwalten ? ' on' : ''), title: 'Umbenennen und Löschen', onclick: () => { verwalten = !verwalten; zeichne(); } }, verwalten ? '✓ Fertig' : '✏️ Verwalten')));
+    const gruppen = [];
+    if (vorlagen.some(v => v.seite)) gruppen.push(['📄 Ganze Seiten (kommen als neue Seite)', v => v.seite]);
+    for (const fa of faecherDa) gruppen.push([fa || 'Alle Fächer', v => !v.seite && (v.fach || '') === fa]);
+    for (const [titel, passt] of gruppen) {
+      box.append(h('h3', {}, titel));
+      box.append(h('div', { class: 'tiles' }, ...vorlagen.filter(passt).map(v => {
+        const t = h('button', { class: 'tile vl-tile', title: verwalten ? '' : (v.seite ? 'Antippen: als neue Seite einfügen' : 'Antippen: in die Mitte der Tafel einsetzen'), onclick: () => { if (!verwalten) einsetzenV(v, '📌'); } },
+          vbild(v, v.seite ? '📄' : '📌'), v.name);
         if (!verwalten) return t;
         return h('div', { class: 'vl-verw' }, t, h('div', { class: 'row' },
           h('button', { class: 'big', title: 'Umbenennen', onclick: async () => { const n = await T.frage('Neuer Name:', { feld: { wert: v.name }, ok: '✔ Umbenennen' }); if (n && n.trim()) { v.name = n.trim(); await vorlagenSichern(); zeichne(); } } }, '✏️'),
           h('button', { class: 'big warn', title: 'Löschen', onclick: async () => { if (await T.frage(`Vorlage „${v.name}“ löschen?`, { ok: '🗑 Löschen' })) { vorlagen.splice(vorlagen.indexOf(v), 1); await vorlagenSichern(); zeichne(); } } }, '🗑'),
-          F && F.root ? h('button', { class: 'big', title: 'Für alle Lehrkräfte freigeben (Kopie im gemeinsamen Ordner)', onclick: async () => { if (await gemeinsamSichern({ ...v, id: T.uid(), autor: lk(), datum: new Date().toISOString() })) { T.toast('👥 Für alle freigegeben.', 2000); zeichne(); } } }, '👥') : ''));
+          kannTeilen() ? h('button', { class: 'big', title: 'Für alle Lehrkräfte freigeben (Kopie im gemeinsamen Ordner)', onclick: async () => { if (await gemeinsamSichern({ ...v, id: T.uid(), autor: lk(), datum: new Date().toISOString() })) { T.toast('👥 Für alle freigegeben.', 2000); zeichne(); } } }, '👥') : ''));
       })));
     }
     box.append(...gemTeil());

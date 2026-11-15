@@ -106,15 +106,18 @@ function lasche(p1, p2, innen, tief) {
   const dd = Math.min(tief, L * 0.35), ins = Math.min(dd, L * 0.3);
   return [p1, p2, [p2[0] + n[0] * dd - u[0] * ins, p2[1] + n[1] * dd - u[1] * ins], [p1[0] + n[0] * dd + u[0] * ins, p1[1] + n[1] * dd + u[1] * ins]];
 }
-function zeichneNetz(N, d, P) {
+function netzRahmen(N, d) {
   const tabs = d.laschen ? (N.laschen || []).map(([a, b, c]) => lasche(a, b, c, 0.55)).concat((N.zaehne || []).map(([a, b, c]) => lasche(a, b, c, 0.35))
     .filter(q => !(N.kreise || []).some(k => q.some(p => Math.hypot(p[0] - k.c[0], p[1] - k.c[1]) < k.r + 0.06)))) : [];
   const pts = [];
   (N.polys || []).forEach(F => pts.push(...F.p)); tabs.forEach(q => pts.push(...q));
   (N.kreise || []).forEach(k => pts.push([k.c[0] - k.r, k.c[1] - k.r], [k.c[0] + k.r, k.c[1] + k.r]));
   (N.sektoren || []).forEach(S => { pts.push(S.c); for (let i = 0; i <= 48; i++) { const w = S.a0 + (S.a1 - S.a0) * i / 48; pts.push([S.c[0] + S.R * Math.cos(w), S.c[1] + S.R * Math.sin(w)]); } });
-  const x0 = Math.min(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1])), x1 = Math.max(...pts.map(p => p[0])), y1 = Math.max(...pts.map(p => p[1]));
-  const m = 10, X = v => m + (v - x0) * CM, Y = v => m + (v - y0) * CM, W = (x1 - x0) * CM + 2 * m, H = (y1 - y0) * CM + 2 * m;
+  return { tabs, x0: Math.min(...pts.map(p => p[0])), y0: Math.min(...pts.map(p => p[1])), x1: Math.max(...pts.map(p => p[0])), y1: Math.max(...pts.map(p => p[1])) };
+}
+function zeichneNetz(N, d, P) {
+  const { tabs, x0, y0, x1, y1 } = netzRahmen(N, d), gr = d.griffe && N.griffe ? N.griffe : [];
+  const m = gr.length ? NETZ_RAND_GRIFF : 10, /* mit Griffen: mehr Rand, damit die Knöpfe nicht abgeschnitten werden */ X = v => m + (v - x0) * CM, Y = v => m + (v - y0) * CM, W = (x1 - x0) * CM + 2 * m, H = (y1 - y0) * CM + 2 * m;
   const poly = (p, fill, st, sw) => `<polygon points="${p.map(q => f(X(q[0])) + ',' + f(Y(q[1]))).join(' ')}" fill="${fill}" stroke="${st}" stroke-width="${sw || 2.5}" stroke-linejoin="round"/>`;
   const farbe = g => d.gegen && g != null && g >= 0 ? GEGEN[g % 3] : P.papier;
   let s = tabs.map(q => poly(q, P.soft, P.ink, 1.5)).join('');
@@ -127,8 +130,14 @@ function zeichneNetz(N, d, P) {
     (N.hilfs || []).forEach(([a, b]) => { s += ln(X(a[0]), Y(a[1]), X(b[0]), Y(b[1]), P.acc, 2, 'stroke-dasharray="6 5"'); });
     (N.masse || []).forEach(([x, y, t, rot]) => { s += tx(X(x), Y(y), t, P.acc, fs, 'middle', 'font-weight="600"' + (rot ? ` transform="rotate(${rot} ${f(X(x))} ${f(Y(y))})"` : '')); });
   }
-  return { svg: doc(W, H, s), w: W, h: H };
+  /* ✋ Griffe (nur wenn eingeschaltet): orange Knöpfe mit dem Namen des Maßes */
+  gr.forEach(q => { const x = X(q.p[0]), y = Y(q.p[1]); s += griffKnopf(x, y, q.z); });
+  const g = { svg: doc(W, H, s), w: W, h: H };
+  return gr.length ? { ...g, teile: gr.map(q => ({ id: q.id, x: X(q.p[0]) - 26, y: Y(q.p[1]) - 26, w: 52, h: 52, zieh: true })) } : g;
 }
+const ORANGE = '#ef6c00', NETZ_RAND_GRIFF = 32;
+const griffKnopf = (x, y, z) => `<circle cx="${f(x)}" cy="${f(y)}" r="26" fill="none" stroke="${ORANGE}" stroke-width="3" stroke-opacity=".45"/><circle cx="${f(x)}" cy="${f(y)}" r="19" fill="${ORANGE}" fill-opacity=".92" stroke="#fff" stroke-width="4"/>` +
+  (z ? `<text x="${f(x)}" y="${f(y + 1)}" font-size="20" fill="#fff" text-anchor="middle" dominant-baseline="central" font-weight="700" font-style="italic">${z}</text>` : `<circle cx="${f(x)}" cy="${f(y)}" r="5" fill="#fff"/>`);
 const Rk = (x, y, w, h, name, g) => ({ p: [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], name, g });
 // Quadernetz: a = Länge, b = Breite, c = Höhe; drei Netzformen; Gegenflächen: hinten/vorne 0, Boden/Deckel 1, links/rechts 2
 function quaderNetz(a, b, c, form) {
@@ -208,17 +217,49 @@ function koerperNetz(d) {
   const Q = quaderNetz(a, b, c, d.form), baum = faltBaum(Q.faces, Q.root), fn = n => Q.faces.find(x => x.name === n);
   return { polys: Q.faces, laschen: autoLaschen(Q.faces, baum), masse: [masseRk(fn('Boden'), 'oben', 'a = ' + cm(a)), masseRk(fn('Boden'), 'rechts', 'b = ' + cm(b)), masseRk(fn('vorne'), 'links', 'c = ' + cm(c))] };
 }
-B.koerpernetz = { name: 'Körpernetz', gruppe: 'Mathe', def: { koerper: 'quader', form: '1', a: 4, b: 3, c: 2, h: 5, r: 2, laschen: false, masse: false, gegen: false },
+B.koerpernetz = { name: 'Körpernetz', gruppe: 'Mathe', def: { koerper: 'quader', form: '1', a: 4, b: 3, c: 2, h: 5, r: 2, laschen: false, masse: false, gegen: false, griffe: false },
   felder: [{ k: 'koerper', l: 'Körper', typ: 'auswahl', opts: KOERPER }, { k: 'form', l: 'Netzform (Quader)', typ: 'auswahl', opts: [['1', 'Form 1: Seiten am Boden'], ['2', 'Form 2: Seiten am Deckel'], ['3', 'Form 3: Seitenstreifen']] },
     { k: 'a', l: 'a (cm) – Quader: Länge · Prisma: Grundseite g des Dreiecks · Pyramide: Grundkante · Tetraeder: Kante', typ: 'zahl', min: 0.5, max: 20 },
     { k: 'b', l: 'b (cm) – Quader: Breite · Prisma: Höhe h des Dreiecks', typ: 'zahl', min: 0.5, max: 20 },
     { k: 'c', l: 'c (cm) – Quader: Höhe · Prisma: Länge l', typ: 'zahl', min: 0.5, max: 20 },
     { k: 'h', l: 'h (cm) – Körperhöhe bei Pyramide, Zylinder, Kegel', typ: 'zahl', min: 0.5, max: 25 }, { k: 'r', l: 'r (cm) – Radius bei Zylinder und Kegel', typ: 'zahl', min: 0.3, max: 12 },
-    { k: 'laschen', l: 'Klebelaschen', typ: 'check' }, { k: 'masse', l: 'Maße beschriften', typ: 'check' }, { k: 'gegen', l: 'Gegenflächen gleich färben (Quader, Prisma, Zylinder)', typ: 'check' }],
-  gen: (d, P) => zeichneNetz(koerperNetz(d), d, P) };
+    { k: 'laschen', l: 'Klebelaschen', typ: 'check' }, { k: 'masse', l: 'Maße beschriften', typ: 'check' }, { k: 'gegen', l: 'Gegenflächen gleich färben (Quader, Prisma, Zylinder)', typ: 'check' },
+    { k: 'griffe', l: 'Griffe: Maße an den Kanten ziehen (0,5-cm-Schritte)', typ: 'check' }],
+  gen: (d, P) => { const N = koerperNetz(d); if (d.griffe) N.griffe = netzGriffe(d).map(q => ({ ...q, p: q.pos(netzMasse(d)) })); return zeichneNetz(N, d, P); },
+  ziehen: (d, id, sx, sy) => netzZiehen(d, id, sx, sy) };
+// ✋ Griffe am Körpernetz: je Maß ein Knopf an einer freien Kante (Lage in cm wie in koerperNetz, u = Zugrichtung).
+// Ziehen: Maß so ändern, dass die Kante dem Zeiger folgt (Schrittweite aus der Ableitung), Raster 0,5 cm, Grenzen je Maß.
+const netzMasse = d => { const g = (k, lo, hi, std) => T.clamp(+d[k] || std, lo, hi); return { a: g('a', 0.5, 20, 4), b: g('b', 0.5, 20, 3), c: g('c', 0.5, 20, 2), h: g('h', 0.5, 25, 5), r: g('r', 0.3, 12, 2) }; };
+const GRENZEN = { a: [1, 15], b: [1, 15], c: [1, 15], h: [1, 20], r: [0.5, 8] };
+const R1 = [1, 0], U1 = [0, 1], D1 = [Math.SQRT1_2, Math.SQRT1_2];
+function netzGriffe(d) {
+  const sw = (b, a) => Math.hypot(b, a / 2);
+  switch (d.koerper) {
+    case 'prisma': return [{ id: 'na', k: 'a', z: 'g', u: R1, pos: M => [2 * sw(M.b, M.a) + M.a, M.b + M.c / 2] }, { id: 'nb', k: 'b', z: 'h', u: U1, pos: M => [sw(M.b, M.a) + M.a / 2, 2 * M.b + M.c] },
+      { id: 'nc', k: 'c', z: 'l', u: U1, pos: M => [sw(M.b, M.a) / 2, M.b + M.c] }];
+    case 'pyramide': return [{ id: 'na', k: 'a', z: 'a', u: D1, pos: M => { const hs = Math.hypot(M.h, M.a / 2); return [hs + M.a, hs + M.a]; } },
+      { id: 'nh', k: 'h', z: 'h', u: R1, pos: M => { const hs = Math.hypot(M.h, M.a / 2); return [2 * hs + M.a, hs + M.a / 2]; } }];
+    case 'tetraeder': return [{ id: 'na', k: 'a', z: 'a', u: R1, pos: M => [2 * M.a, M.a * Math.sqrt(3)] }];
+    case 'zylinder': return [{ id: 'nr', k: 'r', z: 'r', u: R1, pos: M => [Math.PI * M.r + M.r, M.r] }, { id: 'nh', k: 'h', z: 'h', u: U1, pos: M => [2 * Math.PI * M.r * 0.75, 2 * M.r + M.h] }];
+    case 'kegel': return [{ id: 'nr', k: 'r', z: 'r', u: R1, pos: M => [M.r, Math.hypot(M.r, M.h) + M.r] }, { id: 'nh', k: 'h', z: 'h', u: U1, pos: M => [0, Math.hypot(M.r, M.h) + 2 * M.r] }];
+  }
+  if (+d.form === 3) return [{ id: 'na', k: 'a', z: 'a', u: R1, pos: M => [2 * M.b + 2 * M.a, M.b + M.c / 2] }, { id: 'nb', k: 'b', z: 'b', u: U1, pos: M => [M.b + M.a / 2, 2 * M.b + M.c] },
+    { id: 'nc', k: 'c', z: 'c', u: U1, pos: M => [2 * M.b + 1.5 * M.a, M.b + M.c] }];
+  return [{ id: 'na', k: 'a', z: 'a', u: R1, pos: M => [M.c + M.a, M.c / 2] }, { id: 'nb', k: 'b', z: 'b', u: U1, pos: M => [M.c + M.a / 2, 2 * M.c + 2 * M.b] },
+    { id: 'nc', k: 'c', z: 'c', u: R1, pos: M => [2 * M.c + M.a, (+d.form === 2 ? 2 * M.c + M.b : M.c) + M.b / 2] }];
+}
+function netzZiehen(d, id, sx, sy) {
+  const G = d.griffe && netzGriffe(d).find(q => q.id === id); if (!G || !isFinite(sx) || !isFinite(sy)) return null;
+  const lage = dd => { const N = koerperNetz(dd), R = netzRahmen(N, dd), p = G.pos(netzMasse(dd)); return [NETZ_RAND_GRIFF + (p[0] - R.x0) * CM, NETZ_RAND_GRIFF + (p[1] - R.y0) * CM]; }; /* Bildkoordinaten wie in zeichneNetz */
+  const v0 = netzMasse(d)[G.k], e = 0.05, p0 = lage(d), p1 = lage({ ...d, [G.k]: v0 + e });
+  const pro = ((p1[0] - p0[0]) * G.u[0] + (p1[1] - p0[1]) * G.u[1]) / e; if (Math.abs(pro) < 0.5) return null;
+  const [lo, hi] = GRENZEN[G.k], v = T.clamp(Math.round((v0 + ((sx - p0[0]) * G.u[0] + (sy - p0[1]) * G.u[1]) / pro) * 2) / 2, lo, hi);
+  return v === v0 ? null : { ...d, [G.k]: v };
+}
 B.koerpernetz.schnell = [q3('Klebelaschen ein/aus', d => { d.laschen = !d.laschen; return d; }), q3('Maße ein/aus', d => { d.masse = !d.masse; return d; }),
   q3('🎨 Gegenflächen ein/aus', d => { d.gegen = !d.gegen; return d; }), q3('▶ Nächster Körper', d => { const i = KOERPER.findIndex(k => k[0] === d.koerper); d.koerper = KOERPER[(i + 1) % KOERPER.length][0]; return d; }),
-  q3('⇄ Quader: andere Netzform', d => { d.form = String((+d.form || 1) % 3 + 1); return d; })];
+  q3('⇄ Quader: andere Netzform', d => { d.form = String((+d.form || 1) % 3 + 1); return d; }),
+  q3('✋ Griffe (Maße ziehen) ein/aus', d => { d.griffe = !d.griffe; if (d.griffe) d.masse = true; return d; })];
 T.koerperNetz = koerperNetz; /* für Tests */
 
 // ---------- Faltnetz (animiert): alle Körpernetze, t = 0 flach … 1 gefaltet; Schrägbild-Projektion ----------
@@ -272,7 +313,7 @@ function faltProjektion(d, t) {
   return S.faces.map(Fa => { const q = Fa.q.map(cam);
     return { q, tiefe: q.reduce((s, v) => s + v[2], 0) / q.length, innen: newellZ(q) * newellZ(Fa.p2) >= 0, g: Fa.g, rand: Fa.rand }; });
 }
-B.faltnetz = { name: 'Faltnetz (animiert)', gruppe: 'Mathe', def: { koerper: 'wuerfel', netz: '1', form: '1', a: 3, b: 2, c: 1.5, h: 4, r: 1.5, t: 0, gegen: false },
+B.faltnetz = { name: 'Faltnetz (animiert)', gruppe: 'Mathe', def: { koerper: 'wuerfel', netz: '1', form: '1', a: 3, b: 2, c: 1.5, h: 4, r: 1.5, t: 0, gegen: false, schieber: false },
   felder: [{ k: 'koerper', l: 'Körper', typ: 'auswahl', opts: FALT_KOERPER },
     { k: 'netz', l: 'Würfelnetz', typ: 'auswahl', opts: NETZE.map((_, i) => [String(i + 1), 'Würfelnetz ' + (i + 1)]) },
     { k: 'form', l: 'Quadernetz', typ: 'auswahl', opts: [['1', 'Form 1: Seiten am Boden'], ['2', 'Form 2: Seiten am Deckel'], ['3', 'Form 3: Seitenstreifen']] },
@@ -281,16 +322,11 @@ B.faltnetz = { name: 'Faltnetz (animiert)', gruppe: 'Mathe', def: { koerper: 'wu
     { k: 'c', l: 'c (cm) – Quader: Höhe · Prisma: Länge l', typ: 'zahl', min: 0.5, max: 15 },
     { k: 'h', l: 'h (cm) – Körperhöhe bei Pyramide, Zylinder, Kegel', typ: 'zahl', min: 0.5, max: 15 }, { k: 'r', l: 'r (cm) – Radius bei Zylinder und Kegel', typ: 'zahl', min: 0.3, max: 8 },
     { k: 't', l: 'Faltzustand (0 = flach, 1 = gefaltet)', typ: 'zahl', min: 0, max: 1 },
-    { k: 'gegen', l: 'Gegenflächen gleich färben', typ: 'check' }],
+    { k: 'gegen', l: 'Gegenflächen gleich färben', typ: 'check' }, { k: 'schieber', l: 'Schieber flach ↔ gefaltet auf der Tafel (mit Finger, Stift, Maus ziehen)', typ: 'check' }],
   gen: (d, P) => {
-    const t = T.clamp(+d.t || 0, 0, 1);
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    if (d.r3) { /* 🔄 gedreht: festes Quadrat, das jede Lage und jeden Faltzustand fasst – die Größe springt beim Drehen nicht */
-      let R = 0; [0, 0.25, 0.5, 0.75, 1].forEach(tt => { const Sz = faltSzene(d, tt); Sz.faces.forEach(Fa => Fa.q.forEach(v => { R = Math.max(R, Math.hypot(v[0] - Sz.ctr[0], v[1] - Sz.ctr[1], v[2])); })); });
-      x0 = y0 = -R; x1 = y1 = R;
-    } else
-    [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1].forEach(tt => faltProjektion(d, tt).forEach(Fl => Fl.q.forEach(v => { x0 = Math.min(x0, v[0]); x1 = Math.max(x1, v[0]); y0 = Math.min(y0, v[1]); y1 = Math.max(y1, v[1]); })));
-    const m = 14, W = (x1 - x0) * CM + 2 * m, H = (y1 - y0) * CM + 2 * m, X = v => f(m + (v[0] - x0) * CM), Y = v => f(m + (v[1] - y0) * CM);
+    const t = T.clamp(+d.t || 0, 0, 1), { x0, y0, x1, y1 } = faltGrenzen(d);
+    const m = 14, W0 = (x1 - x0) * CM + 2 * m, H = (y1 - y0) * CM + 2 * m, Sg = d.schieber ? schieberLage(W0, H) : null, W = Sg ? Sg.W : W0, dx = Sg ? Sg.dx : 0;
+    const X = v => f(dx + m + (v[0] - x0) * CM), Y = v => f(m + (v[1] - y0) * CM);
     const fl = faltProjektion(d, t).sort((a, b) => a.tiefe - b.tiefe);
     const s = fl.map(Fl => {
       const fill = d.gegen && Fl.g >= 0 ? GEGEN[Fl.g % 3] : Fl.innen ? P.papier : P.soft, pts = Fl.q.map(v => X(v) + ',' + Y(v)).join(' ');
@@ -299,8 +335,34 @@ B.faltnetz = { name: 'Faltnetz (animiert)', gruppe: 'Mathe', def: { koerper: 'wu
       return `<polygon points="${pts}" fill="${fill}" stroke="${fill}" stroke-width="1.2" stroke-linejoin="round"/>` +
         `<path d="${Fl.rand.map(j => { const a = Fl.q[j], b = Fl.q[(j + 1) % Fl.q.length]; return `M${X(a)} ${Y(a)}L${X(b)} ${Y(b)}`; }).join('')}" stroke="${P.ink}" stroke-width="2.5" stroke-linecap="round" fill="none"/>`;
     }).join('');
-    return { svg: doc(W, H, s), w: W, h: H };
+    if (!Sg) return { svg: doc(W, H, s), w: W, h: H };
+    /* 🎚 Schieber auf der Tafel: flach (links) ↔ gefaltet (rechts) – ganze Schiene ist Griff */
+    const kx = Sg.xl + t * (Sg.xr - Sg.xl);
+    const sch = `<line x1="${f(Sg.xl)}" y1="${f(Sg.y)}" x2="${f(Sg.xr)}" y2="${f(Sg.y)}" stroke="${P.soft}" stroke-width="10" stroke-linecap="round"/>` +
+      `<line x1="${f(Sg.xl)}" y1="${f(Sg.y)}" x2="${f(kx)}" y2="${f(Sg.y)}" stroke="${ORANGE}" stroke-width="10" stroke-linecap="round" stroke-opacity=".6"/>` +
+      tx(Sg.xl, Sg.y + 36, 'flach', P.ink, 17, 'start') + tx(Sg.xr, Sg.y + 36, 'gefaltet', P.ink, 17, 'end') + griffKnopf(kx, Sg.y, '');
+    return { svg: doc(W, Sg.H(H), s + sch), w: W, h: Sg.H(H), teile: [{ id: 'falt', x: Sg.xl - 26, y: Sg.y - 26, w: Sg.xr - Sg.xl + 52, h: 52, zieh: true }] };
+  },
+  ziehen: (d, id, sx) => {
+    if (id !== 'falt' || !d.schieber || !isFinite(sx)) return null;
+    const { x0, y0, x1, y1 } = faltGrenzen(d), Sg = schieberLage((x1 - x0) * CM + 28, (y1 - y0) * CM + 28);
+    let t = T.clamp((sx - Sg.xl) / (Sg.xr - Sg.xl), 0, 1); t = t < 0.03 ? 0 : t > 0.97 ? 1 : Math.round(t * 100) / 100;
+    LAEUFT.clear(); /* laufende ▶/◀-Animation anhalten – der Schieber hat Vorrang */
+    if (regler && regler.isConnected) regler.value = Math.round(t * 100);
+    return t === T.clamp(+d.t || 0, 0, 1) ? null : { ...d, t };
   } };
+/* Bildgröße des Faltnetzes: fest für alle Faltzustände (gedreht: Quadrat für jede Lage) */
+function faltGrenzen(d) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  if (d.r3) { /* 🔄 gedreht: festes Quadrat, das jede Lage und jeden Faltzustand fasst – die Größe springt beim Drehen nicht */
+    let R = 0; [0, 0.25, 0.5, 0.75, 1].forEach(tt => { const Sz = faltSzene(d, tt); Sz.faces.forEach(Fa => Fa.q.forEach(v => { R = Math.max(R, Math.hypot(v[0] - Sz.ctr[0], v[1] - Sz.ctr[1], v[2])); })); });
+    x0 = y0 = -R; x1 = y1 = R;
+  } else
+  [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1].forEach(tt => faltProjektion(d, tt).forEach(Fl => Fl.q.forEach(v => { x0 = Math.min(x0, v[0]); x1 = Math.max(x1, v[0]); y0 = Math.min(y0, v[1]); y1 = Math.max(y1, v[1]); })));
+  return { x0, y0, x1, y1 };
+}
+/* Schiene unter dem Netz: mindestens 300 breit, Netz dann mittig */
+const schieberLage = (W0, H0) => { const W = Math.max(W0, 300), xl = 40, xr = W - 40; return { W, dx: (W - W0) / 2, xl, xr, y: H0 + 26, H: H => H + 78 }; };
 // Animation: Bilder der nächsten Stufe vorladen (dann zeichnet die Tafel ohne Flackern), requestAnimationFrame mit setTimeout-Rückfall
 const LAEUFT = new Map();
 const naechst = cb => { let los = false; const go = () => { if (!los) { los = true; cb(); } }; if (typeof requestAnimationFrame === 'function') requestAnimationFrame(go); setTimeout(go, 45); };
@@ -350,7 +412,8 @@ const KV = T.KACHEL_VARIANTEN = T.KACHEL_VARIANTEN || {};
 });
 KV['faltnetz:wuerfel'] = { name: 'Würfel (animiert)', d: { koerper: 'wuerfel' }, vorschau: { t: 0.55 } };
 B.faltnetz.schnell = d => [q3(d.r3 ? '🔄 Drehen aus' : '🔄 Drehen', dd => { dd.r3 = !dd.r3; if (dd.r3) { const t = T.clamp(+dd.t || 0, 0, 1); dd.dy = Math.round(t * (dd.koerper === 'kegel' ? 70 : 30)); dd.dp = Math.round(t * 55); } return dd; }), /* an: Netz mit dem Finger ziehen dreht es (auch beim Falten) */
-  { l: '▶ Falten', aus: o => falteAnimiert(o, 1) }, { l: '◀ Auffalten', aus: o => falteAnimiert(o, 0) }, { l: 'Regler', el: faltRegler }]
+  { l: '▶ Falten', aus: o => falteAnimiert(o, 1) }, { l: '◀ Auffalten', aus: o => falteAnimiert(o, 0) }, { l: 'Regler', el: faltRegler },
+  q3(d.schieber ? '🎚 Schieber auf der Tafel aus' : '🎚 Schieber auf der Tafel', dd => { dd.schieber = !dd.schieber; return dd; })]
   .concat(d.koerper === 'wuerfel' || d.koerper === 'quader' ? [q3('▶ Nächstes Netz', dd => { if (dd.koerper === 'quader') dd.form = String((+dd.form || 1) % 3 + 1); else dd.netz = String((+dd.netz || 1) % 11 + 1); return dd; })] : [])
   .concat([q3('🎨 Gegenflächen ein/aus', dd => { dd.gegen = !dd.gegen; return dd; })]);
 

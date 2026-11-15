@@ -31,6 +31,35 @@ function tafel(titel, bild, schritte, P) {
   schritte.forEach((z, i) => { s += text(30, top + i * zh, z, 24, P.ink); });
   return { svg: T._svg.doc(W, H, s), w: W, h: H };
 }
+// ✋ Winkel messen: freier Schenkel mit Griff (Finger, Stift, Maus) – 0° bis 180° in ganzen Grad; der erste Schenkel liegt rechts auf der Zeichenkante,
+// also wird an der schwarzen Skala (außen, ab rechts bei 0°) abgelesen. 50° = bisheriges Bild.
+const ORANGE = '#ef6c00', GRIFF_R = 8.2;
+const winkelWert = d => d && d.w != null && d.w !== '' && isFinite(+d.w) ? Math.max(0, Math.min(180, Math.round(+d.w))) : 50;
+const winkelSchritte = w => ['1. Erst schätzen: spitz (unter 90°) oder stumpf (über 90°)?', '2. Den Nullpunkt genau auf den Scheitelpunkt S legen.', '3. Die Zeichenkante genau auf einen Schenkel legen.', '4. Auf der Skala ablesen, die an diesem Schenkel bei 0° beginnt – hier: ' + w + '°.',
+  w === 90 ? 'Bei 90° zeigen beide Reihen dieselbe Zahl: ein rechter Winkel.' : 'Passt die Zahl nicht zur Schätzung (z. B. ' + (180 - w) + '° statt ' + w + '°)? Dann die andere Reihe nehmen.'];
+const griffPos = (g, w) => { const t = w * Math.PI / 180, x = GRIFF_R * Math.cos(t), y = GRIFF_R * Math.sin(t); return [+g.X(x, y), +g.Y(x, y)]; };
+const griffKnopf = (g, w) => { const [x, y] = griffPos(g, w); return `<circle cx="${x}" cy="${y}" r="30" fill="none" stroke="${ORANGE}" stroke-width="3" stroke-opacity=".45"/><circle cx="${x}" cy="${y}" r="21" fill="${ORANGE}" fill-opacity=".92" stroke="#fff" stroke-width="4"/><circle cx="${x}" cy="${y}" r="5" fill="#fff"/>`; };
+const mitGriff = (res, g, w, d) => { if (!d || !d.griff) return res; const [x, y] = griffPos(g, w); return { ...res, teile: [{ id: 'schenkel', x: x - 30, y: y - 30, w: 60, h: 60, zieh: true }] }; };
+function winkelFrei(P, d, w) {
+  const g = geo(500, 440, 40, 0, P), t = w * Math.PI / 180, c = Math.cos(t), s = Math.sin(t), pol = (r, a) => [r * Math.cos(a), r * Math.sin(a)];
+  let b = g.svg + g.L(0, 0, 9.2, 0, BLAU, 5) + g.L(0, 0, 9 * c, 9 * s, BLAU, 5, 'stroke-opacity=".55"') + g.L(4.95 * c, 4.95 * s, 5.65 * c, 5.65 * s, ROT, 3.5); /* roter Strich: Ablesestelle auf der schwarzen Skala */
+  if (w > 0) b += `<path d="M ${g.X(1.3, 0)} ${g.Y(1.3, 0)} A 52 52 0 0 0 ${g.X(1.3 * c, 1.3 * s)} ${g.Y(1.3 * c, 1.3 * s)}" fill="none" stroke="${ROT}" stroke-width="3"/>`;
+  const [rx, ry] = pol(4.75, t); b += `<circle cx="${g.X(rx, ry)}" cy="${g.Y(rx, ry)}" r="17" fill="none" stroke="${ROT}" stroke-width="3.5"/>`;
+  b += `<rect x="812" y="66" width="158" height="40" rx="10" fill="#fff" stroke="${ROT}" stroke-width="2.5"/>` + text(824, 86, 'hier: ' + w + '°', 24, ROT, 'font-weight="700"');
+  const n = w < 3 ? [s, -c] : [-s, c], [lx, ly] = pol(9.4, t), anker = w < 12 ? 'start' : n[0] < -0.3 ? 'end' : n[0] > 0.3 ? 'start' : 'middle'; /* „2. Schenkel“ neben dem Schenkelende, außerhalb des Geodreiecks */
+  b += text(g.X(0, 0) - 34, g.Y(0, 0) + 24, 'S', 26, BLAU, 'font-weight="700"') + text(g.X(9.3, 0) - 4, g.Y(9.3, 0) - 22, '1. Schenkel', 20, BLAU) +
+    text(g.X(lx + n[0] * 0.7, ly + n[1] * 0.7), Math.max(96, g.Y(lx + n[0] * 0.7, ly + n[1] * 0.7)), '2. Schenkel', 20, BLAU, `text-anchor="${anker}" stroke="#fff" stroke-width="4" paint-order="stroke"`);
+  const [ax, ay] = pol(2.6, (w >= 36 ? w / 2 : w + 14) * Math.PI / 180);
+  b += text(g.X(ax, ay), g.Y(ax, ay), 'α = ' + w + '°', 24, ROT, 'text-anchor="middle" font-weight="700" stroke="#fff" stroke-width="5" paint-order="stroke"');
+  return mitGriff(tafel('Winkel messen', b + (d && d.griff ? griffKnopf(g, w) : ''), winkelSchritte(w), P), g, w, d);
+}
+/* Griff ziehen: Winkel aus der Zeigerrichtung um den Scheitel S (500|440); unterhalb der Zeichenkante 0° bzw. 180° */
+function schenkelZiehen(d, id, sx, sy) {
+  if (id !== 'schenkel' || d.thema !== 'winkel' || !isFinite(sx) || !isFinite(sy)) return null;
+  const dx = sx - 500, dy = 440 - sy; if (Math.hypot(dx, dy) < 20) return null;
+  const w = dy <= 0 ? (dx >= 0 ? 0 : 180) : Math.max(0, Math.min(180, Math.round(Math.atan2(dy, dx) * 180 / Math.PI)));
+  return w === winkelWert(d) ? null : { ...d, w };
+}
 const THEMEN = [['aufbau', 'Was steht darauf?'], ['strecke', 'Strecke messen'], ['winkel', 'Winkel messen'], ['parallele', 'Parallele zeichnen'], ['senkrechte', 'Senkrechte zeichnen']];
 const ZEICHNE = {
   aufbau: P => { const g = geo(500, 440, 40, 0, P);
@@ -41,14 +70,14 @@ const ZEICHNE = {
       text(A[0] - 10, A[1] + 26, 'A', 26, BLAU, 'font-weight="700"') + text(B[0] - 6, B[1] + 26, 'B', 26, BLAU, 'font-weight="700"') +
       `<circle cx="${B[0]}" cy="${g.Y(5.3, 0.2)}" r="16" fill="none" stroke="${ROT}" stroke-width="3.5"/>` + text(B[0] + 22, A[1] + 26, '5,3 cm', 26, ROT, 'font-weight="700"');
     return tafel('Strecke messen', b, ['1. Die Zeichenkante genau an die Strecke anlegen.', '2. Den Nullpunkt genau auf den Anfangspunkt A schieben.', '3. Am Endpunkt B ablesen: 5 cm und 3 mm – also 5,3 cm.', 'Tipp: Nicht bei der Kante des Geodreiecks anfangen, sondern immer bei der 0!'], P); },
-  winkel: P => { const g = geo(500, 440, 40, 0, P), t = 50 * Math.PI / 180;
+  winkel: (P, d) => { const w = winkelWert(d); if (w !== 50) return winkelFrei(P, d, w); const g = geo(500, 440, 40, 0, P), t = 50 * Math.PI / 180;
     const b = g.svg + g.L(0, 0, 9.2, 0, BLAU, 5) + g.L(0, 0, 9 * Math.cos(t), 9 * Math.sin(t), BLAU, 5, 'stroke-opacity=".55"') + /* Schenkel halb durchsichtig – die Zahl darunter bleibt lesbar */
       `<rect x="${f(g.X(5.15, 4.95) - 6)}" y="${f(g.Y(5.15, 4.95) - 20)}" width="148" height="40" rx="10" fill="#fff" stroke="${ROT}" stroke-width="2.5"/>` + text(g.X(5.15, 4.95) + 6, g.Y(5.15, 4.95), 'hier: 50°', 24, ROT, 'font-weight="700"') + /* Ablese-Hinweis außerhalb des Geodreiecks */
       `<path d="M ${g.X(1.3, 0)} ${g.Y(1.3, 0)} A ${f(52)} ${f(52)} 0 0 0 ${g.X(1.3 * Math.cos(t), 1.3 * Math.sin(t))} ${g.Y(1.3 * Math.cos(t), 1.3 * Math.sin(t))}" fill="none" stroke="${ROT}" stroke-width="3"/>` +
       `<circle cx="${g.X(4.75 * Math.cos(t), 4.75 * Math.sin(t))}" cy="${g.Y(4.75 * Math.cos(t), 4.75 * Math.sin(t))}" r="17" fill="none" stroke="${ROT}" stroke-width="3.5"/>` +
       text(g.X(0, 0) - 34, g.Y(0, 0) + 24, 'S', 26, BLAU, 'font-weight="700"') + text(g.X(9.3, 0) - 4, g.Y(9.3, 0) - 22, '1. Schenkel', 20, BLAU) + text(g.X(5.6, 7.1), g.Y(5.6, 7.1), '2. Schenkel', 20, BLAU) +
       text(g.X(1.9, 1.5), g.Y(1.9, 1.5), 'α = 50°', 24, ROT, 'font-weight="700" stroke="#fff" stroke-width="5" paint-order="stroke"');
-    return tafel('Winkel messen', b, ['1. Erst schätzen: spitz (unter 90°) oder stumpf (über 90°)?', '2. Den Nullpunkt genau auf den Scheitelpunkt S legen.', '3. Die Zeichenkante genau auf einen Schenkel legen.', '4. Auf der Skala ablesen, die an diesem Schenkel bei 0° beginnt – hier: 50°.', 'Passt die Zahl nicht zur Schätzung (z. B. 130° statt 50°)? Dann die andere Reihe nehmen.'], P); },
+    return mitGriff(tafel('Winkel messen', b + (d && d.griff ? griffKnopf(g, w) : ''), winkelSchritte(w), P), g, w, d); },
   parallele: P => { const g = geo(500, 440, 40, 0, P);
     const b = g.svg + g.L(-9.6, 2, 9.6, 2, BLAU, 4.5) + text(g.X(9.7, 2) + 8, g.Y(9.7, 2), 'g', 30, BLAU, 'font-weight="700" font-style="italic"') +
       g.L(-9.6, 0, 9.6, 0, ROT, 4.5, 'stroke-dasharray="14 9"') + text(g.X(9.7, 0) + 8, g.Y(9.7, 0), 'h', 30, ROT, 'font-weight="700" font-style="italic"') +
@@ -62,9 +91,12 @@ const ZEICHNE = {
       text(Px + 18, Py + 26, 'P', 26, BLAU, 'font-weight="700"');
     return tafel('Senkrechte zeichnen', b, ['1. Die Mittellinie genau auf die Gerade g legen.', '2. Das Geodreieck verschieben, bis der Nullpunkt auf dem Punkt P liegt.', '3. An der Zeichenkante entlang zeichnen: Die Gerade s steht senkrecht auf g (s ⊥ g).', 'Prüfen: Zwischen g und s ist ein rechter Winkel (90°).'], P); }
 };
-T.BAUSTEINE.geoerkl = { name: 'Geodreieck erklärt', gruppe: 'Mathe', def: { thema: 'aufbau' },
-  felder: [{ k: 'thema', l: 'Thema', typ: 'auswahl', opts: THEMEN }],
-  gen: (d, P) => (ZEICHNE[d.thema] || ZEICHNE.aufbau)(P) };
+T.BAUSTEINE.geoerkl = { name: 'Geodreieck erklärt', gruppe: 'Mathe', def: { thema: 'aufbau', w: 50, griff: false },
+  felder: [{ k: 'thema', l: 'Thema', typ: 'auswahl', opts: THEMEN }, { k: 'w', l: 'Winkel messen: Winkel (°)', typ: 'zahl', min: 0, max: 180 }, { k: 'griff', l: 'Winkel messen: Schenkel mit Griff zum Ziehen', typ: 'check' }],
+  gen: (d, P) => (ZEICHNE[d.thema] || ZEICHNE.aufbau)(P, d),
+  ziehen: (d, id, sx, sy) => schenkelZiehen(d, id, sx, sy),
+  schnell: d => d.thema === 'winkel' ? [{ l: d.griff ? '✋ Griff aus' : '✋ Schenkel ziehen (Griff)', f: dd => ({ d: { ...dd, griff: !dd.griff } }) }] : [] };
+const dThema = k => k === 'winkel' ? { thema: k, griff: true } : { thema: k }; /* neu eingefügt: Winkel messen gleich mit Griff */
 // 📜 Alle Tafeln einer Reihe auf EINE Seite – untereinander, dann einfach scrollen (gilt für alle Erklär-Tafeln: Geodreieck, Schrägbild, Dreiecke)
 T.tafelnAufEineSeite = (k, dListe) => {
   T.closeDlg(); T.snap(); const pg = T.page(), r = T.viewRect(), v = pg.view, breite = (r.x1 - r.x0) * 0.9;
@@ -78,14 +110,14 @@ T.tafelnAufEineSeite = (k, dListe) => {
 // Auswahl: eine Tafel einfügen, alle fünf auf neue Seiten oder alle auf eine Seite
 T.geoErklMenue = () => {
   const h = T.h, bild = k => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(T.genObj('geoerkl', { thema: k }, false).svg);
-  const einfuegen = k => { T.closeDlg(); const g = T.genObj('geoerkl', { thema: k }, false), r = T.viewRect(), fz = Math.min(1, (r.x1 - r.x0) * 0.8 / g.w, (r.y1 - r.y0) * 0.8 / g.h), [cx, cy] = T.viewCenter();
-    T.snap(); T.addItem({ t: 'o', id: T.uid(), k: 'geoerkl', d: { thema: k }, x: cx - g.w * fz / 2, y: cy - g.h * fz / 2, w: g.w * fz, h: g.h * fz, r: 0 }); T.render(); };
+  const einfuegen = k => { T.closeDlg(); const g = T.genObj('geoerkl', dThema(k), false), r = T.viewRect(), fz = Math.min(1, (r.x1 - r.x0) * 0.8 / g.w, (r.y1 - r.y0) * 0.8 / g.h), [cx, cy] = T.viewCenter();
+    T.snap(); T.addItem({ t: 'o', id: T.uid(), k: 'geoerkl', d: dThema(k), x: cx - g.w * fz / 2, y: cy - g.h * fz / 2, w: g.w * fz, h: g.h * fz, r: 0 }); T.render(); };
   const alle = () => { T.closeDlg(); T.snap(); const S = T.S, start = S.page + 1;
-    THEMEN.forEach(([k, l], i) => { const g = T.genObj('geoerkl', { thema: k }, false), np = { ...T.newPage('weiss'), titel: 'Geodreieck: ' + l };
-      np.items.push({ t: 'o', id: T.uid(), k: 'geoerkl', d: { thema: k }, x: 40, y: 30, w: g.w, h: g.h, r: 0 }); S.board.pages.splice(start + i, 0, np); });
+    THEMEN.forEach(([k, l], i) => { const g = T.genObj('geoerkl', dThema(k), false), np = { ...T.newPage('weiss'), titel: 'Geodreieck: ' + l };
+      np.items.push({ t: 'o', id: T.uid(), k: 'geoerkl', d: dThema(k), x: 40, y: 30, w: g.w, h: g.h, r: 0 }); S.board.pages.splice(start + i, 0, np); });
     T.gotoPage(start); T.toast('5 Seiten zum Geodreieck eingefügt – mit ◀ ▶ blättern.', 3000); };
-  T.openDlg([h('h2', {}, '📐 Geodreieck erklärt'), h('p', { class: 'hint' }, 'Große Bildtafeln mit Schritten – antippen fügt eine Tafel ein. Mit dem Geodreieck aus den Werkzeugen lässt sich alles gleich ausprobieren.'),
+  T.openDlg([h('h2', {}, '📐 Geodreieck erklärt'), h('p', { class: 'hint' }, 'Große Bildtafeln mit Schritten – antippen fügt eine Tafel ein. Mit dem Geodreieck aus den Werkzeugen lässt sich alles gleich ausprobieren. Bei „Winkel messen“ den orangen Griff ziehen: Der Winkel ändert sich.'),
     h('div', { class: 'tiles' }, ...THEMEN.map(([k, l]) => h('button', { class: 'tile', onclick: () => einfuegen(k) }, h('img', { src: bild(k), alt: '' }), l))),
-    h('div', { class: 'acts' }, h('button', { class: 'big', onclick: T.closeDlg }, 'Schließen'), h('button', { class: 'big', onclick: () => T.tafelnAufEineSeite('geoerkl', THEMEN.map(([k]) => ({ thema: k }))) }, '📜 Alle auf eine Seite'), h('button', { class: 'big prim', onclick: alle }, '📄 Alle 5 auf neue Seiten'))]);
+    h('div', { class: 'acts' }, h('button', { class: 'big', onclick: T.closeDlg }, 'Schließen'), h('button', { class: 'big', onclick: () => T.tafelnAufEineSeite('geoerkl', THEMEN.map(([k]) => dThema(k))) }, '📜 Alle auf eine Seite'), h('button', { class: 'big prim', onclick: alle }, '📄 Alle 5 auf neue Seiten'))]);
 };
 })();

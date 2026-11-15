@@ -709,13 +709,19 @@ T.paintPage = (ctx, pg, rect, px, o = {}) => {
 const cv = T.cv = {};
 T.initCanvas = () => {
   for (const id of ['cMain', 'cLive', 'cOver']) { cv[id] = document.getElementById(id); cv[id + 'X'] = cv[id].getContext('2d', id === 'cLive' ? { desynchronized: true } : undefined); } // Live-Strich: Zeichnen mit geringer Verzögerung (Edge/Chrome)
-  resize(); addEventListener('resize', resize);
+  resize(); addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 300));
+  if (window.visualViewport) visualViewport.addEventListener('resize', resize);
 };
+/* Leinwand genau so groß wie der sichtbare Bereich: iPad/Safari rechnet 100vh größer als innerHeight –
+   sonst wird das Bild gestreckt und die Farbe sitzt nicht unter der Stiftspitze */
 function resize() {
+  if (window.scrollX || window.scrollY) window.scrollTo(0, 0); /* iOS lässt die Seite nach der Bildschirmtastatur gern verschoben */
   T.dpr = devicePixelRatio || 1; T.W = innerWidth; T.H = innerHeight;
-  for (const id of ['cMain', 'cLive', 'cOver']) { cv[id].width = Math.round(T.W * T.dpr); cv[id].height = Math.round(T.H * T.dpr); }
+  for (const id of ['cMain', 'cLive', 'cOver']) { cv[id].width = Math.round(T.W * T.dpr); cv[id].height = Math.round(T.H * T.dpr); cv[id].style.width = T.W + 'px'; cv[id].style.height = T.H + 'px'; }
   T.render(); T.renderLive(); T.renderOver();
 }
+/* vor jedem Strich: hat sich der sichtbare Bereich still verändert (Safari-Leiste, Tastatur), erst anpassen */
+T.leinwandPruefen = () => { if (innerWidth !== T.W || innerHeight !== T.H || devicePixelRatio !== T.dpr || window.scrollY || window.scrollX) resize(); };
 T.lives = new Set(); // Striche, die gerade geschrieben werden (je Stift/Finger einer)
 const need = { main: false, live: false, over: false }; let raf = 0;
 const req = k => { need[k] = true; if (!raf) raf = requestAnimationFrame(frame); };

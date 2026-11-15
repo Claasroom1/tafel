@@ -93,7 +93,7 @@ vorlage('ms_buch', 'Buchvorstellung', '📚 BUCHVORSTELLUNG', ['Titel', 'Erschie
 // so verrutscht beim Hinzufügen nichts, und schon Geschriebenes bleibt in seinem Feld.
 const MM_FARBEN = [BLAU, GRUEN, ORANGE, LILA, '#c62828', '#00838f', '#6d4c41', '#ad1457'];
 const mmUnter = (d, i) => Math.round(T.clamp(Array.isArray(d.u) && d.u[i] != null ? +d.u[i] : (+d.unter || 0), 0, 4));
-B.ms_mindmap = { name: 'Mindmap', gruppe: 'Struktur', def: { thema: '', aeste: 6, unter: 0 },
+B.ms_mindmap = { name: 'Mindmap mit Unterpunkten (zum Schreiben)', gruppe: 'Struktur', def: { thema: '', aeste: 6, unter: 0 },
   felder: [{ k: 'thema', l: 'Thema in der Mitte (leer = zum Schreiben)', typ: 'text' }, { k: 'aeste', l: 'Anzahl der Äste', typ: 'zahl', min: 3, max: 8 },
     { k: 'unter', l: 'Unterpunkte je Ast (0–4; einzeln: ＋ am Ast antippen)', typ: 'zahl', min: 0, max: 4 }],
   gen: d => {
@@ -166,6 +166,7 @@ for (const k of ['ms_versuch', 'ms_lesetagebuch', 'ms_buch']) DEHNEN[k] = (d, dy
 
 // Einfügen › 📋 Stunde & Rückmeldung: die Vorlagen stehen vorn (dazu 📒 Heft und 🗂 Vokabeltrainer)
 nachDemZeichnen.push(() => document.querySelectorAll('.tiles').forEach(box => {
+  if (T.MS_KATEGORIE) return; /* Lehrkräfte-Version: eigene Kategorie „📝 Mitschrift & Lernen“ in oberflaeche.js */
   if (box.querySelector('.ms-tile') || ![...box.children].some(c => /^(Blitzlicht|Exit-Ticket)/.test(c.textContent.trim()))) return;
   const knopf = (sym, name, fn) => { const b = document.createElement('button'); b.className = 'tile ms-tile'; b.onclick = fn;
     const em = document.createElement('div'); em.className = 'em'; em.textContent = sym; b.append(em, name); return b; };

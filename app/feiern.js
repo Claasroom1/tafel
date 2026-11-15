@@ -27,6 +27,12 @@ const GEBURTSTAG = [[G4, .75], [G4, .25], [A4, 1], [G4, 1], [C5, 1], [B4, 2], [G
 const FANFARE = [[C5, .5], [E5, .5], [G5, .5], [[C5, E5, G5, 84], 2.5]];
 const GLOCKEN = [[84, .5], [79, .5], [76, .5], [79, .5], [[72, 76, 79, 84], 2.5]]; /* kurzes Glockenspiel (Advent, Weihnachten) */
 const FRUEHLING = [[C5, .25], [E5, .25], [G5, .25], [C5 + 12, .5], [G5, .25], [[C5, E5, G5, 84], 1.8]]; /* heller, fröhlicher Lauf */
+/* 🎄 Jingle Bells – Refrain (James Lord Pierpont, 1857, gemeinfrei), 4/4-Takt in C-Dur:
+   E E E | E E E | E G C D | E | F F F F | F E E E E | E D D E | D G | E E E | E E E | E G C D | E | F F F F | F E E E E | G G F D | C */
+const JINGLE = [[E5, 1], [E5, 1], [E5, 2], [E5, 1], [E5, 1], [E5, 2], [E5, 1], [G5, 1], [C5, 1.5], [D5, .5], [E5, 4],
+  [F5, 1], [F5, 1], [F5, 1.5], [F5, .5], [F5, 1], [E5, 1], [E5, 1], [E5, .5], [E5, .5], [E5, 1], [D5, 1], [D5, 1], [E5, 1], [D5, 2], [G5, 2],
+  [E5, 1], [E5, 1], [E5, 2], [E5, 1], [E5, 1], [E5, 2], [E5, 1], [G5, 1], [C5, 1.5], [D5, .5], [E5, 4],
+  [F5, 1], [F5, 1], [F5, 1.5], [F5, .5], [F5, 1], [E5, 1], [E5, 1], [E5, .5], [E5, .5], [G5, 1], [G5, 1], [F5, 1], [D5, 1], [[C5, E5, G5], 3]];
 // 🎊 Konfetti: Papierstreifen fallen mit Drehung und Schaukeln
 function konfetti(sek, symbole, langsam) {
   if (laeuft) laeuft.ende();
@@ -67,10 +73,10 @@ T.feiern = ({ art = 'konfetti', name = '', musik = true, kerzen = 0 } = {}) => {
   const n = String(name || '').trim();
   if (art === 'geburtstag') { konfetti(14); banner('🎂 Happy Birthday' + (n ? ', ' + n : '') + '! 🎉', 'Alles Gute zum Geburtstag!'); if (musik) spiele(GEBURTSTAG, 0.42); }
   else if (art === 'glueckwunsch') { konfetti(8); banner('🎉 Herzlichen Glückwunsch' + (n ? ', ' + n : '') + '! 🏆', 'Super gemacht!'); if (musik) spiele(FANFARE, 0.32); }
-  else if (art === 'ostern') { konfetti(16, ['🥚', '🐣', '🌷', '🐰', '🌼'], true); banner('🐣 Frohe Ostern' + (n ? ', ' + n : '') + '! 🌷', 'Wir wünschen euch schöne Ostertage!'); if (musik) spiele(FRUEHLING, 0.3); }
-  else if (art === 'advent') { const k = T.clamp(Math.round(+kerzen || adventHeute() || 1), 1, 4); konfetti(18, ['⭐', '❄️', '✨'], true); banner(k + '. Advent', 'Wir warten auf Weihnachten – jede Woche brennt eine Kerze mehr.', kranz(k)); if (musik) spiele(GLOCKEN, 0.42); }
-  else if (art === 'weihnachten') { konfetti(18, ['❄️', '⭐', '🎄', '✨', '🎁'], true); banner('🎄 Frohe Weihnachten' + (n ? ', ' + n : '') + '! ⭐', 'Gesegnete Weihnachten und schöne Ferien!'); if (musik) spiele(GLOCKEN, 0.42); }
-  else if (art === 'franziskus') { konfetti(16, ['🕊️', '🐦', '🌿', '🐑', '🦊', '☀️', '🐟'], true); banner('🕊️ Franziskustag – 4. Oktober', 'Franz von Assisi (um 1181–1226): Freund der Armen, der Tiere und der ganzen Schöpfung'); if (musik) spiele(FRUEHLING, 0.34); }
+  else if (art === 'ostern') { konfetti(16, ['🥚', '🐣', '🌷', '🐰', '🌼'], true); banner('🐣 Frohe Ostern' + (n ? ', ' + n : '') + '! 🌷', 'Wir wünschen euch schöne Ostertage!'); } /* ohne Musik */
+  else if (art === 'advent') { const k = T.clamp(Math.round(+kerzen || adventHeute() || 1), 1, 4); konfetti(18, ['⭐', '❄️', '✨'], true); banner(k + '. Advent', 'Wir warten auf Weihnachten – jede Woche brennt eine Kerze mehr.', kranz(k)); } /* ohne Musik */
+  else if (art === 'weihnachten') { konfetti(18, ['❄️', '⭐', '🎄', '✨', '🎁'], true); banner('🎄 Frohe Weihnachten' + (n ? ', ' + n : '') + '! ⭐', 'Gesegnete Weihnachten und schöne Ferien!'); if (musik) spiele(JINGLE, 0.3); }
+  else if (art === 'franziskus') { konfetti(16, ['🕊️', '🐦', '🌿', '🐑', '🦊', '☀️', '🐟'], true); banner('🕊️ Franziskustag – 4. Oktober', 'Franz von Assisi (um 1181–1226): Freund der Armen, der Tiere und der ganzen Schöpfung'); } /* ohne Musik */
   else konfetti(7);
 };
 /* 🕯 Adventskranz: Tannenkranz mit vier Kerzen, die ersten k brennen (Flamme flackert) */
@@ -158,7 +164,7 @@ T.feiernDialog = () => {
       h('h4', { style: { margin: '10px 0 4px' } }, 'Feste im Jahr'), h('div', { class: 'row', style: { flexWrap: 'wrap', gap: '6px' } }, wahl('franziskus', '🕊️ Franziskustag'), wahl('advent', '🕯 Advent'), wahl('weihnachten', '🎄 Weihnachten'), wahl('ostern', '🐣 Ostern')),
       st.art === 'advent' ? h('div', { class: 'row', style: { gap: '6px', marginTop: '8px' } }, h('span', {}, 'Kerzen:'), ...[1, 2, 3, 4].map(k => h('button', { class: 'big' + (st.kerzen === k ? ' on' : ''), onclick: () => { st.kerzen = k; zeige(); } }, k + '. Advent'))) : '',
       mitName ? h('label', { class: 'fld' }, st.art === 'ostern' || st.art === 'weihnachten' ? 'Für wen? (leer = für alle)' : 'Für wen?', name) : '',
-      st.art !== 'konfetti' ? h('label', { class: 'fld check' }, m, st.art === 'geburtstag' ? '🎵 Geburtstagsmelodie spielen' : st.art === 'advent' || st.art === 'weihnachten' ? '🔔 Glockenspiel' : st.art === 'glueckwunsch' ? '🎺 Fanfare spielen' : '🎵 Kurze Melodie') : '',
+      ['geburtstag', 'glueckwunsch', 'weihnachten'].includes(st.art) ? h('label', { class: 'fld check' }, m, st.art === 'geburtstag' ? '🎵 Geburtstagsmelodie spielen' : st.art === 'weihnachten' ? '🎄 Jingle Bells spielen' : '🎺 Fanfare spielen') : '', /* Advent, Ostern, Franziskustag: ohne Musik */
       h('p', { class: 'hint' }, 'Konfetti regnet über die ganze Tafel und hört von selbst auf. Antippen des Banners beendet sofort.'),
       h('div', { class: 'acts' }, h('button', { class: 'big', onclick: T.closeDlg }, 'Abbrechen'), h('button', { class: 'big prim', onclick: () => { T.closeDlg(); T.feiern({ art: st.art, name: name.value, musik: st.musik, kerzen: st.kerzen }); } }, '🎉 Los!'))]);
   };

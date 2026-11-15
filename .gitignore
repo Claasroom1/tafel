@@ -1,0 +1,9 @@
+# Gespeicherte Tafeln, Sicherungen und Testdateien gehören nicht ins öffentliche Repository
+*.tafel.json
+_sicherung*/
+_spaeter/
+_test*
+Tafel-App (eine Datei).html
+Thumbs.db
+desktop.ini
+.DS_Store

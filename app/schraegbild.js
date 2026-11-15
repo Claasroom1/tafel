@@ -23,6 +23,10 @@ function karo() {
 const VORNE = [['A', 'B'], ['B', 'C'], ['C', 'D'], ['D', 'A']];
 const HINTEN_TIEF = [['A', 'E', true], ['B', 'F'], ['C', 'G'], ['D', 'Hh']];
 const HINTEN = [['E', 'F', true], ['F', 'G'], ['G', 'Hh'], ['Hh', 'E', true]];
+const zf = v => String(v).replace('.', ',');
+const ORANGE = '#ef6c00';
+const knopf = (x, y, z) => `<circle cx="${f(x)}" cy="${f(y)}" r="28" fill="none" stroke="${ORANGE}" stroke-width="3" stroke-opacity=".45"/><circle cx="${f(x)}" cy="${f(y)}" r="20" fill="${ORANGE}" fill-opacity=".92" stroke="#fff" stroke-width="4"/>` +
+  `<text x="${f(x)}" y="${f(y + 1)}" font-size="22" fill="#fff" text-anchor="middle" dominant-baseline="central" font-weight="700">${z}</text>`;
 function zeichner(K) {
   const L = K.l * 2, H = K.h * 2, Tz = K.t / 2, ds = Tz * 2 * U * Math.SQRT1_2; /* Kästchen; Tiefe halb so lang (cm), schräg: Versatz je Richtung */
   const P = (k, l) => [K.X0 + k * U, K.Y0 - l * U];
@@ -32,8 +36,13 @@ function zeichner(K) {
   const strichMuster = (a, b) => { const len = Math.hypot(b[0] - a[0], b[1] - a[1]), g = 9, n = Math.max(2, Math.round((len + g) / (12 + g))), d = (len - (n - 1) * g) / n; return `stroke-dasharray="${f(d)} ${g}"`; };
   const kanten = (liste, col, w, gestrichelt) => liste.map(([a, b, v]) => linie(E[a], E[b], col, w, gestrichelt && v ? strichMuster(E[a], E[b]) : '')).join('');
   const punkte = col => Object.values(E).map(([x, y]) => `<circle cx="${f(x)}" cy="${f(y)}" r="4.5" fill="${col}"/>`).join('');
-  const masse = () => text((E.A[0] + E.B[0]) / 2 - 26, E.A[1] + 22, K.l + ' cm', 22, '#334155', 'font-weight="700"') + text(E.A[0] - 70, (E.A[1] + E.D[1]) / 2, K.h + ' cm', 22, '#334155', 'font-weight="700"');
-  const tiefeText = () => text(E.F[0] + 16, E.B[1] - ds / 2 - 6, K.t + ' cm Tiefe → ' + String(Tz).replace('.', ',') + ' cm (die Hälfte)', 20, ROT, 'font-weight="700"');
+  const masse = () => text((E.A[0] + E.B[0]) / 2 - 26, E.A[1] + 22, zf(K.l) + ' cm', 22, '#334155', 'font-weight="700"') + text(E.A[0] - 70, (E.A[1] + E.D[1]) / 2, zf(K.h) + ' cm', 22, '#334155', 'font-weight="700"');
+  const tiefeText = () => { const t = zf(K.t) + ' cm Tiefe → ' + String(Tz).replace('.', ',') + ' cm (die Hälfte)', b = breite(t, 20);
+    if (E.F[0] + 16 + b <= 985) return text(E.F[0] + 16, E.B[1] - ds / 2 - 6, t, 20, ROT, 'font-weight="700"');
+    return text(Math.max(40 + b / 2, Math.min(960 - b / 2, (E.Hh[0] + E.G[0]) / 2)), E.G[1] - 22, t, 20, ROT, 'font-weight="700" text-anchor="middle"'); }; /* großer Körper: Text über die hintere Kante */
+  /* ✋ Griffe (nur Regeln-Tafel, wenn eingeschaltet): Länge an der rechten Vorderkante, Höhe an der oberen, Tiefe an der hinteren oberen Ecke G (45°) */
+  const griffe = () => K.wuerfel ? [{ id: 'mA', x: E.B[0], y: (E.B[1] + E.C[1]) / 2, z: '↔' }]
+    : [{ id: 'mL', x: E.B[0], y: (E.B[1] + E.C[1]) / 2, z: '↔' }, { id: 'mH', x: (E.D[0] + E.C[0]) / 2, y: E.D[1], z: '↕' }, { id: 'mT', x: E.G[0], y: E.G[1], z: '⤢' }];
   const winkel45 = () => { const [x, y] = E.B, r = 44; return `<path d="M ${x + r} ${y} A ${r} ${r} 0 0 0 ${f(x + r * Math.SQRT1_2)} ${f(y - r * Math.SQRT1_2)}" fill="none" stroke="${ROT}" stroke-width="3"/>` + linie([x, y], [x + 70, y], ROT, 2, 'stroke-dasharray="4 4"') + text(x + 50, y - 16, '45°', 20, ROT, 'font-weight="700"'); };
   const tafel = (titel, bild, schritte, Pal) => {
     const top = 528, zh = 40, Hh = top + schritte.length * zh + 22;
@@ -43,22 +52,24 @@ function zeichner(K) {
   };
   const wuerfel = K.l === K.h && K.h === K.t;
   return {
-    regeln: Pal => tafel('Die Regeln', kanten(VORNE, BLAU, 4) + kanten(HINTEN_TIEF, BLAU, 4, true) + kanten(HINTEN, BLAU, 4, true) + punkte(BLAU) + masse() + winkel45() + tiefeText(), [
+    regeln: (Pal, mitGriffen) => { const gr = mitGriffen ? griffe() : [];
+      const res = tafel('Die Regeln', kanten(VORNE, BLAU, 4) + kanten(HINTEN_TIEF, BLAU, 4, true) + kanten(HINTEN, BLAU, 4, true) + punkte(BLAU) + masse() + winkel45() + tiefeText() + gr.map(q => knopf(q.x, q.y, q.z)).join(''), [
       '1. Die Vorderfläche wird in wahrer Größe gezeichnet' + (wuerfel ? ' (Quadrat mit echten Maßen).' : ' (Rechteck mit echten Maßen).'),
       '2. Kanten nach hinten: schräg im 45°-Winkel und auf die Hälfte verkürzt –',
-      '    ' + K.t + ' cm Tiefe werden ' + String(Tz).replace('.', ',') + ' cm lang gezeichnet (mit dem Geodreieck messen).',
+      '    ' + zf(K.t) + ' cm Tiefe werden ' + String(Tz).replace('.', ',') + ' cm lang gezeichnet (mit dem Geodreieck messen).',
       '3. Verdeckte (unsichtbare) Kanten werden gestrichelt gezeichnet.',
-      'Beispiel: ' + K.text + '.'], Pal),
+      'Beispiel: ' + K.text + '.'], Pal);
+      return gr.length ? { ...res, teile: gr.map(q => ({ id: q.id, x: q.x - 28, y: q.y - 28, w: 56, h: 56, zieh: true })) } : res; },
     s1: Pal => tafel('① Vorderfläche', kanten(VORNE, ROT, 5) + masse() + nr(E.A[0] - 30, E.A[1] + 30, 1), [
       '1. Die Vorderfläche als ' + (wuerfel ? 'Quadrat' : 'Rechteck') + ' in wahrer Größe zeichnen:',
-      '    ' + (wuerfel ? K.l + ' cm × ' + K.h + ' cm = ' + L + ' × ' + H + ' Kästchen.' : K.l + ' cm lang = ' + L + ' Kästchen, ' + K.h + ' cm hoch = ' + H + ' Kästchen.'),
+      '    ' + (wuerfel ? zf(K.l) + ' cm × ' + zf(K.h) + ' cm = ' + L + ' × ' + H + ' Kästchen.' : zf(K.l) + ' cm lang = ' + L + ' Kästchen, ' + zf(K.h) + ' cm hoch = ' + H + ' Kästchen.'),
       'Tipp: Mit Bleistift dünn vorzeichnen – nachgezogen wird am Schluss.'], Pal),
     s2: Pal => tafel('② Kanten nach hinten', kanten(VORNE, BLAU, 4) + kanten(HINTEN_TIEF, ROT, 4, true) + winkel45() + tiefeText() + nr(E.B[0] - 30, E.B[1] + 26, 2), [
       '2. Von jeder Ecke eine Kante schräg nach rechts oben zeichnen (45°, Geodreieck).',
-      '    Tiefe ' + K.t + ' cm → halb so lang: ' + String(Tz).replace('.', ',') + ' cm abmessen.',
+      '    Tiefe ' + zf(K.t) + ' cm → halb so lang: ' + String(Tz).replace('.', ',') + ' cm abmessen.',
       'Die Kante unten links ist verdeckt: gleich gestrichelt zeichnen.' + (wuerfel ? ' Kürzer aussehen ist richtig so.' : '')], Pal),
     s3: Pal => tafel('③ Hinterfläche', kanten(VORNE, BLAU, 4) + kanten(HINTEN_TIEF, BLAU, 4, true) + kanten(HINTEN, ROT, 4, true) + nr(E.Hh[0] - 34, E.Hh[1] - 24, 3), [
-      '3. Die Endpunkte verbinden: Es entsteht die Hinterfläche (' + K.l + ' cm × ' + K.h + ' cm).',
+      '3. Die Endpunkte verbinden: Es entsteht die Hinterfläche (' + zf(K.l) + ' cm × ' + zf(K.h) + ' cm).',
       '    Die zwei verdeckten Kanten (unten und links) gleich gestrichelt zeichnen.',
       'Prüfen: Gegenüberliegende Kanten sind parallel und gleich lang.'], Pal),
     s4: Pal => tafel('④ Verdeckte Kanten prüfen', kanten(VORNE, BLAU, 5) + kanten(HINTEN_TIEF.filter(k => !k[2]), BLAU, 5) + kanten(HINTEN.filter(k => !k[2]), BLAU, 5) +
@@ -67,15 +78,52 @@ function zeichner(K) {
       '    An jeder Ecke beginnt und endet die Linie mit einem Strich, dazwischen gleichmäßig.',
       'Zum Schluss die sichtbaren Kanten kräftig nachziehen – fertig!'], Pal) };
 }
-const ZEICHNER = { quader: zeichner(KOERPER.quader), wuerfel: zeichner(KOERPER.wuerfel) };
+// Maße aus d (l, h, t in cm; Würfel: l für alle Kanten) – ohne Angabe die bisherigen Beispielmaße; 0,5-cm-Raster (= 1 Kästchen), so begrenzt, dass alles auf das Karopapier passt
+const breite = (t, fs) => { try { const c = T._mctx || (T._mctx = document.createElement('canvas').getContext('2d')); c.font = `700 ${fs}px Segoe UI`; return c.measureText(t).width; } catch (e) { return t.length * fs * 0.52; } };
+const passt = K => { const ds = K.t * U * Math.SQRT1_2, rechts = K.X0 + K.l * 2 * U + ds;
+  return rechts <= 950 && K.Y0 - K.h * 2 * U - ds >= 104; };
+const istStd = K => { const S = K.wuerfel ? KOERPER.wuerfel : KOERPER.quader; return K.l === S.l && K.h === S.h && K.t === S.t; };
+function massK(koerper, l, h, t) {
+  const S = koerper === 'wuerfel' ? KOERPER.wuerfel : KOERPER.quader, w = S === KOERPER.wuerfel;
+  const K = w ? { ...S, l, h: l, t: l, wuerfel: true, text: 'Würfel – alle Kanten ' + zf(l) + ' cm lang' } : { ...S, l, h, t, text: 'Quader – ' + zf(l) + ' cm lang, ' + zf(h) + ' cm hoch, ' + zf(t) + ' cm tief' };
+  return K;
+}
+function masseVon(d) {
+  const w = d.koerper === 'wuerfel', S = w ? KOERPER.wuerfel : KOERPER.quader, z = (v, std) => v != null && v !== '' && isFinite(+v) ? Math.max(1, Math.min(12, Math.round(+v * 2) / 2)) : std;
+  let l = z(d.l, S.l), h = w ? l : z(d.h, S.h), t = w ? l : z(d.t, S.t), K = massK(d.koerper, l, h, t);
+  for (let i = 0; i < 80 && !istStd(K) && !passt(K); i++) { /* zu groß eingetragen: schrittweise verkleinern */
+    if (w) l -= 0.5; else if (K.Y0 - K.h * 2 * U - K.t * U * Math.SQRT1_2 < 104 && h > 1) h -= 0.5; else if (l > 1) l -= 0.5; else if (t > 1) t -= 0.5; else break;
+    K = massK(d.koerper, Math.max(1, l), Math.max(1, h), Math.max(1, t));
+  }
+  return K;
+}
+function masseZiehen(d, id, sx, sy) {
+  if (d.thema !== 'regeln' || !d.griffe || !isFinite(sx) || !isFinite(sy)) return null;
+  const K = masseVon(d), ds = K.t * U * Math.SQRT1_2, Cx = K.X0 + K.l * 2 * U, Cy = K.Y0 - K.h * 2 * U, halb = v => Math.round(v * 2) / 2;
+  let k, v;
+  if (id === 'mL' || id === 'mA') { k = 'l'; v = halb((sx - K.X0) / (2 * U)); }
+  else if (id === 'mH') { k = 'h'; v = halb((K.Y0 - sy) / (2 * U)); }
+  else if (id === 'mT') { k = 't'; v = halb(((sx - Cx) - (sy - Cy)) * Math.SQRT1_2 / U); } /* Länge von C aus entlang 45° (in Bildpunkten) = Tiefe · U, denn gezeichnet wird die halbe Tiefe */
+  else return null;
+  v = Math.max(1, Math.min(12, v));
+  const neu = m => massK(d.koerper, m.l, m.h, m.t), M = { l: K.l, h: K.h, t: K.t };
+  M[k] = v; if (K.wuerfel) M.h = M.t = M.l = v;
+  while (!passt(neu(M)) && M[k] > 1) { M[k] -= 0.5; if (K.wuerfel) M.h = M.t = M.l = M[k]; }
+  if (!passt(neu(M)) || M[k] === K[k]) return null;
+  return K.wuerfel ? { ...d, l: M.l } : { ...d, l: M.l, h: M.h, t: M.t };
+}
 const THEMEN = [['regeln', 'Die Regeln'], ['s1', '① Vorderfläche'], ['s2', '② Kanten nach hinten'], ['s3', '③ Hinterfläche'], ['s4', '④ Verdeckte Kanten prüfen']];
-T.BAUSTEINE.schraegerkl = { name: 'Schrägbild zeichnen', gruppe: 'Mathe', def: { thema: 'regeln', koerper: 'quader' },
-  felder: [{ k: 'koerper', l: 'Körper', typ: 'auswahl', opts: [['quader', 'Quader'], ['wuerfel', 'Würfel']] }, { k: 'thema', l: 'Schritt', typ: 'auswahl', opts: THEMEN }],
-  gen: (d, Pal) => { const Z = ZEICHNER[d.koerper] || ZEICHNER.quader; return (Z[d.thema] || Z.regeln)(Pal); } };
+T.BAUSTEINE.schraegerkl = { name: 'Schrägbild zeichnen', gruppe: 'Mathe', def: { thema: 'regeln', koerper: 'quader', griffe: false },
+  felder: [{ k: 'koerper', l: 'Körper', typ: 'auswahl', opts: [['quader', 'Quader'], ['wuerfel', 'Würfel']] }, { k: 'thema', l: 'Schritt', typ: 'auswahl', opts: THEMEN },
+    { k: 'l', l: 'Länge (cm) – Würfel: Kantenlänge', typ: 'zahl', min: 1, max: 12 }, { k: 'h', l: 'Höhe (cm, Quader)', typ: 'zahl', min: 1, max: 12 }, { k: 't', l: 'Tiefe (cm, Quader)', typ: 'zahl', min: 1, max: 12 },
+    { k: 'griffe', l: 'Regeln-Tafel: Maße mit Griffen ziehen', typ: 'check' }],
+  gen: (d, Pal) => { const Z = zeichner(masseVon(d)); return d.thema === 'regeln' || !Z[d.thema] ? Z.regeln(Pal, !!d.griffe) : Z[d.thema](Pal); },
+  ziehen: (d, id, sx, sy) => masseZiehen(d, id, sx, sy),
+  schnell: d => d.thema === 'regeln' || !d.thema ? [{ l: d.griffe ? '✋ Griffe aus' : '✋ Maße ziehen (Griffe)', f: dd => ({ d: { ...dd, griffe: !dd.griffe } }) }] : [] };
 // Auswahl: Körper wählen, dann eine Tafel einfügen oder alle auf neue Seiten (Schritt für Schritt blättern)
 let koerper = 'quader';
 T.schraegErklMenue = () => {
-  const h = T.h, d = k => ({ thema: k, koerper }), bild = k => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(T.genObj('schraegerkl', d(k), false).svg);
+  const h = T.h, d = k => k === 'regeln' ? { thema: k, koerper, griffe: true } : { thema: k, koerper }, /* neu eingefügt: Regeln-Tafel gleich mit Griffen */ bild = k => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(T.genObj('schraegerkl', d(k), false).svg);
   const einfuegen = k => { T.closeDlg(); const g = T.genObj('schraegerkl', d(k), false), r = T.viewRect(), fz = Math.min(1, (r.x1 - r.x0) * 0.8 / g.w, (r.y1 - r.y0) * 0.8 / g.h), [cx, cy] = T.viewCenter();
     T.snap(); T.addItem({ t: 'o', id: T.uid(), k: 'schraegerkl', d: d(k), x: cx - g.w * fz / 2, y: cy - g.h * fz / 2, w: g.w * fz, h: g.h * fz, r: 0 }); T.render(); };
   const alle = () => { T.closeDlg(); T.snap(); const S = T.S, start = S.page + 1;

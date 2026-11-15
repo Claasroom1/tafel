@@ -63,7 +63,92 @@ const BEISPIELE = P => ({ h: 272, svg: y0 => {
     s += mitte(cx, gy + 26, bw + '° + ' + bw + '° + ' + sp + '° = 180°', 19, P.ink, 'font-weight="700"') + mitte(cx, gy + 50, art, 19, gleichS ? ROT : '#475569', gleichS ? 'font-weight="700"' : '');
   });
   return s; } });
-const THEMEN = [['uebersicht', 'Dreiecksarten'], ['gleichschenklig', 'Gleichschenkliges Dreieck'], ['gleichseitig', 'Gleichseitiges = gleichwinkliges Dreieck']];
+/* 🖐 Dreieck verändern: Ecken A, B, C ziehen – Winkel (ganze Grad, Summe genau 180°), Seiten und Dreiecksart rechnen live mit */
+const PX = 40, FELD = { x0: 60, y0: 110, x1: 440, y1: 580 }, ORANGE = '#ef6c00', WF = ['#2e7d32', '#6a1b9a', '#00838f'], GR = ['α', 'β', 'γ'];
+const ECKEN_STD = { A: [90, 520], B: [430, 520], C: [290, 190] };
+const ecken = d => ['A', 'B', 'C'].map(k => Array.isArray(d && d[k]) && d[k].length === 2 && isFinite(d[k][0]) && isFinite(d[k][1]) ? [+d[k][0], +d[k][1]] : ECKEN_STD[k]);
+const abst = (p, q) => Math.hypot(q[0] - p[0], q[1] - p[1]);
+const winkelBei = (V, X, Y) => { const u = [X[0] - V[0], X[1] - V[1]], v = [Y[0] - V[0], Y[1] - V[1]]; return Math.acos(Math.max(-1, Math.min(1, (u[0] * v[0] + u[1] * v[1]) / (Math.hypot(u[0], u[1]) * Math.hypot(v[0], v[1]))))) * 180 / Math.PI; };
+/* Seite i liegt der Ecke i gegenüber (a = BC, b = CA, c = AB); gleiche Seiten mit Toleranz 0,5 Bildpunkte */
+function analyse(E) {
+  const [A, B, C] = E, s = [abst(B, C), abst(C, A), abst(A, B)], w = [winkelBei(A, B, C), winkelBei(B, C, A), winkelBei(C, A, B)];
+  const gl = [[0, 1], [1, 2], [0, 2]].filter(([i, j]) => Math.abs(s[i] - s[j]) < 0.5), seiten = gl.length >= 2 ? 3 : gl.length;
+  let g = [];
+  if (seiten === 3) g = [60, 60, 60];
+  else if (seiten === 1) { const [i, j] = gl[0], b = Math.round((w[i] + w[j]) / 2); g[i] = g[j] = b; g[3 - i - j] = 180 - 2 * b; } /* gleiche Basiswinkel */
+  else {
+    const r = w.findIndex(x => Math.abs(x - 90) < 0.3);
+    if (r >= 0) { const [i, j] = [0, 1, 2].filter(x => x !== r); g[r] = 90; g[i] = Math.round(w[i]); g[j] = 90 - g[i]; }
+    else { g = w.map(Math.floor); const rest = 180 - g[0] - g[1] - g[2]; [0, 1, 2].sort((x, y) => (w[y] - Math.floor(w[y])) - (w[x] - Math.floor(w[x]))).slice(0, rest).forEach(i => { g[i]++; }); } /* größte Reste aufrunden: Summe genau 180° */
+  }
+  const L = s.map(x => x / PX);
+  if (seiten === 3) L.fill((L[0] + L[1] + L[2]) / 3); else if (seiten === 1) { const [i, j] = gl[0]; L[i] = L[j] = (L[i] + L[j]) / 2; }
+  const max = Math.max(...g);
+  return { s, w, g, gl, seiten, cm: L.map(v => (Math.round(v * 10) / 10).toFixed(1).replace('.', ',')), art: max === 90 ? 'rechtwinklig' : max > 90 ? 'stumpfwinklig' : 'spitzwinklig', gross: g.indexOf(max) };
+}
+const gueltig = E => [0, 1, 2].every(i => abst(E[i], E[(i + 1) % 3]) >= 40) && [0, 1, 2].every(i => winkelBei(E[i], E[(i + 1) % 3], E[(i + 2) % 3]) >= 2);
+/* Einrasten der gezogenen Ecke: rechter Winkel (Thaleskreis bzw. Senkrechte) und gleich lange Seiten (Mittelsenkrechte bzw. Kreis) – Schnittpunkte zuerst */
+function einrasten(p, P, Q) {
+  const d = abst(P, Q), M = [(P[0] + Q[0]) / 2, (P[1] + Q[1]) / 2], u = [(Q[0] - P[0]) / d, (Q[1] - P[1]) / d], n = [-u[1], u[0]];
+  const K = [{ k: [M, d / 2] }, { l: [P, n] }, { l: [Q, n] }, { l: [M, n] }, { k: [P, d] }, { k: [Q, d] }];
+  const proj = c => { if (c.l) { const [o, v] = c.l, t = (p[0] - o[0]) * v[0] + (p[1] - o[1]) * v[1]; return [o[0] + v[0] * t, o[1] + v[1] * t]; }
+    const [m, r] = c.k, l = abst(m, p) || 1; return [m[0] + (p[0] - m[0]) / l * r, m[1] + (p[1] - m[1]) / l * r]; };
+  const schnitt = (c1, c2) => {
+    if (c1.l && c2.l) return []; /* alle drei Geraden sind parallel */
+    if (c1.k && c2.k) { const [m1, r1] = c1.k, [m2, r2] = c2.k, e = abst(m1, m2); if (e < 1e-9 || e > r1 + r2 || e < Math.abs(r1 - r2)) return [];
+      const a = (r1 * r1 - r2 * r2 + e * e) / (2 * e), h = Math.sqrt(Math.max(0, r1 * r1 - a * a)), ex = (m2[0] - m1[0]) / e, ey = (m2[1] - m1[1]) / e, bx = m1[0] + ex * a, by = m1[1] + ey * a;
+      return [[bx - ey * h, by + ex * h], [bx + ey * h, by - ex * h]]; }
+    const L = c1.l || c2.l, Kk = c1.k || c2.k, [o, v] = L, [m, r] = Kk, w0 = [o[0] - m[0], o[1] - m[1]], bb = w0[0] * v[0] + w0[1] * v[1], cc = w0[0] * w0[0] + w0[1] * w0[1] - r * r, D = bb * bb - cc;
+    if (D < 0) return []; const q = Math.sqrt(D); return [-bb - q, -bb + q].map(t => [o[0] + v[0] * t, o[1] + v[1] * t]);
+  };
+  const naechster = (liste, R) => liste.filter(q => abst(q, p) <= R).sort((x, y) => abst(x, p) - abst(y, p))[0];
+  const zwei = []; for (let i = 0; i < K.length; i++) for (let j = i + 1; j < K.length; j++) zwei.push(...schnitt(K[i], K[j]));
+  return naechster(zwei, 20) || naechster(K.map(proj), 16) || p;
+}
+const knopf = V => `<circle cx="${f(V[0])}" cy="${f(V[1])}" r="30" fill="none" stroke="${ORANGE}" stroke-width="3" stroke-opacity=".45"/><circle cx="${f(V[0])}" cy="${f(V[1])}" r="21" fill="${ORANGE}" fill-opacity=".92" stroke="#fff" stroke-width="4"/><circle cx="${f(V[0])}" cy="${f(V[1])}" r="5" fill="#fff"/>`;
+function veraendern(P, d) {
+  const E = ecken(d), [A, B, C] = E, an = analyse(E), H = 760, x0 = 625, innen = [(A[0] + B[0] + C[0]) / 3, (A[1] + B[1] + C[1]) / 3];
+  let b = `<rect x="30" y="80" width="570" height="530" rx="12" fill="#fbfdff" stroke="#c9d8e8" stroke-width="1.5"/>`;
+  for (let x = 70; x < 600; x += PX) b += `<line x1="${x}" y1="82" x2="${x}" y2="608" stroke="#dbe7f3" stroke-width="1"/>`;
+  for (let y = 120; y < 610; y += PX) b += `<line x1="32" y1="${y}" x2="598" y2="${y}" stroke="#dbe7f3" stroke-width="1"/>`;
+  b += dreieck(E, BLAU, 5, 'rgba(21,101,192,.08)');
+  const seite = i => [E[(i + 1) % 3], E[(i + 2) % 3]];
+  if (an.seiten === 3) [0, 1, 2].forEach(i => { b += striche(...seite(i), 2, ROT, 18); });
+  else if (an.seiten === 1) an.gl[0].forEach(i => { b += striche(...seite(i), 1, ROT, 18); });
+  [0, 1, 2].forEach(i => { const V = E[i], X = E[(i + 1) % 3], Y = E[(i + 2) % 3], n = an.seiten === 3 ? 3 : an.seiten === 1 && an.gl[0].includes(i) ? 2 : 1;
+    b += an.g[i] === 90 ? bogen(V, X, Y, 54, WF[i], 1, true) : bogen(V, X, Y, 42, WF[i], n); /* außerhalb des Griffs, damit Bögen sichtbar bleiben */
+    b += winkelText(V, X, Y, an.g[i] + '°', WF[i], Math.max(80, Math.min(135, 46 + 26 / Math.sin(an.w[i] * Math.PI / 360)))); });
+  [0, 1, 2].forEach(i => { /* Seitenname außen – passt er nicht ins Zeichenfeld, dann innen neben die Seite */
+    const [p, q] = seite(i), t = 'abc'[i] + ' = ' + an.cm[i] + ' cm', bw = t.length * 13.5, mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2; let nx = -(q[1] - p[1]), ny = q[0] - p[0]; const l = Math.hypot(nx, ny); nx /= l; ny /= l;
+    if ((innen[0] - mx) * nx + (innen[1] - my) * ny > 0) { nx = -nx; ny = -ny; }
+    const lage = s => { const x = mx + s * nx * 24, y = my + s * ny * 24, an2 = s * nx < -0.4 ? 'end' : s * nx > 0.4 ? 'start' : 'middle', x0 = an2 === 'end' ? x - bw : an2 === 'start' ? x : x - bw / 2; return { x, y, an2, ok: x0 >= 36 && x0 + bw <= 594 && y >= 96 && y <= 596 }; };
+    let L = lage(1); if (!L.ok) { const L2 = lage(-1); if (L2.ok) L = L2; }
+    b += text(L.x, L.y, t, 24, BLAU, `text-anchor="${L.an2}" font-weight="700" font-style="italic" stroke="#fff" stroke-opacity=".85" stroke-width="6" paint-order="stroke"`); });
+  E.forEach((V, i) => { const l = abst(innen, V) || 1; b += knopf(V) + mitte(V[0] + (V[0] - innen[0]) / l * 50, V[1] + (V[1] - innen[1]) / l * 50, 'ABC'[i], 28, P.ink, 'font-weight="700" stroke="#fff" stroke-opacity=".85" stroke-width="6" paint-order="stroke"'); });
+  let s = text(x0, 108, '🖐 Ecken A, B, C ziehen!', 24, ORANGE, 'font-weight="700"');
+  [0, 1, 2].forEach(i => { s += text(x0, 160 + i * 42, GR[i] + ' = ' + an.g[i] + '°', 30, WF[i], 'font-weight="700"') + text(x0 + 150, 160 + i * 42, '(bei ' + 'ABC'[i] + ')', 22, '#475569'); });
+  s += text(x0, 296, an.g.join('° + ') + '° = 180°', 26, P.ink, 'font-weight="700"');
+  s += `<line x1="${x0}" y1="328" x2="${W - 30}" y2="328" stroke="${RAND}" stroke-width="1.5" stroke-opacity=".5"/>`;
+  const gW = GR[an.gross], wGrund = an.art === 'rechtwinklig' ? gW + ' ist genau 90°' : an.art === 'stumpfwinklig' ? gW + ' ist größer als 90°' : 'alle Winkel kleiner als 90°';
+  const sArt = an.seiten === 3 ? 'gleichseitig' : an.seiten === 1 ? 'gleichschenklig' : 'unregelmäßig';
+  const sGrund = an.seiten === 3 ? ['alle Seiten gleich lang', '(also auch gleichschenklig)'] : an.seiten === 1 ? ['2 Seiten gleich lang: ' + an.gl[0].map(i => 'abc'[i]).join(' = ')] : ['alle Seiten verschieden lang'];
+  s += text(x0, 362, 'Nach den Winkeln:', 22, RAND, 'font-weight="700"') + text(x0, 398, an.art, 30, P.ink, 'font-weight="700"') + text(x0, 434, wGrund, 22, '#475569');
+  s += text(x0, 492, 'Nach den Seiten:', 22, RAND, 'font-weight="700"') + text(x0, 528, sArt, 30, P.ink, 'font-weight="700"');
+  sGrund.forEach((z, i) => { s += text(x0, 564 + i * 30, z, 22, '#475569'); });
+  const g = `<rect x="0" y="0" width="${W}" height="${H}" rx="18" fill="${P.papier}" stroke="${RAND}" stroke-width="2"/>` + text(30, 44, '🔺 Dreieck verändern', 34, P.ink, 'font-weight="700"') + b + s +
+    `<rect x="30" y="${H - 80}" width="${W - 60}" height="58" rx="12" fill="rgba(46,125,50,.1)" stroke="${GRUEN}" stroke-width="2"/>` + text(52, H - 51, '💡 Merke: Die Winkelsumme im Dreieck beträgt 180°.', 26, P.ink, 'font-weight="700"');
+  return { svg: T._svg.doc(W, H, g), w: W, h: H, teile: E.map((V, i) => ({ id: 'ecke' + 'ABC'[i], x: V[0] - 30, y: V[1] - 30, w: 60, h: 60, zieh: true })) };
+}
+function eckeZiehen(d, id, sx, sy) {
+  const i = ['eckeA', 'eckeB', 'eckeC'].indexOf(id); if (d.thema !== 'veraendern' || i < 0 || !isFinite(sx) || !isFinite(sy)) return null;
+  const E = ecken(d), roh = [Math.max(FELD.x0, Math.min(FELD.x1, sx)), Math.max(FELD.y0, Math.min(FELD.y1, sy))];
+  let p = einrasten(roh, E[(i + 1) % 3], E[(i + 2) % 3]);
+  if (p[0] < FELD.x0 || p[0] > FELD.x1 || p[1] < FELD.y0 || p[1] > FELD.y1) p = roh;
+  const N = E.slice(); N[i] = p; if (!gueltig(N)) return null;
+  const r = v => Math.round(v * 100) / 100;
+  return { ...d, A: N[0].map(r), B: N[1].map(r), C: N[2].map(r) };
+}
+const THEMEN = [['uebersicht', 'Dreiecksarten'], ['gleichschenklig', 'Gleichschenkliges Dreieck'], ['gleichseitig', 'Gleichseitiges = gleichwinkliges Dreieck'], ['veraendern', 'Dreieck verändern']];
 const ZEICHNE = {
   uebersicht: P => {
     /* zwei Reihen à drei Dreiecke, darunter Name und ein kurzer Satz */
@@ -91,6 +176,7 @@ const ZEICHNE = {
       ['name', 'Die dritte Seite heißt Basis.'],
       ['boegen', 'Die zwei Winkel an der Basis sind gleich groß. Der dritte Winkel ist meist anders.'],
       ['achse', 'Es hat eine Symmetrieachse.']], 'Nicht jedes gleichschenklige Dreieck ist gleichwinklig.', P, BEISPIELE(P)); },
+  veraendern: (P, d) => veraendern(P, d || {}),
   gleichseitig: P => {
     const s = 360, A = [90, 480], B = [450, 480], C = [270, 480 - s * Math.sin(Math.PI / 3)];
     let b = dreieck([A, B, C], BLAU, 5, 'rgba(21,101,192,.06)');
@@ -106,7 +192,8 @@ const ZEICHNE = {
 };
 T.BAUSTEINE.dreieckerkl = { name: 'Dreiecke erklärt', gruppe: 'Mathe', def: { thema: 'uebersicht' },
   felder: [{ k: 'thema', l: 'Thema', typ: 'auswahl', opts: THEMEN }],
-  gen: (d, P) => (ZEICHNE[d.thema] || ZEICHNE.uebersicht)(P) };
+  gen: (d, P) => (ZEICHNE[d.thema] || ZEICHNE.uebersicht)(P, d),
+  ziehen: (d, id, sx, sy) => eckeZiehen(d, id, sx, sy) };
 T.dreieckErklMenue = () => {
   const h = T.h, bild = k => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(T.genObj('dreieckerkl', { thema: k }, false).svg);
   const einfuegen = k => { T.closeDlg(); const g = T.genObj('dreieckerkl', { thema: k }, false), r = T.viewRect(), fz = Math.min(1, (r.x1 - r.x0) * 0.8 / g.w, (r.y1 - r.y0) * 0.8 / g.h), [cx, cy] = T.viewCenter();
@@ -114,9 +201,9 @@ T.dreieckErklMenue = () => {
   const alle = () => { T.closeDlg(); T.snap(); const S = T.S, start = S.page + 1;
     THEMEN.forEach(([k, l], i) => { const g = T.genObj('dreieckerkl', { thema: k }, false), np = { ...T.newPage('weiss'), titel: 'Dreiecke: ' + l };
       np.items.push({ t: 'o', id: T.uid(), k: 'dreieckerkl', d: { thema: k }, x: 40, y: 30, w: g.w, h: g.h, r: 0 }); S.board.pages.splice(start + i, 0, np); });
-    T.gotoPage(start); T.toast('3 Seiten zu Dreiecken eingefügt – mit ◀ ▶ blättern.', 3000); };
-  T.openDlg([h('h2', {}, '🔺 Dreiecke erklärt'), h('p', { class: 'hint' }, 'Drei Bildtafeln mit kurzen Merksätzen. Antippen fügt eine Tafel ein.'),
+    T.gotoPage(start); T.toast(THEMEN.length + ' Seiten zu Dreiecken eingefügt – mit ◀ ▶ blättern.', 3000); };
+  T.openDlg([h('h2', {}, '🔺 Dreiecke erklärt'), h('p', { class: 'hint' }, 'Bildtafeln mit kurzen Merksätzen. Antippen fügt eine Tafel ein. Bei „Dreieck verändern“ lassen sich die Ecken ziehen.'),
     h('div', { class: 'tiles' }, ...THEMEN.map(([k, l]) => h('button', { class: 'tile', onclick: () => einfuegen(k) }, h('img', { src: bild(k), alt: '' }), l))),
-    h('div', { class: 'acts' }, h('button', { class: 'big', onclick: T.closeDlg }, 'Schließen'), h('button', { class: 'big', onclick: () => T.tafelnAufEineSeite('dreieckerkl', THEMEN.map(([k]) => ({ thema: k }))) }, '📜 Alle auf eine Seite'), h('button', { class: 'big prim', onclick: alle }, '📄 Alle 3 auf neue Seiten'))]);
+    h('div', { class: 'acts' }, h('button', { class: 'big', onclick: T.closeDlg }, 'Schließen'), h('button', { class: 'big', onclick: () => T.tafelnAufEineSeite('dreieckerkl', THEMEN.map(([k]) => ({ thema: k }))) }, '📜 Alle auf eine Seite'), h('button', { class: 'big prim', onclick: alle }, '📄 Alle ' + THEMEN.length + ' auf neue Seiten'))]);
 };
 })();

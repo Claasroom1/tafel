@@ -1,6 +1,6 @@
 // Tafel-App – 🎵 Musik · 🎨 Kunst · ⚽ Sport: Bildtafeln (Einfügen › Musik / Kunst / Sport)
-// Notenwerte · Klaviatur · Rhythmusraster · Takt und Tempo · Instrumentengruppen · Farbkreis nach Itten · Perspektive · Bildanalyse ·
-// Spielfelder (maßstäblich) · Stationenkreis · Mannschaftseinteilung. Alles selbst gezeichnet (SVG), Texte unter ✏️ Bearbeiten bzw. Optionen.
+// Notenwerte · Klaviatur · Rhythmusraster · Takt und Tempo · Instrumentengruppen · Farbkreis nach Itten · Perspektive · Bildanalyse · Drittelregel ·
+// Spielfelder (maßstäblich) · Stationenkreis · Mannschaftseinteilung (mit Klassenliste) · Turnierplan. Alles selbst gezeichnet (SVG), Texte unter ✏️ Bearbeiten bzw. Optionen.
 'use strict';
 (function () {
 const B = T.BAUSTEINE;
@@ -404,7 +404,7 @@ B.sp_feld = { name: 'Spielfeld (maßstäblich)', gruppe: 'Sport', def: { art: 'f
         s += ln(14, 7.5, 14 + 1.8 * Math.cos(Math.PI / 4), 7.5 - 1.8 * Math.sin(Math.PI / 4), 1.5, gestr) + text(X(15.5), Y(5.6), 'r = 1,80 m', 18, mc, fett);
       }
     } else if (art === 'volleyball') {
-      for (const x of [6, 12]) s += ln(x, 0, x, 9) + ln(x, -1.75, x, 0, 3, `stroke-dasharray="${f(0.15 * m)} ${f(0.2 * m)}" stroke-linecap="butt"`) + ln(x, 9, x, 10.75, 3, `stroke-dasharray="${f(0.15 * m)} ${f(0.2 * m)}" stroke-linecap="butt"`);
+      for (const x of [6, 12]) s += ln(x, 0, x, 9) + ln(x, -1.75, x, 0, 3, `stroke-dasharray="${f(0.15 * m)} ${f(0.2 * m)}"`) + ln(x, 9, x, 10.75, 3, `stroke-dasharray="${f(0.15 * m)} ${f(0.2 * m)}"`);
       s += ln(9, 0, 9, 9) + linie(X(9), Y(-1), X(9), Y(10), WL, 7, 'opacity=".9"') + kreis(X(9), Y(-1), 8, '#455a64', WL, 2) + kreis(X(9), Y(10), 8, '#455a64', WL, 2);
       if (d.masse) {
         s += massH(0, 18, Y(10.75) + 22, '18 m') + massV(0, 9, X(0) - 30, X(0) - 45, '9 m') + mitte(X(9), Y(-1) - 26, 'Netz', 18, mc, fett);
@@ -459,23 +459,271 @@ const HELLE_LEIBCHEN = new Set(['#fdd835', '#ffffff', '#fb8c00', '#f48fb1', '#9e
 const paarungen = n => { const t = [...Array(n).keys()]; if (n % 2) t.push(-1); const k = t.length, out = [];
   for (let r = 0; r < k - 1; r++) { for (let i = 0; i < k / 2; i++) { const a = t[i], b = t[k - 1 - i]; if (a >= 0 && b >= 0) out.push([a, b]); } t.splice(1, 0, t.pop()); }
   return out; };
-B.sp_teams = { name: 'Mannschaftseinteilung mit Spielplan', gruppe: 'Sport', def: { anzahl: 4, farben: 'Rot, Blau, Gelb, Grün, Orange, Weiß', zeilen: 6 },
-  felder: [{ k: 'anzahl', l: 'Anzahl Teams', typ: 'zahl', min: 2, max: 6 }, { k: 'farben', l: 'Leibchenfarben (mit Komma getrennt)', typ: 'text' }, { k: 'zeilen', l: 'Zeilen je Team', typ: 'zahl', min: 3, max: 10 }],
+const mischen = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+const verteilen = (a, n) => Array.from({ length: n }, (_, i) => a.filter((_, j) => j % n === i));
+const passend = (t, px, gr = 20) => { t = String(t); let sz = gr; if (t.length * sz * 0.58 > px) sz = Math.min(gr, 18); /* zu lang: auf 18 px, dann kürzen */
+  const max = Math.max(2, Math.floor(px / (sz * 0.58))); return [t.length > max ? t.slice(0, max - 1) + '…' : t, sz]; };
+const klassenListe = kl => { if (!kl) return []; /* Namen nur aus dem lokalen Speicher dieses Browsers – nichts wird gesendet */
+  try { const L = JSON.parse(localStorage.getItem('tafelapp.klassen') || '{}'), a = L && typeof L === 'object' ? L[kl] : null;
+    return Array.isArray(a) ? a.map(x => String(x == null ? '' : x).trim()).filter(Boolean) : []; } catch (e) { return []; } };
+const tafelKlasse = d => String(d.klasse || '').trim() || String((T.S && T.S.board && T.S.board.klasse) || '').trim();
+const teamListen = d => typeof d.namen === 'string' /* Feld „namen“: eine Zeile je Team, z. B. „Rot: Anna, Ben“ – sonst d.teams (Array je Team) */
+  ? d.namen.split(/\r?\n/).filter(l => l.trim()).map(l => { const p = l.indexOf(':'); return (p >= 0 ? l.slice(p + 1) : l).split(',').map(x => x.trim()).filter(Boolean); })
+  : Array.isArray(d.teams) ? d.teams.map(t => Array.isArray(t) ? t.map(x => String(x == null ? '' : x).trim()).filter(Boolean) : []) : [];
+const teamInfo = (d, i) => { const nm = String(d.farben || '').split(',').map(x => x.trim()).filter(Boolean)[i] || 'Team ' + (i + 1), col = LEIBCHEN[nm.toLowerCase()] || '#90a4ae';
+  return { nm, col, rand: col === '#ffffff' ? '#9e9e9e' : col, schrift: HELLE_LEIBCHEN.has(col) ? DUNKEL : '#ffffff' }; };
+const teamsSetzen = (dd, L) => { const leer = !L.some(t => t.length);
+  return { ...dd, teams: leer ? [] : L, namen: leer ? '' : L.map((t, i) => teamInfo(dd, i).nm + ': ' + t.join(', ')).join('\n') }; };
+B.sp_teams = { name: 'Mannschaftseinteilung mit Spielplan', gruppe: 'Sport', def: { anzahl: 4, farben: 'Rot, Blau, Gelb, Grün, Orange, Weiß', zeilen: 6, klasse: '', namen: '', teams: [], fehlt: [] },
+  felder: [{ k: 'anzahl', l: 'Anzahl Teams', typ: 'zahl', min: 2, max: 6 }, { k: 'farben', l: 'Leibchenfarben (mit Komma getrennt)', typ: 'text' }, { k: 'zeilen', l: 'Zeilen je Team', typ: 'zahl', min: 3, max: 10 },
+    { k: 'klasse', l: 'Klasse für „🎲 Klasse zufällig verteilen“ (leer = Klasse der Tafel)', typ: 'text' },
+    { k: 'namen', l: 'Namen je Team (eine Zeile je Team, Namen mit Komma, z. B. „Rot: Anna, Ben“)', typ: 'liste' }],
   gen: (d, P) => {
-    const n = anz(d.anzahl, 2, 6, 4), z = anz(d.zeilen, 3, 10, 6), W = 1000, namen = String(d.farben || '').split(',').map(x => x.trim()).filter(Boolean);
-    const team = i => { const nm = namen[i] || 'Team ' + (i + 1), col = LEIBCHEN[nm.toLowerCase()] || '#90a4ae'; return { nm, col, rand: col === '#ffffff' ? '#9e9e9e' : col, schrift: HELLE_LEIBCHEN.has(col) ? DUNKEL : '#ffffff' }; };
-    const y0 = 80, hh = 56, rh = 44, cw = (940 - (n - 1) * 16) / n; let s = '';
+    const n = anz(d.anzahl, 2, 6, 4), L = teamListen(d), fehlt = new Set(Array.isArray(d.fehlt) ? d.fehlt : []), maxN = Math.max(0, ...L.slice(0, n).map(t => t.length));
+    const z = Math.max(anz(d.zeilen, 3, 10, 6), maxN ? maxN + 1 : 0), W = 1000, team = i => teamInfo(d, i), teile = [];
+    const y0 = 80, hh = 56, rh = 44, cw = (940 - (n - 1) * 16) / n, gr = cw >= 200 ? 21 : 18; let s = '';
+    const kl = tafelKlasse(d); if (maxN && kl) s += text(970, 42, 'Klasse ' + kl, 22, GRAU, 'text-anchor="end" ' + fett);
     for (let i = 0; i < n; i++) { const x = 30 + i * (cw + 16), t = team(i);
       s += box(x, y0, cw, hh + z * rh, t.rand, 'none', 12, 3) + `<path d="M ${f(x)} ${y0 + hh} L ${f(x)} ${y0 + 12} Q ${f(x)} ${y0} ${f(x + 12)} ${y0} L ${f(x + cw - 12)} ${y0} Q ${f(x + cw)} ${y0} ${f(x + cw)} ${y0 + 12} L ${f(x + cw)} ${y0 + hh} Z" fill="${t.col}" stroke="${t.rand}" stroke-width="3"/>`;
       s += mitte(x + cw / 2, y0 + hh / 2, t.nm, 24, t.schrift, fett);
-      for (let j = 1; j < z; j++) s += linie(x + 10, y0 + hh + j * rh, x + cw - 10, y0 + hh + j * rh, GRAU, 1, 'opacity=".6"'); }
-    const PA = paarungen(n), yP = y0 + hh + z * rh + 50, proSp = Math.ceil(PA.length / 3);
+      for (let j = 1; j < z; j++) s += linie(x + 10, y0 + hh + j * rh, x + cw - 10, y0 + hh + j * rh, GRAU, 1, 'opacity=".6"');
+      (L[i] || []).forEach((nm, j) => { const yz = y0 + hh + j * rh, weg = fehlt.has(nm), [tx, sz] = passend(nm, cw - 28, gr);
+        s += text(x + 14, yz + rh / 2, tx, sz, P.ink, weg ? 'opacity=".45"' : '');
+        if (weg) s += linie(x + 10, yz + rh / 2, x + 18 + Math.min(cw - 28, tx.length * sz * 0.56), yz + rh / 2, P.ink, 2.5);
+        teile.push({ id: 'n' + i + '_' + j, x: x + 4, y: yz + 1, w: cw - 8, h: rh - 2 }); }); }
+    let yH = y0 + hh + z * rh;
+    if (maxN) { s += text(30, yH + 30, 'Namen antippen: fehlt heute (durchgestrichen) – nochmals antippen: wieder da', 18, GRAU); yH += 40; }
+    const PA = paarungen(n), yP = yH + 50, proSp = Math.ceil(PA.length / 3);
     s += text(30, yP, 'Wer spielt gegen wen?', 24, P.ink, fett) + text(335, yP, '(jeder gegen jeden: ' + PA.length + (PA.length === 1 ? ' Spiel)' : ' Spiele)'), 19, GRAU);
     PA.forEach(([a, b], i) => { const x = 30 + Math.floor(i / proSp) * 313, y = yP + 50 + (i % proSp) * 48, A = team(a), Bt = team(b);
       s += text(x, y, (i + 1) + '.', 20, GRAU, fett) + kreis(x + 42, y, 8, A.col, A.rand, 2) + kreis(x + 60, y, 8, Bt.col, Bt.rand, 2) + text(x + 76, y, A.nm + ' – ' + Bt.nm, 20, P.ink);
       s += linie(x + 228, y + 12, x + 254, y + 12, GRAU, 1.5) + mitte(x + 264, y, ':', 22, P.ink, fett) + linie(x + 274, y + 12, x + 296, y + 12, GRAU, 1.5); });
     const H = yP + 50 + proSp * 48 + 10;
-    return tafel('👕', 'Mannschaften', W, H, s, P);
+    return { ...tafel('👕', 'Mannschaften', W, H, s, P), teile };
+  },
+  tippen: (o, id) => T.bausteinAendern(o, { f: dd => { const m = /^n(\d+)_(\d+)$/.exec(id), L = teamListen(dd), nm = m && L[+m[1]] && L[+m[1]][+m[2]];
+    return { d: nm ? { ...dd, fehlt: umschalten(dd.fehlt, nm) } : dd }; } }) };
+B.sp_teams.schnell = [
+  { l: '🎲 Klasse zufällig verteilen', f: dd => { const alle = klassenListe(tafelKlasse(dd)), fehlt = new Set(Array.isArray(dd.fehlt) ? dd.fehlt : []);
+    if (!alle.length) { T.toast('Keine Klassenliste für diese Klasse – unter ☰ › Klassenlisten anlegen.', 3500); return { d: dd }; }
+    return { d: teamsSetzen(dd, verteilen(mischen(alle.filter(x => !fehlt.has(x))), anz(dd.anzahl, 2, 6, 4))) }; } },
+  { l: '⚖ Neu mischen', f: dd => { const n = anz(dd.anzahl, 2, 6, 4), fehlt = new Set(Array.isArray(dd.fehlt) ? dd.fehlt : []), alle = teamListen(dd).slice(0, n).flat().filter(x => !fehlt.has(x));
+    if (!alle.length) { T.toast('Noch keine Namen – zuerst „🎲 Klasse zufällig verteilen“ oder Namen unter Optionen eintragen.', 3500); return { d: dd }; }
+    return { d: teamsSetzen(dd, verteilen(mischen(alle), n)) }; } },
+  { l: '🧹 Namen leeren', f: dd => ({ d: { ...dd, namen: '', teams: [], fehlt: [] } }) },
+  { l: '＋ Team', f: dd => { const n = Math.min(6, anz(dd.anzahl, 2, 6, 4) + 1), L = teamListen(dd).slice(0, n);
+    return { d: L.some(t => t.length) ? { ...teamsSetzen(dd, L), anzahl: n } : { ...dd, anzahl: n } }; } },
+  { l: '− Team', f: dd => { const alt = anz(dd.anzahl, 2, 6, 4), n = Math.max(2, alt - 1), L = teamListen(dd).slice(0, alt); if (n === alt || !L.some(t => t.length)) return { d: { ...dd, anzahl: n } };
+    const rest = L.slice(0, n); while (rest.length < n) rest.push([]); /* Namen des letzten Teams auf die kleinsten Teams verteilen */
+    for (const nm of L.slice(n).flat()) rest.reduce((a, b) => b.length < a.length ? b : a).push(nm);
+    return { d: { ...teamsSetzen(dd, rest), anzahl: n } }; } }];
+
+// ---------- Turnierplan (K.-o., Gruppen, Liga) ----------
+const MODI = ['ko', 'gruppen', 'liga'], MODUS_NAME = { ko: 'K.-o.-System (Turnierbaum)', gruppen: 'Gruppenphase + K.-o.-Runde', liga: 'Liga: jeder gegen jeden' };
+const GOLD = '#f9a825', GOLD_D = '#b26a00', SIEG_F = '#e8f5e9', RAUS_F = '#eceff1', BUCH = 'ABCD', RUNDE = { 1: 'Finale', 2: 'Halbfinale', 4: 'Viertelfinale', 8: 'Achtelfinale' };
+const TEAMS_STD = n => Array.from({ length: n }, (_, i) => 'Team ' + (i + 1)).join('\n');
+const setzListe = P => { let a = [1]; while (a.length < P) { const m = a.length * 2 + 1; a = a.flatMap(x => [x, m - x]); } return a; }; /* 8 → 1 8 4 5 2 7 3 6: Freilose treffen die besten Setzplätze */
+const zweierPotenz = x => { let p = 2; while (p < x) p *= 2; return p; };
+const turnierNamen = d => String(d.teams == null ? '' : d.teams).split(/\r?\n/).map(x => x.trim()).filter(Boolean).slice(0, 16);
+const turnierTeams = d => { const nm = turnierNamen(d), n = nm.length ? Math.max(2, nm.length) : anz(d.anzahl, 2, 16, 8); return Array.from({ length: n }, (_, i) => nm[i] || ''); };
+const turnierModus = d => MODI.includes(d.modus) ? d.modus : 'ko';
+const gruppenZahl = (d, n) => Math.max(1, Math.min(anz(d.gruppen, 2, 4, 2), Math.floor(n / 2)));
+const koGroesse = d => { const n = turnierTeams(d).length, m = turnierModus(d); return m === 'liga' ? 0 : zweierPotenz(m === 'gruppen' ? 2 * gruppenZahl(d, n) : n); };
+const bergerRunden = n => { const t = [...Array(n).keys()]; if (n % 2) t.push(-1); const k = t.length, out = []; /* Rundenverfahren: Team 0 fest, die anderen rotieren */
+  for (let r = 0; r < k - 1; r++) { const sp = []; let frei = -1;
+    for (let i = 0; i < k / 2; i++) { const a = t[i], b = t[k - 1 - i]; if (a < 0 || b < 0) frei = a < 0 ? b : a; else sp.push(r % 2 && i === 0 ? [b, a] : [a, b]); }
+    out.push({ sp, frei }); t.splice(1, 0, t.pop()); }
+  return out; };
+const spiel = (a, b, k, sieger) => { const echt = !!(a && b && !a.frei && !b.frei);
+  const w = !a || !b ? null : a.frei && b.frei ? { frei: true } : a.frei ? b : b.frei ? a : sieger[k] === 0 ? a : sieger[k] === 1 ? b : null;
+  return { a, b, k, w, echt, auto: !!(a && b && !echt) }; };
+function koBaum(slots, sieger) { const runden = []; let tn = slots.map(x => x || { frei: true });
+  while (tn.length > 1) { const sp = []; for (let m = 0; m < tn.length / 2; m++) sp.push(spiel(tn[2 * m], tn[2 * m + 1], runden.length + '_' + m, sieger)); runden.push(sp); tn = sp.map(x => x.w); }
+  return runden; }
+const pokal = (cx, ty) => { const p = (...z) => z.map(f).join(' ');
+  return `<path d="M ${p(cx - 38, ty + 10)} C ${p(cx - 70, ty + 8, cx - 68, ty + 54, cx - 20, ty + 56)}" fill="none" stroke="${GOLD_D}" stroke-width="7" stroke-linecap="round"/>`
+    + `<path d="M ${p(cx + 38, ty + 10)} C ${p(cx + 70, ty + 8, cx + 68, ty + 54, cx + 20, ty + 56)}" fill="none" stroke="${GOLD_D}" stroke-width="7" stroke-linecap="round"/>`
+    + `<path d="M ${p(cx - 44, ty)} L ${p(cx + 44, ty)} C ${p(cx + 44, ty + 46, cx + 24, ty + 66, cx, ty + 68)} C ${p(cx - 24, ty + 66, cx - 44, ty + 46, cx - 44, ty)} Z" fill="${GOLD}" stroke="${GOLD_D}" stroke-width="3"/>`
+    + box(cx - 7, ty + 66, 14, 16, GOLD_D, GOLD, 2, 2) + box(cx - 26, ty + 82, 52, 10, GOLD_D, GOLD, 3, 2) + box(cx - 36, ty + 92, 72, 12, GOLD_D, GOLD_D, 3, 2)
+    + mitte(cx, ty + 28, '1', 30, DUNKEL, fett); };
+const KO = { FW: 260, FH: 46, SB: 52, AB: 64, SW: 240 }; /* Feldbreite, Feldhöhe, Ergebnisfeld, Abstand der Runden, Siegerfeld */
+function koZeichnen(slots, sieger, platz3, x0, top, P) {
+  const { FW, FH, SB, AB, SW } = KO, R = Math.round(Math.log2(slots.length)), U = 2 * FH + 46, runden = koBaum(slots, sieger), teile = [];
+  const cx = r => x0 + r * (FW + AB), yc = (r, m) => top + (m + 0.5) * U * (1 << r);
+  const verl = sp => sp.w && sp.a && sp.b ? (sp.w === sp.a ? sp.b : sp.a) : null;
+  const p3 = platz3 && R >= 2 ? spiel(verl(runden[R - 2][0]), verl(runden[R - 2][1]), R + '_0', sieger) : null;
+  const num = {}; let nr = 0, s = '';
+  for (let r = 0; r < R - 1; r++) runden[r].forEach(sp => { if (!sp.auto) num[sp.k] = ++nr; });
+  if (p3 && !p3.auto) num[p3.k] = ++nr;
+  num[runden[R - 1][0].k] = ++nr;
+  const teamFeld = (x, y, p, zu) => {
+    const fill = zu === 'sieg' ? SIEG_F : zu === 'raus' ? RAUS_F : p && p.frei ? '#f1f5f9' : '#ffffff';
+    let t = box(x, y, FW, FH, zu === 'sieg' ? GRUEN : RAND, fill, 8, zu === 'sieg' ? 3 : 2);
+    if (p && p.frei) return t + text(x + 16, y + FH / 2, 'Freilos', 18, DUNKEL, 'font-style="italic" opacity=".55"');
+    t += box(x + FW - SB, y + 6, SB - 6, FH - 12, GRAU, '#ffffff', 6, 1.5);
+    if (!p) return t;
+    t += `<rect x="${f(x + 8)}" y="${f(y + 8)}" width="44" height="${FH - 16}" rx="${(FH - 16) / 2}" fill="${zu === 'raus' ? '#90a4ae' : zu === 'sieg' ? GRUEN : BLAU}"/>` + mitte(x + 30, y + FH / 2, p.nr, 18, '#ffffff', fett);
+    if (p.nm) { const [tx, sz] = passend(p.nm, FW - SB - 70, 20); t += text(x + 62, y + FH / 2, tx, sz, DUNKEL, zu === 'sieg' ? fett : zu === 'raus' ? 'opacity=".5"' : ''); }
+    return t; };
+  const zeigeSpiel = (sp, x, ym, titel) => {
+    if (titel) s += text(x + 4, ym - FH - 16, titel, 18, GRAU, fett);
+    [sp.a, sp.b].forEach((p, i) => { const y = ym - FH + i * FH, zu = sp.echt && sp.w ? (sp.w === p ? 'sieg' : 'raus') : 'offen';
+      s += teamFeld(x, y, p, zu);
+      if (sp.echt) teile.push({ id: 's' + sp.k + '_' + i, x, y, w: p.nm ? FW - SB : 62, h: FH }); }); };
+  for (let r = 0; r < R; r++) { const mc = runden[r].length; s += mitte(cx(r) + FW / 2, top - 22, r === 0 && runden[0].some(sp => sp.auto) ? '1. Runde' : RUNDE[mc] || (r + 1) + '. Runde', 22, P.ink, fett);
+    if (r < R - 1) runden[r].forEach((sp, m) => { const x1 = cx(r) + FW, xm = x1 + AB / 2, y1 = yc(r, m), y2 = yc(r + 1, m >> 1) + (m % 2 ? FH / 2 : -FH / 2), ok = sp.echt && sp.w;
+      s += `<path d="M ${f(x1)} ${f(y1)} H ${f(xm)} V ${f(y2)} H ${f(cx(r + 1))}" fill="none" stroke="${ok ? GRUEN : GRAU}" stroke-width="${ok ? 4 : 2.5}" stroke-linejoin="round"/>`; }); }
+  for (let r = 0; r < R; r++) runden[r].forEach((sp, m) => zeigeSpiel(sp, cx(r), yc(r, m), num[sp.k] ? 'Spiel ' + num[sp.k] : ''));
+  const fin = runden[R - 1][0], yF = yc(R - 1, 0), xS = cx(R), wFin = fin.w && !fin.w.frei ? fin.w : null;
+  s += linie(cx(R - 1) + FW, yF, xS, yF, wFin ? GRUEN : GRAU, wFin ? 4 : 2.5) + mitte(xS + SW / 2, top - 22, 'Sieger', 22, P.ink, fett);
+  s += box(xS, yF - FH / 2 - 4, SW, FH + 8, GOLD_D, '#fff8e1', 10, 3);
+  if (wFin) { const [tx, sz] = passend(wFin.nm || (/^\d+$/.test(wFin.nr) ? 'Nr. ' + wFin.nr : wFin.nr), SW - 24, 22); s += mitte(xS + SW / 2, yF, tx, sz, DUNKEL, fett); }
+  s += pokal(xS + SW / 2, yF + FH / 2 + 22);
+  let unten = Math.max(top + U * slots.length / 2, yF + FH / 2 + 22 + 104 + 10);
+  if (p3) { const y3 = yF + 2 * FH + 56; zeigeSpiel(p3, cx(R - 1), y3, (num[p3.k] ? 'Spiel ' + num[p3.k] + ' · ' : '') + 'um Platz 3'); unten = Math.max(unten, y3 + FH + 10); }
+  return { s, teile, w: R * (FW + AB) + SW, h: unten - top, spiele: nr }; }
+function tabelleZ(x, y, w, zeilen) { /* Ergebnistabelle mit leeren Feldern zum Eintragen */
+  const breit = w >= 700, cu = breit ? 70 : 42, nrW = breit ? 64 : 50, SP = [['Sp', 1], ['S', 1], ['U', 1], ['N', 1], ['Tore', 1.7], ['Pkt', 1.25]];
+  const rest = SP.reduce((a, c) => a + c[1] * cu, 0), nmW = w - nrW - rest, kh = 40, zh = 44, h = kh + zeilen.length * zh;
+  let s = `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${h}" fill="#ffffff"/><rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${kh}" fill="#e3f2fd"/>`;
+  s += mitte(x + nrW / 2, y + kh / 2, 'Nr.', 18, DUNKEL, fett) + text(x + nrW + 10, y + kh / 2, 'Team', 18, DUNKEL, fett);
+  let xx = x + nrW + nmW; const vl = [x + nrW, xx];
+  SP.forEach(([t, k]) => { s += mitte(xx + k * cu / 2, y + kh / 2, t, 18, DUNKEL, fett); xx += k * cu; vl.push(xx); });
+  const xt = x + nrW + nmW + 4 * cu + 1.7 * cu / 2;
+  zeilen.forEach((z, i) => { const yy = y + kh + i * zh, ym = yy + zh / 2; s += linie(x, yy, x + w, yy, GRAU, 1.2);
+    s += mitte(x + nrW / 2, ym, z.nr, 18, DUNKEL, fett) + mitte(xt, ym, ':', 20, DUNKEL, 'opacity=".45"');
+    if (z.nm) { const [tx, sz] = passend(z.nm, nmW - 18, 20); s += text(x + nrW + 10, ym, tx, sz, DUNKEL); } });
+  vl.slice(0, -1).forEach(v => { s += linie(v, y, v, y + h, GRAU, 1.2); });
+  s += `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${h}" fill="none" stroke="${RAND}" stroke-width="2.5"/>`;
+  return { s, h }; }
+const SPZ = 40; /* Zeilenhöhe im Spielplan */
+const spielKopf = (x, y, w) => text(x + 36, y, 'Nr.', 18, GRAU, 'text-anchor="end" ' + fett) + text(x + 46, y, 'Feld', 18, GRAU, fett) + text(x + 122, y, 'Spiel', 18, GRAU, fett) + mitte(x + w - 46, y, 'Ergebnis', 18, GRAU, fett);
+const spielZeile = (x, y, w, g, P) => { const ym = y + SPZ / 2, pw = w - 214, ganz = passend(g.a + ' – ' + g.b, pw, 20), [ta, sa] = passend(g.a, (pw - 34) / 2, 20), [tb, sb] = passend(g.b, (pw - 34) / 2, 20);
+  const [tx, sz] = ganz[0].endsWith('…') ? [ta + ' – ' + tb, Math.min(sa, sb)] : ganz;
+  return text(x + 36, ym, g.nr + '.', 18, P.ink, 'text-anchor="end" ' + fett) + text(x + 46, ym, 'Feld ' + g.feld, 18, GRAU) + text(x + 122, ym, tx, sz, P.ink)
+    + box(x + w - 84, y + 4, 76, SPZ - 8, GRAU, '#ffffff', 6, 1.5) + mitte(x + w - 46, ym, ':', 20, DUNKEL, fett); };
+const LEGENDE = 'Sp = Spiele · S = Siege · U = Unentschieden · N = Niederlagen · Punkte: Sieg 3, Unentschieden 1, Niederlage 0';
+B.sp_turnier = { name: 'Turnierplan (K.-o., Gruppen, Liga)', gruppe: 'Sport', def: { modus: 'ko', teams: TEAMS_STD(8), anzahl: 8, gruppen: 2, platz3: true, sieger: {} },
+  felder: [{ k: 'modus', l: 'Turnierform', typ: 'auswahl', opts: MODI.map(m => [m, MODUS_NAME[m]]) },
+    { k: 'teams', l: 'Teams (je Zeile eins; leer = Felder zum Hineinschreiben)', typ: 'liste' },
+    { k: 'anzahl', l: 'Anzahl Teams (wenn keine Namen eingetragen sind)', typ: 'zahl', min: 2, max: 16 },
+    { k: 'gruppen', l: 'Anzahl Gruppen (bei Gruppenphase)', typ: 'zahl', min: 2, max: 4 },
+    { k: 'platz3', l: 'Spiel um Platz 3 (K.-o.-Runde)', typ: 'check' }],
+  gen: (d, P) => {
+    const modus = turnierModus(d), tn = turnierTeams(d), n = tn.length, sieger = d.sieger && typeof d.sieger === 'object' ? d.sieger : {}, platz3 = d.platz3 !== false;
+    const HINWEIS = 'Team antippen: Sieger (rückt weiter) – nochmals antippen: zurücknehmen';
+    if (modus === 'ko') {
+      const PP = zweierPotenz(n), slots = setzListe(PP).map(sd => sd <= n ? { nr: String(sd), nm: tn[sd - 1] } : null), top = 160, K = koZeichnen(slots, sieger, platz3, 30, top, P), W = Math.max(1000, K.w + 60);
+      let s = text(30, 92, n + ' Teams · ' + K.spiele + ' Spiele' + (PP > n ? ' · ' + (PP - n) + (PP - n === 1 ? ' Freilos' : ' Freilose') : ''), 20, GRAU) + K.s;
+      const H = Math.round(top + K.h + 56); s += text(30, H - 28, HINWEIS, 18, GRAU);
+      return { ...tafel('🏆', 'Turnierplan – K.-o.-System', W, H, s, P), teile: K.teile };
+    }
+    if (modus === 'liga') {
+      const W = 1000, namenMod = n <= 8 && tn.some(Boolean), lab = i => namenMod && tn[i] ? tn[i] : String(i + 1), BR = bergerRunden(n);
+      let s = text(30, 92, n + ' Teams · jeder gegen jeden · ' + (n * (n - 1) / 2) + ' Spiele in ' + BR.length + ' Runden', 20, GRAU);
+      const T1 = tabelleZ(30, 116, 940, tn.map((nm, i) => ({ nr: String(i + 1), nm }))); s += T1.s;
+      let y = 116 + T1.h + 28; s += text(30, y, LEGENDE, 18, GRAU); y += 56;
+      s += text(30, y, 'Spielplan', 24, P.ink, fett) + (namenMod ? '' : text(170, y, '(Zahlen = Nr. in der Tabelle)', 18, GRAU)); y += 40;
+      const C = namenMod ? 2 : 3, cw = (940 - (C - 1) * 20) / C; let nr = 0;
+      const bl = BR.map((r, ri) => ({ kopf: 'Runde ' + (ri + 1) + (r.frei >= 0 ? ' · spielfrei: ' + lab(r.frei) : ''), sp: r.sp.map(([a, b], j) => ({ nr: ++nr, feld: j + 1, a: lab(a), b: lab(b) })) }));
+      const bh = b => 34 + b.sp.length * SPZ, ziel = bl.reduce((a, b) => a + bh(b), 0) / C, spalten = [[]]; let akt = 0;
+      bl.forEach(b => { if (akt > 0 && akt + bh(b) / 2 > ziel && spalten.length < C) { spalten.push([]); akt = 0; } spalten[spalten.length - 1].push(b); akt += bh(b); });
+      let yMax = y;
+      spalten.forEach((sp, c) => { const x = 30 + c * (cw + 20); let yy = y + 16; s += spielKopf(x, y, cw);
+        sp.forEach(b => { s += text(x, yy + 20, passend(b.kopf, cw, 18)[0], 18, P.ink, fett); yy += 34; b.sp.forEach(g => { s += spielZeile(x, yy, cw, g, P); yy += SPZ; }); });
+        yMax = Math.max(yMax, yy); });
+      const H = Math.round(yMax + 30);
+      return { ...tafel('🏆', 'Turnierplan – Liga (jeder gegen jeden)', W, H, s, P), teile: [] };
+    }
+    const g = gruppenZahl(d, n), GR = Array.from({ length: g }, (_, k) => tn.map((nm, i) => ({ nm, i })).filter(x => x.i % g === k).map((x, j) => ({ nr: BUCH[k] + (j + 1), nm: x.nm })));
+    const PP = zweierPotenz(2 * g), zweite = g === 3 ? [0, 2, 1] : [...Array(g).keys()]; /* Zweite so setzen, dass in der 1. K.-o.-Runde keine Gruppe gegen sich selbst spielt */
+    const seeds = [...Array(g).keys()].map(k => ({ nr: '1. ' + BUCH[k] })).concat(zweite.map(k => ({ nr: '2. ' + BUCH[k] })));
+    const slots = setzListe(PP).map(sd => sd <= 2 * g ? seeds[sd - 1] : null);
+    const Kw = Math.round(Math.log2(PP)) * (KO.FW + KO.AB) + KO.SW, W = Math.max(1000, Kw + 60), C = g === 1 ? 1 : 2, bw = (W - 60 - (C - 1) * 30) / C;
+    const GB = GR.map(gr => bergerRunden(gr.length)), maxR = Math.max(...GB.map(b => b.length)), spiele = GR.map(() => []); let nr = 0;
+    for (let r = 0; r < maxR; r++) { let feld = 0; GB.forEach((b, k) => (b[r] ? b[r].sp : []).forEach(([a, c]) => { const L = x => GR[k][x].nm || GR[k][x].nr; spiele[k].push({ nr: ++nr, feld: ++feld, a: L(a), b: L(c) }); })); }
+    let s = text(30, 92, n + ' Teams · ' + g + (g === 1 ? ' Gruppe' : ' Gruppen') + ' · ' + nr + ' Gruppenspiele · danach K.-o.-Runde', 20, GRAU), y = 120;
+    for (let k0 = 0; k0 < g; k0 += C) { let hz = 0;
+      for (let k = k0; k < Math.min(g, k0 + C); k++) { const x = 30 + (k - k0) * (bw + 30); let yy = y;
+        s += text(x, yy + 14, 'Gruppe ' + BUCH[k], 24, P.ink, fett); yy += 40;
+        const TB = tabelleZ(x, yy, bw, GR[k]); s += TB.s; yy += TB.h + 30;
+        s += spielKopf(x, yy, bw); yy += 16; spiele[k].forEach(gm => { s += spielZeile(x, yy, bw, gm, P); yy += SPZ; });
+        hz = Math.max(hz, yy - y); }
+      y += hz + 30; }
+    s += text(30, y, LEGENDE, 18, GRAU); y += 56;
+    s += text(30, y, 'K.-o.-Runde', 24, P.ink, fett) + text(200, y, '1. A = Gruppenerster A · 2. A = Gruppenzweiter A', 18, GRAU); y += 30;
+    const top = y + 60, K = koZeichnen(slots, sieger, platz3, 30, top, P); s += K.s;
+    const H = Math.round(top + K.h + 56); s += text(30, H - 28, HINWEIS, 18, GRAU);
+    return { ...tafel('🏆', 'Turnierplan – Gruppen und K.-o.-Runde', W, H, s, P), teile: K.teile };
+  },
+  tippen: (o, id) => T.bausteinAendern(o, { f: dd => { const m = /^s(\d+)_(\d+)_([01])$/.exec(id), R = Math.round(Math.log2(koGroesse(dd) || 1)); if (!m || !R) return { d: dd };
+    const r = +m[1], sp = +m[2], seite = +m[3], k = r + '_' + sp, si = { ...(dd.sieger && typeof dd.sieger === 'object' ? dd.sieger : {}) };
+    const weg = (rr, mm) => { if (rr >= R) return; delete si[rr + '_' + mm]; if (rr === R - 2) delete si[R + '_0']; weg(rr + 1, mm >> 1); }; /* abhängige spätere Ergebnisse löschen */
+    if (r < R) { weg(r + 1, sp >> 1); if (r === R - 2) delete si[R + '_0']; }
+    if (si[k] === seite) delete si[k]; else si[k] = seite;
+    return { d: { ...dd, sieger: si } }; } }) };
+const turnierNeu = (dd, nm) => ({ ...dd, teams: nm.join('\n'), sieger: {} });
+B.sp_turnier.schnell = [
+  { l: '🎲 Auslosen', f: dd => { const nm = turnierNamen(dd); if (nm.length < 2) { T.toast('Zum Auslosen zuerst Teamnamen eintragen (Optionen).', 3000); return { d: { ...dd, sieger: {} } }; } return { d: turnierNeu(dd, mischen(nm)) }; } },
+  { l: '↺ Ergebnisse löschen', f: dd => ({ d: { ...dd, sieger: {} } }) },
+  { l: '＋ Team', f: dd => { const nm = turnierNamen(dd); if (!nm.length) return { d: { ...dd, anzahl: Math.min(16, anz(dd.anzahl, 2, 16, 8) + 1), sieger: {} } };
+    let i = nm.length + 1; while (nm.includes('Team ' + i)) i++; return { d: turnierNeu(dd, nm.length < 16 ? [...nm, 'Team ' + i] : nm) }; } },
+  { l: '− Team', f: dd => { const nm = turnierNamen(dd); if (!nm.length) return { d: { ...dd, anzahl: Math.max(2, anz(dd.anzahl, 2, 16, 8) - 1), sieger: {} } };
+    return { d: turnierNeu(dd, nm.length > 2 ? nm.slice(0, -1) : nm) }; } },
+  { l: '🏆 Modus wechseln', f: dd => { const m = MODI[(MODI.indexOf(turnierModus(dd)) + 1) % MODI.length]; T.toast('Turnierform: ' + MODUS_NAME[m], 2000); return { d: { ...dd, modus: m, sieger: {} } }; } }];
+variante('sp_turnier:ko', 'Turnierplan: K.-o.-System (Turnierbaum)', { modus: 'ko', teams: TEAMS_STD(8), anzahl: 8, gruppen: 2, platz3: true, sieger: {} });
+variante('sp_turnier:gruppen', 'Turnierplan: Gruppenphase + K.-o.-Runde', { modus: 'gruppen', teams: TEAMS_STD(8), anzahl: 8, gruppen: 2, platz3: true, sieger: {} });
+variante('sp_turnier:liga', 'Turnierplan: Liga – jeder gegen jeden', { modus: 'liga', teams: TEAMS_STD(6), anzahl: 6, gruppen: 2, platz3: false, sieger: {} });
+
+/* =====================================================================  KUNST (Fortsetzung)  ===================================================================== */
+
+// ---------- Drittelregel (Bildaufbau in der Fotografie) ----------
+function drittelRaster(x, y, w, h, hell, gold) { /* hell = weiße Linien mit dunklem Rand (über Foto/Bild) */
+  let s = ''; const lin = (x1, y1, x2, y2) => hell ? linie(x1, y1, x2, y2, DUNKEL, 7, 'opacity=".5"') + linie(x1, y1, x2, y2, '#ffffff', 3.5) : linie(x1, y1, x2, y2, BLAU, 3.5);
+  if (gold) for (const k of [0.382, 0.618]) { const g = 'stroke-dasharray="14 10"';
+    for (const [x1, y1, x2, y2] of [[x + k * w, y, x + k * w, y + h], [x, y + k * h, x + w, y + k * h]]) s += (hell ? linie(x1, y1, x2, y2, DUNKEL, 6, g + ' opacity=".5"') : '') + linie(x1, y1, x2, y2, GOLD, 3.5, g); }
+  for (const k of [1, 2]) s += lin(x + k * w / 3, y, x + k * w / 3, y + h) + lin(x, y + k * h / 3, x + w, y + k * h / 3);
+  for (const a of [1, 2]) for (const b of [1, 2]) { const px = x + a * w / 3, py = y + b * h / 3; s += kreis(px, py, 14, 'none', '#ffffff', 9) + kreis(px, py, 14, 'none', ROT, 4.5) + kreis(px, py, 4.5, ROT); }
+  return s; }
+function drittelLandschaft(x, y, w, h) { /* Horizont im unteren Drittel, Baum auf der rechten Linie, Sonne auf dem Kraftpunkt oben links */
+  const hz = y + 2 * h / 3, bx = x + 2 * w / 3, sx = x + w / 3, sy = y + h / 3;
+  let s = `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" fill="#bbdefb"/><rect x="${f(x)}" y="${f(hz)}" width="${f(w)}" height="${f(h / 3)}" fill="#81c784"/>`;
+  for (const k of [0.3, 0.6]) s += linie(x + 10, hz + k * h / 3, x + w - 10, hz + k * h / 3, '#66bb6a', 3);
+  for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; s += linie(sx + 44 * Math.cos(a), sy + 44 * Math.sin(a), sx + 60 * Math.cos(a), sy + 60 * Math.sin(a), '#f9a825', 4); }
+  s += kreis(sx, sy, 34, '#fdd835', '#f9a825', 3);
+  s += `<rect x="${f(bx - 11)}" y="${f(y + h * 0.42)}" width="22" height="${f(hz + h * 0.12 - y - h * 0.42)}" fill="#6d4c41"/>`;
+  s += kreis(bx - 38, y + h * 0.44, 38, '#43a047', '#2e7d32', 3) + kreis(bx + 38, y + h * 0.44, 38, '#43a047', '#2e7d32', 3) + kreis(bx, y + h * 0.36, 54, '#43a047', '#2e7d32', 3);
+  return s; }
+const DRITTEL_REGELN = [['Motiv', 'Nicht in die Mitte setzen, sondern auf eine Linie oder einen Kraftpunkt.', ROT],
+  ['Horizont', 'Auf eine waagerechte Linie legen (oberes oder unteres Drittel) – nicht in die Mitte.', BLAU],
+  ['Blickrichtung', 'In Blick- oder Bewegungsrichtung mehr Platz lassen.', GRUEN],
+  ['Ausnahme', 'Bei Symmetrie das Motiv bewusst mittig setzen.', LILA]];
+B.ku_drittel = { name: 'Drittelregel (Bildaufbau in der Fotografie)', gruppe: 'Kunst', def: { gold: false, beispiel: false, folie: false },
+  felder: [{ k: 'beispiel', l: 'Schematisches Beispiel (Landschaft) zeigen', typ: 'check' }, { k: 'gold', l: 'Goldenen Schnitt zusätzlich zeigen', typ: 'check' },
+    { k: 'folie', l: 'Nur Raster als durchsichtige Folie (3 : 2) – über ein Foto legen', typ: 'check' }],
+  gen: (d, P) => {
+    if (d.folie) { const W = 900, H = 600;
+      const s = `<rect x="3" y="3" width="${W - 6}" height="${H - 6}" fill="none" stroke="${DUNKEL}" stroke-width="6" opacity=".5"/><rect x="3" y="3" width="${W - 6}" height="${H - 6}" fill="none" stroke="#ffffff" stroke-width="3"/>`
+        + drittelRaster(0, 0, W, H, true, !!d.gold) + text(18, 28, 'Drittelregel', 18, '#ffffff', fett + ` stroke="${DUNKEL}" stroke-width="4" paint-order="stroke"`);
+      return { svg: T._svg.doc(W, H, s), w: W, h: H }; }
+    const W = 1000, bx = 30, by = 84, bw = 570, bh = 380;
+    let s = d.beispiel ? drittelLandschaft(bx, by, bw, bh) : mitte(bx + bw / 2, by + bh / 2, 'Foto hier einfügen', 20, GRAU);
+    s += `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="none" stroke="${P.ink}" stroke-width="2.5" ${d.beispiel ? '' : 'stroke-dasharray="12 8"'}/>` + drittelRaster(bx, by, bw, bh, !!d.beispiel, !!d.gold);
+    let y = by + bh + 34;
+    s += kreis(bx + 14, y, 12, 'none', ROT, 4) + kreis(bx + 14, y, 4, ROT) + text(bx + 40, y, 'Kraftpunkt = Schnittpunkt zweier Drittellinien', 19, P.ink);
+    if (d.gold) { y += 34; s += linie(bx, y, bx + 28, y, GOLD, 3.5, 'stroke-dasharray="10 6"') + text(bx + 40, y, 'Goldener Schnitt (Linien bei ≈ 0,382 und 0,618)', 19, P.ink);
+      y += 32; s += text(bx, y, 'Drittelregel = vereinfachter Goldener Schnitt (≈ 1 : 1,618)', 19, P.ink, fett); }
+    if (d.beispiel) { y += 34; const t = 'Beispiel: Horizont im unteren Drittel, Baum auf der rechten Linie, Sonne auf einem Kraftpunkt'; s += zeilenText(bx, y, t, 56, 19, P.ink, 25); y += (umbruch(t, 56).length - 1) * 25; }
+    let yr = 100; s += text(630, yr, 'Merksätze', 24, P.ink, fett); yr += 44;
+    DRITTEL_REGELN.forEach(([t, u, col], i) => { s += kreis(645, yr, 15, col) + mitte(645, yr + 1, String(i + 1), 18, '#ffffff', fett) + text(672, yr, t, 21, P.ink, fett);
+      s += zeilenText(672, yr + 30, u, 28, 19, P.ink, 25); yr += 30 + umbruch(u, 28).length * 25 + 24; });
+    const H = Math.round(Math.max(y, yr - 24) + 36);
+    return tafel('📷', 'Drittelregel – Bildaufbau in der Fotografie', W, H, s, P);
   } };
-B.sp_teams.schnell = [{ l: '＋ Team', f: dd => ({ d: { ...dd, anzahl: Math.min(6, (+dd.anzahl || 4) + 1) } }) }, { l: '− Team', f: dd => ({ d: { ...dd, anzahl: Math.max(2, (+dd.anzahl || 4) - 1) } }) }];
+B.ku_drittel.schnell = [{ l: '🏞 Beispiel ein/aus', f: dd => ({ d: { ...dd, beispiel: !dd.beispiel } }) }, { l: '✨ Goldener Schnitt ein/aus', f: dd => ({ d: { ...dd, gold: !dd.gold } }) },
+  { l: '🖼 Folie (nur Raster) ein/aus', f: dd => ({ d: { ...dd, folie: !dd.folie } }) }];
+variante('ku_drittel:raster', 'Drittelregel: Bildfeld mit Raster und Merksätzen', { gold: false, beispiel: false, folie: false });
+variante('ku_drittel:beispiel', 'Drittelregel: mit Beispiel (Landschaft)', { gold: false, beispiel: true, folie: false });
+variante('ku_drittel:gold', 'Drittelregel und Goldener Schnitt', { gold: true, beispiel: false, folie: false });
+variante('ku_drittel:folie', 'Drittelregel: Raster als Folie (über ein Foto legen)', { gold: false, beispiel: false, folie: true });
 })();

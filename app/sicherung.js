@@ -34,9 +34,13 @@ const weitergeben = async (blob, name) => {
   } catch (e) { if (e && e.name === 'AbortError') return 'abgebrochen'; }
   T.downloadBlob(blob, name); return 'geladen';
 };
+/* Sicherung schon vorbereiten (für „📲 Beim Beenden ans Smartboard senden“): Am iPad muss das Teilen direkt im Fingertipp starten –
+   darum erst die Datei bauen, dann im Knopf nur noch T.dateiTeilen aufrufen */
+T.sicherungBlob = async () => ({ blob: new Blob([JSON.stringify({ app: 'Tafel-App-Sicherung', version: 2, erstellt: new Date().toISOString(), lehrkraft: (T.opts && T.opts.lehrkraft) || '', dateien: await ablageDateien(), speicher: speicherAlle() })], { type: 'application/json' }), name: `Tafel-App Sicherung ${T.today()}.json` });
+T.dateiTeilen = async (blob, name) => { const wie = await weitergeben(blob, name); if (wie !== 'abgebrochen' && /Sicherung/.test(name)) schreib(LETZTE, String(Date.now())); return wie; };
 T.allesSichern = async () => {
   const dateien = await ablageDateien(), speicher = speicherAlle();
-  const blob = new Blob([JSON.stringify({ app: 'Tafel-App-Sicherung', version: 2, erstellt: new Date().toISOString(), dateien, speicher })], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ app: 'Tafel-App-Sicherung', version: 2, erstellt: new Date().toISOString(), lehrkraft: (T.opts && T.opts.lehrkraft) || '', dateien, speicher })], { type: 'application/json' }); /* lehrkraft: im gemeinsamen „_Eingang“ bekommt jede nur ihre eigene Sicherung angeboten */
   const wie = await weitergeben(blob, `Tafel-App Sicherung ${T.today()}.json`);
   if (wie === 'abgebrochen') return null;
   schreib(LETZTE, String(Date.now()));
@@ -82,7 +86,8 @@ T.sicherungDialog = async () => {
   const status = tage == null ? 'Noch keine Sicherung auf diesem Gerät.' : tage === 0 ? 'Letzte Sicherung: heute.' : `Letzte Sicherung: vor ${tage} Tag${tage === 1 ? '' : 'en'}.`;
   T.openDlg([h('h2', {}, '💾 Sicherung'),
     h('p', {}, 'Speichert alles in eine Datei: Tafeln, Einstellungen, Listen, Hausaufgaben, Notizen und Vokabeln. ',
-      h('b', {}, 'Am iPad: '), 'beim Teilen „In Dateien sichern“ wählen – am besten in iCloud Drive. Dann bleibt alles erhalten, auch wenn der Browser-Speicher gelöscht wird.'),
+      h('b', {}, 'Am iPad: '), 'beim Teilen „In Dateien sichern“ wählen – am besten in IServ. Dann bleibt alles erhalten, auch wenn der Browser-Speicher gelöscht wird.'),
+    T.eingangHinweis ? h('p', {}, h('b', {}, T.SCHUELER ? '📲 Anderes Gerät: ' : '📲 Weiter am Smartboard: '), T.eingangHinweis()) : '',
     h('p', { class: 'hint' }, status + (fest ? ' · Dauerhafter Speicher ist an.' : ' · Tipp: Die App über „Zum Home-Bildschirm“ starten – dann löscht Safari die Daten nicht von selbst.')),
     h('div', { class: 'acts' },
       h('button', { class: 'big', onclick: () => { T.closeDlg(); T.allesWiederherstellen(); } }, '📥 Wiederherstellen'),

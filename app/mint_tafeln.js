@@ -28,11 +28,19 @@ const KV = T.KACHEL_VARIANTEN = T.KACHEL_VARIANTEN || {};
 // ======================= MATHE =======================
 
 // ---------- Prozentstreifen ----------
+const PS_X0 = 80, PS_SW = 840;
+/* 🎚 runder Griff zum Anfassen (Ø 40): art 'h' = ↔, 'v' = ↕ */
+const griffKnopf = (x, y, col, art) => {
+  const p = art === 'v' ? `M ${f(x)} ${f(y - 11)} L ${f(x)} ${f(y + 11)} M ${f(x - 5)} ${f(y - 5)} L ${f(x)} ${f(y - 11)} L ${f(x + 5)} ${f(y - 5)} M ${f(x - 5)} ${f(y + 5)} L ${f(x)} ${f(y + 11)} L ${f(x + 5)} ${f(y + 5)}`
+    : `M ${f(x - 11)} ${f(y)} L ${f(x + 11)} ${f(y)} M ${f(x - 5)} ${f(y - 5)} L ${f(x - 11)} ${f(y)} L ${f(x - 5)} ${f(y + 5)} M ${f(x + 5)} ${f(y - 5)} L ${f(x + 11)} ${f(y)} L ${f(x + 5)} ${f(y + 5)}`;
+  return `<circle cx="${f(x)}" cy="${f(y)}" r="22" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="2"/><circle cx="${f(x)}" cy="${f(y)}" r="20" fill="${col}" stroke="#ffffff" stroke-width="3"/>` +
+    `<path d="${p}" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+};
 B.ma_prozent = { name: 'Prozentstreifen (G, W, p %)', gruppe: 'Mathe', def: { grundwert: 80, prozent: 25, werte: true },
   felder: [{ k: 'grundwert', l: 'Grundwert G', typ: 'zahl', min: 0, max: 1000000 }, { k: 'prozent', l: 'Prozentsatz p (in %)', typ: 'zahl', min: 0, max: 100 },
     { k: 'werte', l: 'Werte zeigen (aus = leere Felder zum Ausfüllen)', typ: 'check' }],
   gen: (d, P) => {
-    const W = 1000, H = 610, X0 = 80, SW = 840, y1 = 150, y2 = 220;
+    const W = 1000, H = 610, X0 = PS_X0, SW = PS_SW, y1 = 150, y2 = 220;
     let G = +d.grundwert; if (!isFinite(G) || G < 0) G = 80;
     let p = +d.prozent; if (!isFinite(p)) p = 25; p = T.clamp(p, 0, 100);
     const Wert = G * p / 100, xp = X0 + SW * p / 100, zeig = d.werte !== false;
@@ -63,7 +71,17 @@ B.ma_prozent = { name: 'Prozentstreifen (G, W, p %)', gruppe: 'Mathe', def: { gr
     s += linie(347, 425, 347, 505, '#94a3b8', 1.5) + linie(653, 425, 653, 505, '#94a3b8', 1.5);
     if (zeig) s += text(40, 565, 'Beispiel: W = ' + zf(G) + ' · ' + zf(p) + ' : 100 = ' + zf(Wert), 22, P.ink);
     else s += text(40, 565, 'Erst klären: Was ist gegeben – G, W oder p? Was ist gesucht?', 22, P.ink);
-    return tafel('💯', 'Prozentstreifen', W, H, s, P);
+    /* 🎚 Griff am Ende der p-%-Fläche: waagerecht ziehen ändert p */
+    s += griffKnopf(xp, (y1 + y2) / 2, ROT, 'h');
+    const t = tafel('💯', 'Prozentstreifen', W, H, s, P);
+    t.teile = [{ id: 'p', x: xp - 22, y: y1 - 12, w: 44, h: y2 - y1 + 24, zieh: true }];
+    return t;
+  },
+  /* p in ganzen Prozent, nahe den 10er-Marken rastet es leicht ein */
+  ziehen: (d, id, sx) => {
+    if (id !== 'p') return null;
+    const roh = T.clamp((sx - PS_X0) / PS_SW * 100, 0, 100), z = Math.round(roh / 10) * 10, p = Math.abs(roh - z) < 0.8 ? z : Math.round(roh);
+    return p === +d.prozent ? null : { ...d, prozent: p };
   } };
 B.ma_prozent.schnell = [{ l: '👁 Werte ein/aus', f: dd => ({ d: { ...dd, werte: dd.werte === false } }) },
   { l: 'p + 5 %', f: dd => ({ d: { ...dd, prozent: Math.min(100, (+dd.prozent || 0) + 5) } }) },
@@ -379,4 +397,121 @@ B.it_dreitafel = { name: 'Dreitafelprojektion', gruppe: 'Technik', def: { leer: 
   } };
 B.it_dreitafel.schnell = [{ l: '✏ Ansichten ein/aus', f: dd => ({ d: { ...dd, leer: !dd.leer } }) }, { l: '📏 Hilfslinien ein/aus', f: dd => ({ d: { ...dd, hilfs: dd.hilfs === false } }) }];
 KV['it_dreitafel:leer'] = { name: 'Dreitafelprojektion (leer)', d: { leer: true, hilfs: true } };
+
+// ---------- Von Binärzahlen zur Schrift (ASCII) ----------
+/* ASCII ist ein 7-Bit-Code (0–127); druckbar sind 32–126. Im Byte wird er mit führender 0 gespeichert. */
+const utf8Bytes = z => { try { return new TextEncoder().encode(z).length; } catch (e) { return 2; } };
+B.it_ascii = { name: 'Von Binärzahlen zur Schrift (ASCII)', gruppe: 'Technik', def: { wort: 'Hallo', bits: true, codes: true },
+  felder: [{ k: 'wort', l: 'Wort (höchstens 8 Zeichen)', typ: 'text' }, { k: 'bits', l: 'Bits zeigen (aus = leere Kästchen zum Ausfüllen)', typ: 'check' },
+    { k: 'codes', l: 'ASCII-Codes (dezimal) zeigen', typ: 'check' }, { k: 'kette', l: 'Kette zeigen: Bits → Zahl → Zeichen → Schrift → Bildschirm', typ: 'check' }],
+  gen: (d, P) => {
+    const W = 1000, alle = Array.from(d.wort == null ? 'Hallo' : String(d.wort)), zeichen = alle.slice(0, 8), gekuerzt = alle.length > 8;
+    const leerWort = zeichen.length === 0, n = leerWort ? 6 : zeichen.length, zeigB = d.bits !== false, zeigC = d.codes !== false;
+    const cw = Math.min(110, 800 / n), X0 = 160, bw = Math.min(cw - 24, 60), yB = 236, rh = 38;
+    const falsch = zeichen.filter(z => { const c = z.codePointAt(0); return c < 32 || c > 126; });
+    let s = '';
+    s += text(40, 110, 'Zeichen', 20, P.ink, fett);
+    s += text(40, 170, 'ASCII-Code', 20, P.ink, fett) + text(40, 194, '(dezimal)', 18, P.ink);
+    s += text(40, 222, 'Stellenwert', 18, GRAU, fett);
+    for (let k = 0; k < 8; k++) s += text(140, yB + rh / 2 + k * rh, String(128 >> k), 20, BLAU, fett + ' text-anchor="end"');
+    for (let i = 0; i < n; i++) {
+      const z = leerWort ? '' : zeichen[i], c = leerWort ? -1 : z.codePointAt(0), ok = c >= 32 && c <= 126, cx = X0 + (i + 0.5) * cw, ww = cw - 14;
+      s += box(cx - ww / 2, 82, ww, 56, leerWort ? GRAU : ok ? RAND : ROT, ok || leerWort ? '#ffffff' : '#ffebee', 10, 2.5);
+      if (!leerWort) s += c === 32 ? mitte(cx, 110, 'Leer', 18, MITTELGRAU, 'font-style="italic"') : mitte(cx, 110, z, 34, DUNKEL, fett);
+      s += pfeil(cx, 140, cx, 158, GRAU, 2.5);
+      if (!leerWort && !ok) s += box(cx - ww / 2, 160, ww, 42, ROT, '#ffebee', 10, 2.5) + mitte(cx, 181, '?', 26, ROT, fett);
+      else if (zeigC && !leerWort) s += box(cx - ww / 2, 160, ww, 42, BLAU, '#e3f2fd', 10, 2.5) + mitte(cx, 181, String(c), 26, DUNKEL, fett);
+      else s += `<rect x="${f(cx - ww / 2)}" y="160" width="${f(ww)}" height="42" rx="10" fill="#ffffff" stroke="${GRAU}" stroke-width="1.8" ${strich}/>`;
+      s += pfeil(cx, 204, cx, 230, GRAU, 2.5);
+      for (let k = 0; k < 8; k++) {
+        const y = yB + k * rh + 3, bit = ok ? (c >> (7 - k)) & 1 : 0;
+        if (!leerWort && !ok) s += `<rect x="${f(cx - bw / 2)}" y="${f(y)}" width="${f(bw)}" height="${rh - 6}" rx="6" fill="#f1f5f9" stroke="${GRAU}" stroke-width="1.5" ${strich}/>`;
+        else s += box(cx - bw / 2, y, bw, rh - 6, RAND, zeigB && ok && bit ? '#c8e6c9' : '#ffffff', 6, 2);
+        if (zeigB && ok) s += mitte(cx, y + (rh - 6) / 2, String(bit), 22, DUNKEL, fett);
+      }
+    }
+    const yK = 565, hK = 165;
+    s += box(40, yK, 920, hK, RAND, '#eef2f7', 12) + linie(540, yK + 15, 540, yK + hK - 15, '#94a3b8', 1.5);
+    s += text(60, yK + 28, 'ASCII-Tabelle (Ausschnitt)', 21, RAND, fett);
+    s += text(60, yK + 66, 'A = 65 · B = 66 · C = 67 · … · Z = 90', 20, DUNKEL);
+    s += text(60, yK + 100, 'a = 97 · b = 98 · c = 99 · … · z = 122', 20, DUNKEL);
+    s += text(60, yK + 134, 'Leerzeichen = 32 · 0 = 48 · … · 9 = 57', 20, DUNKEL);
+    s += mitte(750, yK + 36, '1 Zeichen = 1 Byte = 8 Bit', 25, DUNKEL, fett);
+    s += mitte(750, yK + 78, 'ASCII ist ein 7-Bit-Code (0 bis 127).', 19, DUNKEL);
+    s += mitte(750, yK + 106, 'Im Byte steht vorne eine 0:', 19, DUNKEL);
+    s += mitte(750, yK + 134, 'die Stelle 128 ist immer 0.', 19, DUNKEL);
+    let y = yK + hK + 36;
+    if (falsch.length) {
+      const fl = [...new Set(falsch)].map(z => '„' + z + '“');
+      const hw = fl.join(', ') + (fl.length > 1 ? ' sind keine ASCII-Zeichen' : ' ist kein ASCII-Zeichen') + ' – Umlaute (ä, ö, ü, ß) fehlen in ASCII.';
+      s += zeilenText(40, y, hw, 85, 20, ROT, 28, fett);
+      y += 28 * umbruch(hw, 85).length;
+      const nb = utf8Bytes(falsch[0]);
+      s += text(40, y, 'Unicode (UTF-8) speichert sie mit mehr Bits: „' + falsch[0] + '“ braucht ' + nb + ' Byte = ' + nb * 8 + ' Bit.', 20, P.ink);
+      y += 34;
+    }
+    if (gekuerzt) { s += text(40, y, 'Es werden nur die ersten 8 Zeichen gezeigt.', 18, GRAU); y += 30; }
+    if (leerWort) { s += text(40, y, 'Eigenes Wort eintragen: Zeichen → ASCII-Code → 8 Bit', 18, GRAU); y += 30; }
+    if (d.kette !== false) { /* Vom Bit zum sichtbaren Buchstaben: Speicher → Programm → Zeichentabelle → Schriftart → Bildschirm */
+      const z0 = zeichen.find(z => { const c = z.codePointAt(0); return c > 32 && c <= 126; }) || 'A', c0 = z0.codePointAt(0), bits0 = c0.toString(2).padStart(8, '0');
+      const yk = y + 20, kw = 160, kh = 150, schritt = 188, mono = 'font-family="Consolas, Courier New, monospace"';
+      s += text(40, yk, 'Wie wird aus Bits ein Buchstabe auf dem Bildschirm?', 23, P.ink, fett);
+      const K = [['Speicher', 'nur Bits', '#eef2f7'], ['Programm', 'liest eine Zahl', '#e3f2fd'], ['Zeichentabelle', 'Zahl → Zeichen', '#fff3e0'], ['Schriftart', 'Aussehen', '#f3e5f5'], ['Bildschirm', 'Pixel leuchten', '#e8f5e9']];
+      K.forEach(([titel, unter, fuell], i) => { const x = 40 + i * schritt, yy = yk + 26, mx = x + kw / 2;
+        s += box(x, yy, kw, kh, RAND, fuell, 12, 2.5) + mitte(mx, yy + 24, titel, 19, DUNKEL, fett) + mitte(mx, yy + kh - 20, unter, 18, MITTELGRAU, 'font-style="italic"');
+        if (i < 4) s += pfeil(x + kw + 4, yy + kh / 2, x + schritt - 4, yy + kh / 2, GRAU, 3);
+        const ym = yy + kh / 2 + 4;
+        if (i === 0) s += mitte(mx, ym, bits0, 22, DUNKEL, fett + ' ' + mono);
+        if (i === 1) s += mitte(mx, ym, 'Zahl ' + c0, 26, DUNKEL, fett);
+        if (i === 2) s += mitte(mx, ym, c0 + ' = „' + z0 + '“', 26, DUNKEL, fett);
+        if (i === 3) s += text(mx - 48, ym, z0, 40, DUNKEL, 'text-anchor="middle" font-family="Georgia, Times New Roman, serif"') + text(mx, ym, z0, 40, DUNKEL, 'text-anchor="middle" font-family="Arial, sans-serif" font-weight="700"') + text(mx + 48, ym, z0, 40, DUNKEL, 'text-anchor="middle" font-family="Comic Sans MS, cursive"');
+        if (i === 4) { s += `<g opacity=".9">`; for (let gx = 0; gx < 6; gx++) for (let gy = 0; gy < 5; gy++) s += `<rect x="${f(mx - 42 + gx * 14)}" y="${f(ym - 34 + gy * 14)}" width="12" height="12" fill="#ffffff" stroke="#c8d3e0" stroke-width="1"/>`;
+          s += `</g>` + mitte(mx, ym, z0, 46, '#2e7d32', fett + ' ' + mono); }
+      });
+      let y2 = yk + 26 + kh + 34;
+      s += text(40, y2, 'Gleiche Zahl, andere Schriftart: „' + z0 + '“ sieht anders aus – die Zahl ' + c0 + ' bleibt gleich.', 19, P.ink); y2 += 30;
+      s += text(40, y2, 'Zeichensalat: Benutzt ein Programm die falsche Tabelle, wird aus „ü“ z. B. „Ã¼“.', 19, P.ink); y2 += 28;
+      s += text(40, y2, 'Die Bits stimmen – nur die Übersetzung in Zeichen ist falsch.', 19, P.ink); y = y2 + 24;
+    }
+    return tafel('🔤', 'Von Binärzahlen zur Schrift', W, y + 4, s, P);
+  } };
+B.it_ascii.schnell = [{ l: '👁 Bits ein/aus', f: dd => ({ d: { ...dd, bits: dd.bits === false } }) }, { l: '🔢 Codes ein/aus', f: dd => ({ d: { ...dd, codes: dd.codes === false } }) }, { l: '🔗 Kette ein/aus', f: dd => ({ d: { ...dd, kette: dd.kette === false } }) }];
+KV['it_ascii:leer'] = { name: 'Von Binärzahlen zur Schrift (leer)', d: { bits: false, codes: false } };
+
+// ---------- EVA-Prinzip ----------
+/* Je Beispiel: Eingabe, Verarbeitung, Ausgabe, Speicher */
+const EVA = {
+  computer: ['Computer', ['Tastatur', 'Maus', 'Mikrofon'], ['Prozessor (CPU)'], ['Bildschirm', 'Lautsprecher', 'Drucker'], ['Festplatte', 'SSD']],
+  taschenrechner: ['Taschenrechner', ['Tasten'], ['Rechenwerk'], ['Display'], ['Speichertaste (M)']],
+  toaster: ['Toaster', ['Drehregler', 'Hebel'], ['Steuerung (Zeitschalter)'], ['Heizdrähte (Wärme)', 'Hebel springt hoch'], ['kein Speicher']],
+  ampel: ['Ampelsteuerung', ['Taster für Fußgänger', 'Sensor'], ['Steuergerät'], ['Lampen rot-gelb-grün'], ['Ampelprogramm (Phasen, Zeiten)']] };
+B.it_eva = { name: 'EVA-Prinzip', gruppe: 'Technik', def: { beispiel: 'computer' },
+  felder: [{ k: 'beispiel', l: 'Beispiel', typ: 'auswahl', opts: [['computer', 'Computer'], ['taschenrechner', 'Taschenrechner'], ['toaster', 'Toaster'], ['ampel', 'Ampelsteuerung'], ['leer', 'Leer (nur Überschriften)']] }],
+  gen: (d, P) => {
+    const W = 1000, H = 690, bsp = EVA[d.beispiel], leer = !bsp;
+    const K = [[40, 90, 'Eingabe', 'Daten kommen hinein', GRUEN, '#e8f5e9'], [370, 90, 'Verarbeitung', 'Daten werden bearbeitet', BLAU, '#e3f2fd'],
+      [700, 90, 'Ausgabe', 'Ergebnisse kommen heraus', ORANGE, '#fff3e0'], [370, 410, 'Speicher', 'Daten werden aufbewahrt', LILA, '#f3e5f5']];
+    let s = '';
+    K.forEach(([x, y, titel, unter, col, fuell], i) => {
+      const h = i < 3 ? 240 : 170;
+      s += box(x, y, 260, h, col, fuell, 16, 3) + mitte(x + 130, y + 34, titel, 28, DUNKEL, fett);
+      if (leer) return;
+      s += mitte(x + 130, y + 66, unter, 18, MITTELGRAU, 'font-style="italic"');
+      let yy = y + 108;
+      bsp[i + 1].forEach(t => {
+        const z = umbruch(t, 19), grau = t === 'kein Speicher';
+        s += zeilenText(x + 130, yy, t, 19, 22, grau ? MITTELGRAU : DUNKEL, 27, grau ? '' : fett, true);
+        yy += z.length * 27 + 9;
+      });
+    });
+    s += pfeil(306, 210, 364, 210, P.ink, 6) + pfeil(636, 210, 694, 210, P.ink, 6);
+    s += pfeil(480, 336, 480, 404, P.ink, 4) + pfeil(520, 404, 520, 336, P.ink, 4);
+    s += text(468, 370, 'speichern', 18, P.ink, 'text-anchor="end"') + text(532, 370, 'laden', 18, P.ink);
+    s += text(40, 616, 'Merke: Ein Gerät nimmt Daten auf (Eingabe), verarbeitet sie (Verarbeitung)', 20, P.ink, fett);
+    s += text(40, 646, 'und gibt ein Ergebnis aus (Ausgabe). Daten können gespeichert werden (Speicher).', 20, P.ink, fett);
+    return tafel('⚙', leer ? 'EVA-Prinzip' : 'EVA-Prinzip: ' + bsp[0], W, H, s, P);
+  } };
+KV['it_eva:computer'] = { name: 'EVA-Prinzip (Computer)', d: { beispiel: 'computer' } };
+KV['it_eva:toaster'] = { name: 'EVA-Prinzip (Toaster)', d: { beispiel: 'toaster' } };
+KV['it_eva:leer'] = { name: 'EVA-Prinzip (leer)', d: { beispiel: 'leer' } };
 })();

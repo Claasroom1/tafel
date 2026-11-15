@@ -4,7 +4,7 @@
 'use strict';
 (function () {
 const B = T.BAUSTEINE;
-const ZIELE = k => /^(wi_|kl_|de_|en_|ma_|nw_|it_|ge_|re_|me_|mu_notenwerte|mu_takt|mu_instrumente|ku_)/.test(k) || ['dreieckerkl', 'geoerkl', 'schraegerkl'].includes(k);
+const ZIELE = k => /^(wi_|kl_|de_|en_|ma_|nw_|it_|ge_|re_|me_|be_|mu_notenwerte|mu_takt|mu_instrumente|ku_)/.test(k) || ['dreieckerkl', 'geoerkl', 'schraegerkl'].includes(k);
 const attr = (a, n) => { const m = a.match(new RegExp('(?:^|\\s)' + n + '="([^"]*)"')); return m ? m[1] : null; };
 const ent = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 /* Texte im SVG finden (der erste ist die Überschrift und bleibt stehen) und ihre ungefähre Fläche schätzen */
