@@ -5,6 +5,8 @@ Eine digitale Tafel für das Smartboard. Läuft ohne Installation in Microsoft E
 
 **❓ Hilfe & Lernvideos:** ⚙ Einstellungen › oben rechts **„❓ Hilfe & Lernvideos“**. Zu jedem Kapitel (Stift/Feder, Hervorheben, Schwamm & Wischen, Auswahl & Text, Seiten, Werkzeuge, Einfügen, Classroom, Speichern & Vorlagen, Tablet → Smartboard & Ordner) gibt es eine kurze Anleitung und **„▶ Lernvideo abspielen“**: Die Vorführung läuft in der echten Tafel – ein Zeiger tippt die Knöpfe an, Untertitel erklären jeden Schritt. Steuerung: ⏮ ⏸ ⏭, Tempo (Normal / 🐢 Langsam), ✕ bzw. Esc beendet, Leertaste pausiert. Die Vorführung arbeitet auf einer eigenen Seite; danach ist die Tafel wieder genau wie vorher (Seiten, Werkzeug, Farbe …). Am Ende: „↩ Zurück zur Hilfe“ oder „↻ Nochmal“.
 
+**🔒 Datenschutz & Lizenz:** ebenfalls oben in ⚙ Einstellungen – kurzer Datenschutzhinweis (alles bleibt auf dem Gerät bzw. im eigenen Ordner, kein Tracking), Hinweis zu Schülerdaten, „Belehrungen ohne Gewähr“, Lizenz (MIT) und Bestandteile Dritter. Ausführlich in `DATENSCHUTZ.md` und `LIZENZEN.md` im GitHub-Repository; wer Rechte an einem Inhalt hat, kann sich dort über „Issues“ melden.
+
 ## Starten
 
 1. Einmalig: **„Desktop-Verknüpfung erstellen.bat“** doppelklicken. Auf dem Desktop erscheint „Tafel-App“.

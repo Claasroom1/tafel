@@ -39,7 +39,11 @@ Hinweise:
 
 Für Geräte, auf die man keine Ordner kopieren kann: `Einzeldatei bauen.ps1` (Windows PowerShell) erzeugt daneben `Tafel-App GitHub (eine Datei).html` mit allem eingebettet.
 
-## Datenschutz
+## Datenschutz und Lizenz
 
 Keine Anmeldung, kein Tracking, keine Daten an fremde Server. Externe Inhalte (z. B. YouTube-Videos, GeoGebra) werden nur geladen, wenn man sie selbst einfügt.
-Karten: Natural Earth (gemeinfrei). PDF-Anzeige: PDF.js (Apache-2.0).
+Ausführlich: [DATENSCHUTZ.md](DATENSCHUTZ.md) – auch in der App unter ⚙ Einstellungen › „🔒 Datenschutz & Lizenz“.
+
+Lizenz: [MIT](LICENSE). Bestandteile Dritter (PDF.js – Apache-2.0, Karten – Natural Earth, gemeinfrei, Abbildungen von Wikimedia Commons u. a.): [LIZENZEN.md](LIZENZEN.md).
+Die Belehrungs-Tafeln sind ohne Gewähr – maßgeblich sind die gültigen Erlasse und die Regeln der Schule.
+Wer Rechte an einem Inhalt der App hat und mit der Verwendung nicht einverstanden ist: bitte über „Issues“ melden – der Inhalt wird dann geprüft und gegebenenfalls entfernt.

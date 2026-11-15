@@ -1722,7 +1722,7 @@ function einfuegenInhalt() {
     const n = suchNorm(q.trim());
     normal.style.display = n ? 'none' : ''; ergebnis.style.display = n ? '' : 'none'; ergebnis.innerHTML = ''; if (!n) return;
     if (!index) { index = []; for (const [id, l] of EINF_KAT) {
-      if (!SUCH_SONDER.includes(id) && id !== 'Medien') { try { for (const el of [].concat(kachelListe(id, tile))) if (el && el.textContent) index.push({ kat: l, el, t: suchNorm(el.textContent) }); } catch (e) {} }
+      if (!SUCH_SONDER.includes(id) && id !== 'Medien') { try { for (const el of [].concat(kachelListe(id, tile))) if (el && el.textContent && el.classList && el.classList.contains('tile')) index.push({ kat: l, el, t: suchNorm(el.textContent) }); } catch (e) {} }
       index.push({ kat: l, id, t: suchNorm(l) });
       if (id === 'Uebungen' && T.UEBUNGEN) for (const [k, u] of Object.entries(T.UEBUNGEN)) index.push({ kat: l, id, t: suchNorm(u.n + ' übung'), name: '🎲 ' + u.n, ueb: k });
     } }
@@ -1815,6 +1815,11 @@ function kachelListe(kat, tile) {
     tile(h('div', { class: 'em' }, '📄'), 'PDF-Seiten', () => pdfEinfuegen()),
     tile(h('div', { class: 'em' }, '🔤'), 'Text', () => T.textDialog(null)),
     tile(h('img', { src: T.thumb('abdeckung'), alt: '' }), 'Abdeckung', () => insertObj('abdeckung', { ...T.BAUSTEINE.abdeckung.def }))];
+  if (kat === 'Belehrungen' && !lernenVorn) { /* Hinweis „ohne Gewähr“ vor den Belehrungs-Tafeln */
+    lernenVorn = true;
+    try { return [h('p', { class: 'hint', style: { width: '100%', margin: '0 0 6px' } }, '⚖️ Sorgfältig erstellt, aber ohne Gewähr – maßgeblich sind die gültigen Erlasse und die Regeln der Schule. Schulspezifisches unter ✏️ Bearbeiten ergänzen.')].concat(kachelListe(kat, tile)); }
+    finally { lernenVorn = false; }
+  }
   if (kat === 'Belehrungen' && !EINF_TEILE.Belehrungen.length) { /* alle be_-Tafeln (belehrungen_tafeln.js): Übersicht zuerst, Varianten mit */
     const KV0 = T.KACHEL_VARIANTEN || {}, ks = Object.keys(T.BAUSTEINE).filter(k => /^be_/.test(k)).sort((a, b) => (a === 'be_uebersicht' ? -1 : b === 'be_uebersicht' ? 1 : 0));
     EINF_TEILE.Belehrungen = ks.flatMap(k => { const v = Object.keys(KV0).filter(x => x.split(':')[0] === k); return v.length ? v : [k]; });
@@ -2240,7 +2245,8 @@ function settingsDialog() {
   };
   links.append(...BER.map(([id, l]) => h('button', { class: 'kat', 'data-b': id, onclick: () => zeige(id) }, l)));
   openDlg([h('div', { class: 'row', style: { alignItems: 'center', gap: '12px', flexWrap: 'wrap' } }, h('h2', { style: { margin: 0, flex: 1 } }, '⚙ Einstellungen'),
-      T.hilfe ? h('button', { class: 'big prim', title: 'Anleitungen und Lernvideos: Stift, Hervorheben, Wischen, Seite, Werkzeuge, Einfügen, Classroom, Ordner …', onclick: () => { closeDlg(); T.hilfe(); } }, '❓ Hilfe & Lernvideos') : ''),
+      T.hilfe ? h('button', { class: 'big prim', title: 'Anleitungen und Lernvideos: Stift, Hervorheben, Wischen, Seite, Werkzeuge, Einfügen, Classroom, Ordner …', onclick: () => { closeDlg(); T.hilfe(); } }, '❓ Hilfe & Lernvideos') : '',
+      T.rechtliches ? h('button', { class: 'big', title: 'Datenschutzhinweis, Lizenz, Hinweis zu den Belehrungen', onclick: () => { closeDlg(); T.rechtliches(); } }, '🔒 Datenschutz & Lizenz') : ''),
     h('div', { class: 'einst' }, links, rechts),
     h('p', { class: 'hint', style: { margin: '8px 0 0' } }, nurBoard ? 'Hier nur die Einstellungen des Boards (Finger, Handballen …). Persönliche Einstellungen – Stift, Leiste, Darstellung, Sperre & PIN, Ordner – nach dem Anmelden.' : T.opts.lehrkraft ? `Gilt für ${T.opts.lehrkraft} (außer Finger, Handballen, Druck und Bildschirmtastatur – die gehören zum Board).` : 'Tipp: Mit gewählter Lehrkraft werden die Einstellungen in ihrem Ordner gespeichert.'),
     h('div', { class: 'acts' }, nurBoard ? h('button', { class: 'big', onclick: () => { closeDlg(); archiv(); anmeldenDialog(); } }, '👤 Anmelden') : '', h('button', { class: 'big prim', onclick: closeDlg }, 'Fertig'))], true);
