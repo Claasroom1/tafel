@@ -2523,6 +2523,7 @@ async function archiv() {
   kchips.append(h('button', { class: 'chip' + (!klasse ? ' on' : ''), title: 'Tafeln ohne Klasse – auch die schnellen Tafeln', onclick: () => waehleKlasse('') }, 'Sonstige / ohne Klasse'));
   for (const k of [...kn].sort((a, b) => a.localeCompare(b, 'de', { numeric: true }))) kchips.append(h('button', { class: 'chip' + (k === klasse ? ' on' : ''), onclick: () => waehleKlasse(k) }, k));
   kchips.append(h('button', { class: 'chip', onclick: async () => { const n = await frage('Klasse, z. B. 7b oder 9 E-Kurs:', { feld: {} }); if (n && n.trim()) waehleKlasse(F.safe(n.trim().replace(/^klasse\s*/i, ''))); } }, '＋ Neu'));
+  if (klasse && F.root) kchips.append(h('button', { class: 'chip', title: 'Diese Klasse entfernen – ihre Tafeln kommen in den Papierkorb', onclick: () => klasseLoeschen(name, klasse) }, `🗑 ${klasse} löschen`));
   kk.append(kchips); A.append(kk);
   // Fächer + Liste
   const cols = h('div', { class: 'cols' }), links = h('div', { class: 'karte' }, h('h3', { style: { marginTop: 0 } }, `📚 Fächer${klasse ? ' in ' + klasse : ''}`)), rechts = h('div', { class: 'karte' });
@@ -2662,6 +2663,31 @@ function pinDialog(name, hatPin) {
     hatPin ? h('button', { class: 'big warn', onclick: async () => { if (await frage('PIN entfernen? Danach ist die Sperre aus.', { ok: 'PIN entfernen' })) setze(null); } }, 'PIN entfernen') : '',
     h('div', { class: 'acts' }, h('button', { class: 'big', onclick: closeDlg }, 'Abbrechen'), h('button', { class: 'big prim', onclick: ok }, 'Speichern'))]);
   setTimeout(() => p1.focus(), 50);
+}
+/* Klasse löschen: alle Tafeln der Klasse (auch aus ihrem Papierkorb) kommen in den Papierkorb der Lehrkraft – dort wiederherstellbar
+   (beim nächsten Speichern landen sie wieder in ihrer Klasse); danach wird der Klassenordner entfernt */
+async function klasseLoeschen(name, klasse) {
+  const kdir = 'Klasse ' + klasse; let d; try { d = await F.dir([name, kdir], false); } catch (e) { d = null; }
+  const tafeln = [];
+  const sammle = async (dir, pfad) => { for await (const [n, x] of dir.entries()) {
+    if (x.kind === 'directory') await sammle(x, pfad.concat(n)); else if (n.endsWith('.tafel.json')) tafeln.push({ dir, n, fach: pfad[pfad.length - 1] || 'Sonstiges' }); } };
+  if (d) await sammle(d, []);
+  const n = tafeln.length;
+  if (!await frage(`Klasse „${klasse}“ löschen?` + (n ? `\n\n${n} Tafel${n === 1 ? '' : 'n'} kommen in den Papierkorb (unter „Sonstige / ohne Klasse“) und können dort wiederhergestellt werden.` : '\n\nDie Klasse enthält keine Tafeln.'), { ok: '🗑 Löschen' })) return;
+  try {
+    let ok = 0;
+    for (const t of tafeln) {
+      const fach = t.fach === '_Papierkorb' ? 'Sonstiges' : t.fach, ziel = await F.dir([name, '_Papierkorb', fach], true);
+      const text = await (await (await t.dir.getFileHandle(t.n)).getFile()).text();
+      const base = t.n.replace(/\.tafel\.json$/, '') + ' (' + klasse + ')'; let zn = base + '.tafel.json', i = 2;
+      for (;;) { try { await ziel.getFileHandle(zn); zn = `${base} (${i++}).tafel.json`; } catch (e) { break; } }
+      const w = await (await ziel.getFileHandle(zn, { create: true })).createWritable(); await w.write(text); await w.close(); ok++;
+    }
+    if (d) await (await F.dir([name], false)).removeEntry(F.safe(kdir), { recursive: true });
+    if (S.file && S.file.klasse === F.safe(kdir)) S.file = null; /* offene Tafel nicht still in der gelöschten Klasse neu anlegen */
+    if (T.opts.klasse === klasse) { T.opts.klasse = ''; T.saveOpts(); }
+    archivFach = null; toast(`Klasse „${klasse}“ gelöscht` + (ok ? ` – ${ok} Tafel${ok === 1 ? '' : 'n'} im Papierkorb.` : '.'), 3500); archiv();
+  } catch (e) { toast('Löschen fehlgeschlagen: ' + e.message, 5000); archiv(); }
 }
 const dateiOeffnen = () => { if (!dateiKarte.oeffnen) dateiKarte(); return dateiKarte.oeffnen(); };
 function dateiKarte() {
