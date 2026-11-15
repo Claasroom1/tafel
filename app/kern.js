@@ -240,7 +240,14 @@ T.winkelAt = (wx, wy, px) => {
 };
 // Zustand eines Winkels: 'zahl' | 'frage' | 'leer' – ohne Eintrag gilt der Start der Seite (neue Seiten mit Formen: zuerst „?“)
 /* Reihenfolge: einzeln angetippt (wkVerdeckt) › an der Form je Sorte (it.vs: w Winkel, m Längen, u Umfang, f Fläche) › Seite › Voreinstellung (zuerst verdeckt) */
-T.startVerdeckt = art => { const o = T.opts || {}, n = o.verdecktNeu && o.verdecktNeu[art]; return (n != null ? n : o.winkelFrage !== false) ? 'frage' : 'zahl'; }; /* alles zuerst „?“ – auch Formel, Rechnung, Ergebnis */
+T.startVerdeckt = art => {
+  const o = T.opts || {};
+  if (art === 'Fe') { /* 🧮 Ergebnis (Flächen und Körper): standardmäßig verdeckt – erst rechnen, dann aufdecken. Ein früher gesetztes „offen“ einmalig zurücksetzen */
+    if (o.verdecktNeu && o.verdecktNeu.Fe === false && !o.ergebnisZuGesetzt) { delete o.verdecktNeu.Fe; o.ergebnisZuGesetzt = 1; T.saveOpts && T.saveOpts(); }
+    const n = o.verdecktNeu && o.verdecktNeu.Fe; return n === false ? 'zahl' : 'frage';
+  }
+  const n = o.verdecktNeu && o.verdecktNeu[art]; return (n != null ? n : o.winkelFrage !== false) ? 'frage' : 'zahl';
+}; /* alles zuerst „?“ – auch Formel, Rechnung, Ergebnis */
 T.winkelZustand = (pg, key) => {
   const v = (pg.wkVerdeckt || {})[key]; if (v) return v;
   const id = key.split('#')[0].split(/[|,+~]/)[0], it = id && pg.items.find(i => i.id === id), s = it && it.vs && it.vs[T.wertSorte(key)];
