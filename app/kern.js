@@ -188,7 +188,7 @@ T.winkelMalen = (ctx, pg, dark, px) => {
     const tx = V[0] + Math.cos(mid) * (rr + fs * 1.2), ty = V[1] + Math.sin(mid) * (rr + fs * 1.2);
     const zust = key ? T.winkelZustand(pg, key) : 'zahl', txt = zust === 'frage' ? '?' : zust === 'leer' ? '' : rund + '°'; /* einzeln ausgeblendet: „?“ oder nur der Bogen */
     if (txt) { ctx.lineWidth = 4 * px; ctx.strokeStyle = dark ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.85)'; ctx.strokeText(txt, tx, ty); ctx.fillText(txt, tx, ty); }
-    if (key) orte.push({ key, x: tx, y: ty, vx: V[0] + Math.cos(mid) * rr * 0.6, vy: V[1] + Math.sin(mid) * rr * 0.6, r: Math.max(fs * 1.3, rr * 0.5) });
+    if (key) orte.push({ key, x: tx, y: ty, vx: V[0] + Math.cos(mid) * rr * 0.6, vy: V[1] + Math.sin(mid) * rr * 0.6, r: Math.max(fs * 1.3, rr * 0.5), sek: { x: V[0], y: V[1], s: a1, d, r: Math.max(rr * 1.35, 40 * px) } });
     ctx.restore();
   };
   // Erst alle Winkel sammeln, dann so runden, dass Dreiecke genau 180° (Vierecke 360°) ergeben
@@ -236,7 +236,14 @@ T.winkelMalen = (ctx, pg, dark, px) => {
 T.winkelAt = (wx, wy, px) => {
   const pg = T.page(); if (!pg || !T._wkOrte || !(pg.items.some(i => i.kw || i.ms || i.mu || i.mf || i.mo || i.fz === 'winkel') || (!pg.winkelAus && pg.items.some(i => i.wk && !i.wkAus)))) return null;
   const orte = T._wkOrte.get(pg) || [], tol = 6 * (px || 1);
-  return orte.find(o => Math.hypot(wx - o.x, wy - o.y) < o.r * 0.7 + tol || Math.hypot(wx - o.vx, wy - o.vy) < o.r * 0.45 + tol) || null;
+  /* in der farbigen Winkelfläche (Kreissektor am Scheitel) */
+  const imSektor = q => { if (!q) return false; const dist = Math.hypot(wx - q.x, wy - q.y); if (dist > q.r + tol || dist < 2) return false;
+    let rel = Math.atan2(wy - q.y, wx - q.x) - q.s; const zw = 2 * Math.PI;
+    if (q.d >= 0) { rel = ((rel % zw) + zw) % zw; return rel <= q.d + 0.05; } rel = -((((-rel) % zw) + zw) % zw); return rel >= q.d - 0.05; };
+  /* Beschriftung als breites Rechteck (Winkelart, Maße) */
+  const imText = o => o.flach != null && Math.abs(wx - o.x) <= o.r + tol && Math.abs(wy - o.y) <= o.flach + tol;
+  return orte.find(o => o.flach != null ? imText(o) : (Math.hypot(wx - o.x, wy - o.y) < o.r * 0.7 + tol || Math.hypot(wx - o.vx, wy - o.vy) < o.r * 0.45 + tol))
+    || orte.find(o => imSektor(o.sek)) || null;
 };
 // Zustand eines Winkels: 'zahl' | 'frage' | 'leer' – ohne Eintrag gilt der Start der Seite (neue Seiten mit Formen: zuerst „?“)
 /* Reihenfolge: einzeln angetippt (wkVerdeckt) › an der Form je Sorte (it.vs: w Winkel, m Längen, u Umfang, f Fläche) › Seite › Voreinstellung (zuerst verdeckt) */
@@ -326,7 +333,7 @@ T.kreisWinkelMalen = (ctx, pg, dark, px, teil, drag) => {
     const zust = T.winkelZustand(pg, key), txt = zust === 'frage' ? '?' : zust === 'leer' ? '' : T.kreisWinkelText(th, it.kw.el);
     const fs = Math.max(18 * px, Math.min(r * 0.13, 34 * px)), d = th > 300 ? 0 : Math.min(r * 0.62, rr + fs * 2.4), tx = M[0] + Math.cos(mid) * d, ty = M[1] + Math.sin(mid) * d + (th > 300 ? fs * 1.4 : 0);
     if (txt) { ctx.font = `700 ${fs}px Segoe UI`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5 * px; ctx.strokeStyle = dark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.9)'; ctx.strokeText(txt, tx, ty); ctx.fillStyle = it.wc || (dark ? '#fcd34d' : '#92400e'); ctx.fillText(txt, tx, ty); }
-    orte.push({ key, x: tx, y: ty, vx: M[0] + Math.cos(mid) * rr * 0.6, vy: M[1] + Math.sin(mid) * rr * 0.6, r: Math.max(fs * 1.6, rr * 0.5) });
+    orte.push({ key, x: tx, y: ty, vx: M[0] + Math.cos(mid) * rr * 0.6, vy: M[1] + Math.sin(mid) * rr * 0.6, r: Math.max(fs * 1.6, rr * 0.5), sek: { x: M[0], y: M[1], s: a0, d: a1 - a0, r: Math.max(rr * 1.35, 40 * px) } });
     ctx.restore();
   }
 };
@@ -355,11 +362,11 @@ T.winkelFormMalen = (ctx, pg, dark, px, drag) => {
     const fs = Math.max(20 * px, Math.min(rr * 0.42, 36 * px)), d = g > 300 || g === 0 ? -fs * 1.6 : rr + fs * 1.3, tx = V[0] + Math.cos(mid) * (g > 300 || g === 0 ? 0 : d), ty = V[1] + Math.sin(mid) * (g > 300 || g === 0 ? 0 : d) + (g > 300 || g === 0 ? -fs * 1.6 : 0);
     const schreib = (t, x, y, size, fett) => { ctx.font = `${fett ? 700 : 600} ${size}px Segoe UI`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5 * px; ctx.strokeStyle = dark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.92)'; ctx.strokeText(t, x, y); ctx.fillStyle = wcol; ctx.fillText(t, x, y); };
     const kG = it.id + '#wf', zG = T.winkelZustand(pg, kG), tG = zG === 'frage' ? '?' : zG === 'leer' ? '' : g + '°';
-    if (!aus) { if (tG) schreib(tG, tx, ty, fs, true); orte.push({ key: kG, x: tx, y: ty, vx: tx, vy: ty, r: fs * 1.4 }); }
+    if (!aus) { if (tG) schreib(tG, tx, ty, fs, true); orte.push({ key: kG, x: tx, y: ty, vx: tx, vy: ty, r: fs * 1.4, sek: g > 0 ? { x: V[0], y: V[1], s: a0, d: a1 - a0, r: Math.max(rr * 1.15, 40 * px) } : null }); } /* auch die getönte Winkelfläche antippen */
     if (it.wa !== false) { /* Winkelart unter dem Scheitel – eigens aufdeckbar */
       const kA = it.id + '#wa', zA = T.winkelZustand(pg, kA), tA = zA === 'frage' ? 'Winkelart: ?' : zA === 'leer' ? '' : T.winkelArt(g), ay = Math.max(A[1], V[1], B[1]) + fs * 1.6;
       if (tA) schreib(tA, V[0], ay, fs * 0.8, false);
-      orte.push({ key: kA, x: V[0], y: ay, vx: V[0], vy: ay, r: fs * 2.2 });
+      orte.push({ key: kA, x: V[0], y: ay, vx: V[0], vy: ay, r: Math.max(fs * 2.2, 'überstumpfer Winkel'.length * fs * 0.8 * 0.28 + fs * 0.6), flach: fs * 1.1 }); /* breit, damit die ganze (auch leere) Zeile trifft */
     }
     ctx.restore();
   }
@@ -445,7 +452,7 @@ T.masseMalen = (ctx, pg, dark, px, drag) => {
   const schreibe = (txt, x, y, key, fett) => {
     const m = /^(.*?) [=≈] /.exec(txt), zust = T.winkelZustand(pg, key), t = zust === 'frage' ? (m ? m[1] + ' = ?' : '?') : zust === 'leer' ? '' : txt; /* verdeckt: „u = ?“, „A = ?“, „a = ?“ */
     if (t) { ctx.font = `${fett ? 700 : 600} ${fs}px Segoe UI`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5 * px; ctx.strokeStyle = dark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.92)'; ctx.strokeText(t, x, y); ctx.fillStyle = col; ctx.fillText(t, x, y); }
-    orte.push({ key, x, y, vx: x, vy: y, r: Math.max(fs * 1.6, ctx.measureText(txt).width / 2) });
+    orte.push({ key, x, y, vx: x, vy: y, r: Math.max(fs * 2, ctx.measureText(txt).width / 2 + fs * 0.6), flach: fs * 1.2 }); /* ganze Beschriftung (auch „?“ oder leer) antippbar */
   };
   const strich = (a, b) => { ctx.save(); ctx.setLineDash([7 * px, 5 * px]); ctx.strokeStyle = col; ctx.lineWidth = 2.5 * px; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.restore(); };
   for (const it of pg.items) {

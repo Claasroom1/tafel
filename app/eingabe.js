@@ -186,8 +186,12 @@ function choose(P, e, wx, wy) {
       up() { if (bewegt) { T.changed && T.changed(); return; } const z = fkh.zeilen.find(z => wy >= z.y0 && wy <= z.y1); if (z) T.formelZeileUmschalten(z.key); }
     }; }
   // 📐 Einzelnen Winkel antippen: Zahl → „?“ → leerer Bogen → Zahl
-  const wo = S.tool !== 'radierer' && T.winkelAt && T.winkelAt(wx, wy, px());
-  if (wo) return { up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 16) T.winkelUmschalten(wo); } };
+  const wo = !P.ohneWinkel && S.tool !== 'radierer' && T.winkelAt && T.winkelAt(wx, wy, px());
+  /* Winkel/Maß antippen = ein- bzw. ausblenden (auch in der farbigen Winkelfläche); wer dort zieht, verschiebt wie gewohnt */
+  if (wo) { let weiter = null; return {
+    move(Q, ev) { if (!weiter && Math.hypot(Q.x - Q.sx, Q.y - Q.sy) >= 16) { P.ohneWinkel = true; weiter = choose(P, e, wx, wy) || idle(); } if (weiter && weiter.move) weiter.move(Q, ev); },
+    up(Q, ev) { if (weiter) { if (weiter.up) weiter.up(Q, ev); return; } if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 16) T.winkelUmschalten(wo); },
+    cancel(Q) { if (weiter && weiter.cancel) weiter.cancel(Q); } }; }
   // Übungen: Kärtchen ziehen, Multiple-Choice-Kärtchen und Knöpfe antippen – mit Finger und Stift, egal welches Werkzeug
   const uo = topObjAt(wx, wy);
   if (uo && uo.k === 'kacheln' && S.tool !== 'auswahl' && S.tool !== 'radierer') return { up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 16) T.kachelAufdecken(uo, wx, wy); } }; // Bild-Puzzle
