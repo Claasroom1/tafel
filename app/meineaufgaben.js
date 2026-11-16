@@ -118,6 +118,7 @@ async function seiteAblegen(nurAuswahl) {
   setTimeout(() => { name.focus(); name.select(); }, 50);
 }
 T.seiteZuMeinenAufgaben = seiteAblegen;
+T.vorschauBild = vorschauBild; T.faecherListe = faecher; T.tafelFachMA = tafelFach; /* auch für 📄 Arbeitsblätter (arbeitsblaetter.js) */
 function seiteEinsetzen(e, neueSeite) {
   const neuId = new Map(e.items.map(it => [it.id, T.uid()]));
   let dx = 0, dy = 0;

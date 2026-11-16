@@ -138,7 +138,7 @@ F.boards = async (wer, fach) => {
   let d; try { d = await F.dir([...pf(wer), fach], false); } catch (e) { return out; }
   for await (const [n, h] of d.entries()) {
     if (h.kind !== 'file' || !n.endsWith('.tafel.json')) continue;
-    const m = n.match(/^(\d{4}-\d{2}-\d{2})\s+(.*?)\.tafel\.json$/);
+    const m = n.match(/(?:^|\s-\s)(\d{4}-\d{2}-\d{2})\s+(.*?)\.tafel\.json$/); /* auch „Name - 7b - Fach - Datum Titel“ aus „Speichern unter“ */
     let mod = 0; try { mod = (await h.getFile()).lastModified; } catch (e) {}
     out.push({ name: n, datum: m ? m[1] : '', titel: m ? m[2] : n.replace(/\.tafel\.json$/, ''), mod });
   }

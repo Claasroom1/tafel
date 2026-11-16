@@ -107,7 +107,7 @@ async function pptLesen(buf) {
   if (!seiten.length) throw new Error('keine Folien gefunden');
   T.snap(); const start = S.page + 1; S.board.pages.splice(start, 0, ...seiten); T.ui.gotoPage(start); T.nachEinfuegen();
   const extra = (warnung.tabelle ? ` ${warnung.tabelle} Tabelle(n)/Diagramm(e)` : '') + (warnung.bild ? ` ${warnung.bild} Bild(er) (Format)` : '');
-  T.toast(`${seiten.length} Folie(n) als Tafelseiten eingefügt – Text bearbeitbar, ▶ Präsentieren zum Zeigen.` + (extra ? ' Nicht übernommen:' + extra + ' – dafür als PDF importieren.' : ''), 6500);
+  T.toast(`${seiten.length} Folie(n) als Tafelseiten eingefügt – Text bearbeitbar, ▶ Präsentieren zum Zeigen.` + (extra ? ' Nicht übernommen:' + extra + ' – dafür als PDF importieren.' : ''), 8000, T.alsArbeitsblatt ? [['📄 Als Arbeitsblatt speichern', () => T.alsArbeitsblatt(start, start + seiten.length - 1)]] : undefined);
 }
 T.pptImport = async () => {
   const file = await T.pickFile('.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation'); if (!file) return;

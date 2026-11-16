@@ -538,9 +538,9 @@ const KAP = [
   { id: 'ordner', ico: '📲', titel: 'Tablet → Smartboard & Ordner',
     text: ['Ihr persönlicher Ordner (z. B. IServ „Eigene Dateien“, synchronisiert) enthält Ihre Tafeln, Notizen und Einstellungen – nur Sie sehen ihn.',
       'Ein gemeinsamer Ordner (z. B. ein IServ-Gruppenordner) ist für alles, was das Kollegium mitnutzt: Vorlagen, Klassenlisten, Sitzpläne und Tafeln zum Teilen. Wie die beiden Ordner eingerichtet werden, steht unter ⚙ Einstellungen.',
-      'Vom Tablet ans Smartboard: Am Tablet über „📤 Speichern unter …“ bzw. 💾 Sicherung › „Jetzt sichern“ in IServ den Ordner „_Eingang“ im Tafel-Ordner wählen. Am Board erscheint „📥 Neu im Eingang“ – „Übernehmen & öffnen“. Bequemer: ⚙ Einstellungen › „📲 Tablet → Smartboard“ › beim Beenden fragen und senden.',
+      'Vom Tablet ans Smartboard: Am Tablet über „📤 Speichern unter …“ in IServ den verbundenen Ablageordner und darin den eigenen Ordner wählen (Name › Klasse › Fach). Am Board steht die Tafel dann gleich in der Liste. Eine 💾 Sicherung holt man am Board über 💾 Sicherung › „📥 Wiederherstellen“. Bequemer: ⚙ Einstellungen › „📲 Tablet → Smartboard“ › beim Beenden fragen und senden.',
       '💾 Sicherung: alles (Tafeln, Notizen, Einstellungen, Listen, Vorlagen) in einer Datei – zum Mitnehmen auf ein anderes Gerät und zum Wiederherstellen.'],
-    schritte: ['Persönliches in den eigenen Ordner, Geteiltes in den gemeinsamen Ordner.', 'Tablet: Tafel bzw. Sicherung in IServ › Tafel-Ordner › „_Eingang“ speichern.', 'Board: „📥 Neu im Eingang“ › „Übernehmen & öffnen“.', '⚙ › 🧰 Leiste & Favoriten › „📲 Tablet → Smartboard“: beim Beenden fragen und senden.', 'Regelmäßig 💾 Sicherung exportieren.'],
+    schritte: ['Persönliches in den eigenen Ordner, Geteiltes in den gemeinsamen Ordner.', 'Tablet: Tafel in IServ › Ablageordner › Name › Klasse › Fach speichern.', 'Board: Die Tafel steht in der Liste des Fachs – antippen.', '⚙ › 🧰 Leiste & Favoriten › „📲 Tablet → Smartboard“: beim Beenden fragen und senden.', 'Regelmäßig 💾 Sicherung exportieren.'],
     video: [
       async () => { await sage('Persönliches liegt in Ihrem Ordner, Geteiltes (Vorlagen, Klassenlisten, Sitzpläne) im gemeinsamen Ordner.', 3800); },
       async () => { await tippe('#bSettings', 'Oben rechts ⚙ Einstellungen öffnen.', { nach: 700 }); },
@@ -556,7 +556,7 @@ const KAP = [
         if (!dlgAuf()) return;
         const b = finde(knopf('#dlg .einst-links', /Ablageordner|Ordner/));
         if (b) await tippe(b, 'Unter „📂 Ablageordner“ wählen Sie Ihren Ordner.', { nach: 700 });
-        await sage('Im Ablageordner legt die Tafel den Ordner „_Eingang“ an. Was dort ankommt, erscheint am Board als „📥 Neu im Eingang“.', 4200);
+        await sage('Was Sie am Tablet in diesen Ablageordner sichern (Name › Klasse › Fach), steht am Board gleich in der Liste.', 4200);
       },
       async () => { if (dlgAuf()) await tippe('#dlg .dlg-kopf > button.nzu', '× schließt die Einstellungen.'); T.closeDlg(); },
       async () => { await sage('Tipp: Regelmäßig „💾 Sicherung“ exportieren – dann ist nichts verloren.', 3000); }

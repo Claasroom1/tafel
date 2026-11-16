@@ -150,7 +150,7 @@ function choose(P, e, wx, wy) {
   // Werkzeuge (Lineal usw.)
   const ih = T.instHit(wx, wy, px());
   if (treatAsPen && (S.tool === 'stift' || S.tool === 'marker')) {
-    const ed = T.findEdge(wx, wy, 28 * px());
+    const ed = T.findEdge(wx, wy, (IPAD && P.type === 'pen' ? 12 : 28) * px()); /* Apple Pencil ist genau: nur ganz nah an der Kante einrasten – sonst springt die Farbe vom Stift weg */
     if (ed && (!ih || ih.part === 'body')) return ruled(P, ed);
   }
   if (ih) return instAction(P, ih, wx, wy);
@@ -306,7 +306,7 @@ function stroke(P, e, ueber) { // ueber: { c, w } – eigene Farbe/Stärke (gete
     }
     lastS = [ev.clientX, ev.clientY]; if (tempo !== 'normal') live.spitze = [x, y]; // echte Stiftposition: die Live-Linie reicht bis dorthin
     if (!last) { last = [x, y]; live.p.push([T.r1(x), T.r1(y), T.r2(p)]); return; }
-    const k = T.clamp(T.opts.glatt, 0, 0.85);
+    const k = P.type === 'pen' && S.inst.some(I => I.kind !== 'zirkel') ? 0 : T.clamp(T.opts.glatt, 0, 0.85); /* Lineal/Geodreieck liegt da: genau zeichnen, Farbe direkt an der Stiftspitze (ohne Glättung) */
     const nx = last[0] + (x - last[0]) * (1 - k), ny = last[1] + (y - last[1]) * (1 - k);
     if (Math.hypot(nx - last[0], ny - last[1]) * view().z < 1.1) return;
     last = [nx, ny]; live.p.push([T.r1(nx), T.r1(ny), T.r2(p)]);
@@ -391,7 +391,7 @@ function ruled(P, ed) {
   const live = { t: 's', m: tool === 'marker' ? 'hl' : 'line', g: 1, c: S.farbe[tool], w: S.groesse[tool], p: [], ...fx(tool === 'marker') };
   const [wx, wy] = world(P.x, P.y);
   let t0 = T.edgeParam(I, e, wx, wy), tmin = t0, tmax = t0, tlast = t0;
-  const arc = e.t === 'c';
+  const arc = e.t === 'c', echt = [[T.r1(wx), T.r1(wy), .5]]; /* echte Stiftpunkte: kurzer Tipp an der Kante (Punkt, Markierung) bleibt da, wo der Stift war */
   const upd = () => {
     if (!arc) { const a = T.edgePoint(I, e, tmin), b = T.edgePoint(I, e, tmax); live.p = [[T.r1(a[0]), T.r1(a[1]), .5], [T.r1(b[0]), T.r1(b[1]), .5]]; }
     const len = arc ? Math.abs(tmax - tmin) * 180 / PI : (tmax - tmin) * T.edgeLen(e) / T.CM;
@@ -404,6 +404,7 @@ function ruled(P, ed) {
   return {
     move(Q) {
       const [x, y] = world(Q.x, Q.y), t = T.edgeParam(I, e, x, y);
+      if (echt.length < 40) echt.push([T.r1(x), T.r1(y), .5]);
       if (arc) {
         const step = Math.sign(t - tlast) * PI / 360;
         if (step) for (let a = tlast + step; Math.abs(t - a) >= PI / 360 * 0.99 && Math.sign(t - a) === Math.sign(step); a += step) { const p = T.edgePoint(I, e, a); live.p.push([T.r1(p[0]), T.r1(p[1]), .5]); }
@@ -415,6 +416,7 @@ function ruled(P, ed) {
       T.live = null; T.overlay.label = null; T.renderLive(); T.renderOver();
       const big = arc ? tmax - tmin > 0.004 : (tmax - tmin) * T.edgeLen(e) > 2;
       if (big) { T.snap(); T.addItem(live); }
+      else { const s = { t: 's', m: tool === 'marker' ? 'hl' : 'pen', c: tool === 'marker' ? S.farbe[tool] : T.echteFarbe(S.farbe[tool]), w: S.groesse[tool], p: echt, ...fx(tool === 'marker') }; T.snap(); T.addItem(s); } /* nur getippt: Punkt an der Stiftspitze statt nichts */
     },
     cancel() { T.live = null; T.overlay.label = null; T.renderLive(); T.renderOver(); }
   };

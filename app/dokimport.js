@@ -46,7 +46,7 @@ function einsetzen(seiten, was) {
   T.snap(); const start = S.page + 1;
   S.board.pages.splice(start, 0, ...seiten.slice(0, 40));
   T.ui.gotoPage(start); T.nachEinfuegen();
-  T.toast(`${was} auf ${Math.min(40, seiten.length)} neue Seite(n) eingefügt. Antippen = verschieben, doppelt tippen = Text ändern.`, 5000);
+  T.toast(`${was} auf ${Math.min(40, seiten.length)} neue Seite(n) eingefügt. Antippen = verschieben, doppelt tippen = Text ändern.`, 8000, T.alsArbeitsblatt ? [['📄 Als Arbeitsblatt speichern', () => T.alsArbeitsblatt(start, start + Math.min(40, seiten.length) - 1)]] : undefined);
 }
 
 // ---------- Word (.docx) ----------

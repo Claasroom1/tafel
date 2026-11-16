@@ -1,4 +1,6 @@
 // Tafel-App – 📥 Eingang: vom Tablet (oder einem anderen Gerät) ans Smartboard – über IServ, ohne neue Knöpfe.
+// NEU: Es gibt keinen eigenen Eingangsordner mehr – am Tablet die Tafel direkt in den verbundenen Ablageordner (Name › Klasse › Fach)
+// sichern, dann steht sie am Board gleich in der Liste. „_Eingang“ wird nicht mehr angelegt, nur ein schon vorhandener noch gelesen.
 // Tablet: „📤 Speichern unter“ (eine Tafel) oder „💾 Sicherung › Jetzt sichern“ (alles: Tafeln, Notizen, Einstellungen, Klassenlisten,
 // Sitzpläne, Vorlagen …) – beim Teilen IServ wählen und dort im Tafel-Ablageordner den Ordner „_Eingang“.
 // Smartboard (Ablageordner verbunden, z. B. über IServ synchronisiert): Die App schaut beim Start und jede Minute in „_Eingang“
@@ -14,7 +16,7 @@ const bereit = () => F.root && !F.intern && T.opts && T.opts.lehrkraft && (!T.an
 async function pruefen() {
   if (laeuft || !bereit()) return; laeuft = true;
   try {
-    let d; try { d = await F.dir([ORD], true); } catch (e) { return; } /* Ordner gleich anlegen – dann findet man ihn in IServ */
+    let d; try { d = await F.dir([ORD], false); } catch (e) { return; } /* nur noch, falls es den alten Ordner „_Eingang“ gibt – Tafeln gehören direkt in den Ablageordner */
     const neu = [];
     for await (const [n, fh] of d.entries()) {
       if (fh.kind !== 'file' || !/\.json$/i.test(n)) continue;
@@ -64,5 +66,5 @@ T.eingangPruefen = pruefen;
 /* Hinweis auf dem Tablet (ohne echten Ablageordner): wohin speichern, damit das Smartboard es findet */
 T.eingangHinweis = () => T.SCHUELER
   ? 'Zum Weiterarbeiten an einem anderen Gerät: in IServ (Eigene Dateien) sichern – dort über „📥 Wiederherstellen“ bzw. „📂 Tafel-Datei öffnen“ wieder holen.'
-  : 'Fürs Smartboard: beim Teilen IServ wählen und im Tafel-Ablageordner in „_Eingang“ sichern – die Tafel am Board übernimmt es dann von selbst.';
+  : 'Fürs Smartboard: beim Teilen IServ wählen und im verbundenen Ablageordner der Tafel den eigenen Ordner wählen (Name › Klasse › Fach) – am Board steht die Tafel dann gleich in der Liste. Eine Sicherung („alles“) am Board über 💾 Sicherung › 📥 Wiederherstellen holen.';
 })();

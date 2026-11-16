@@ -1646,7 +1646,7 @@ let uebNv = 2; // Niveau beim Einfügen: 1 = ★, 2 = ★★, 3 = ★★★
 // Einfügen nach Fach: allgemeine Vorlagen stehen immer da, Fachvorlagen nur im passenden Fach („Alle Fächer“ zeigt alles)
 const NAWI = ['NaWi', 'Biologie', 'Chemie', 'Physik', 'Technik'], GESELL = ['Erdkunde', 'Geschichte', 'Politik', 'Wirtschaft'];
 const EINF_KAT = [
-  ['Medien', '🖼️ Bilder & Text'], ['Vorlagen', '📌 Meine Vorlagen'], ['Emojis', '😀 Emojis'], ['Geld', '💶 Geld (€)'], ['Struktur', '🧠 Strukturieren'], ['Diagramme', '📊 Diagramme'], ['Stunde', '📋 Stunde & Organisation'], ['Mitschrift', '📝 Mitschrift & Heft'], ['Lernen', '🎓 Lernen lernen'], ['Feedback', '💬 Feedback & Gefühle'], ['Bewertung', '⭐ Bewertung'],
+  ['Medien', '🖼️ Bilder & Text'], ['Vorlagen', '📌 Meine Vorlagen'], ['Arbeitsblaetter', '📄 Arbeitsblätter'], ['Emojis', '😀 Emojis'], ['Geld', '💶 Geld (€)'], ['Struktur', '🧠 Strukturieren'], ['Diagramme', '📊 Diagramme'], ['Stunde', '📋 Stunde & Organisation'], ['Mitschrift', '📝 Mitschrift & Heft'], ['Lernen', '🎓 Lernen lernen'], ['Feedback', '💬 Feedback & Gefühle'], ['Bewertung', '⭐ Bewertung'],
   ['Klassenleben', '🤝 Klassenleben'], ['Belehrungen', '🦺 Belehrungen'], ['Uebungen', '🎲 Übungen'], ['Gebete', '🙏 Gebet / Impuls'],
   ['Mathe', '➗ Mathe', ['Mathe']], ['Körper', '🧊 Körper und Netze', ['Mathe']], ['Formeln', '📐 Formeln', ['Mathe', 'Physik', 'Chemie', 'NaWi', 'Technik']],
   ['Sprachen', '💬 Sprache', ['Deutsch', 'Englisch', 'Französisch']],
@@ -1755,7 +1755,7 @@ function uebungInhalt(neu) {
   }
 // 🔍 Suche über den Kategorien: findet Vorlagen in allen Kategorien (Name der Kachel) und Kategorien selbst
 let einfSuche = '';
-const SUCH_SONDER = ['Karten', 'Uebungen', 'Gebete', 'Emojis', 'Geld', 'Formeln', 'Vorlagen', 'Skelette'];
+const SUCH_SONDER = ['Karten', 'Uebungen', 'Gebete', 'Emojis', 'Geld', 'Formeln', 'Vorlagen', 'Arbeitsblaetter', 'Skelette'];
 const suchNorm = s => String(s).toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[–-]/g, ' ');
 function einfuegenInhalt() {
   const a = [].concat(einfuegenInhaltKat());
@@ -1787,7 +1787,7 @@ function einfuegenInhaltKat() {
   const fach = S.board ? S.board.fach : '';
   /* immer alle Kategorien – kein Filter nach Fach; nur Kategorien ohne einen einzigen vorhandenen Baustein fallen weg (z. B. in der Schüler-Version) */
   const da = k => !!T.BAUSTEINE[k.split(':')[0]];
-  const sichtbar = EINF_KAT.filter(([id]) => id === 'Belehrungen' ? Object.keys(T.BAUSTEINE).some(k => /^be_/.test(k)) : (!EINF_TEILE[id] || EINF_TEILE[id].some(da)));
+  const sichtbar = EINF_KAT.filter(([id]) => id === 'Arbeitsblaetter' ? !!T.arbeitsblaetterPanel : id === 'Belehrungen' ? Object.keys(T.BAUSTEINE).some(k => /^be_/.test(k)) : (!EINF_TEILE[id] || EINF_TEILE[id].some(da)));
   if (!sichtbar.some(([id]) => id === einfKat)) einfKat = 'Medien';
   const tile = (img, name, fn) => h('button', { class: 'tile', onclick: fn }, img, name);
   const kats = h('div', { class: 'kats' }, ...sichtbar.map(([id, l]) => h('button', { class: 'kat' + (einfKat === id ? ' on' : ''), onclick: () => { einfKat = id; einfSuche = ''; zeigeDock('einfuegen'); } }, l)));
@@ -1832,6 +1832,7 @@ function einfuegenInhaltKat() {
     out.push(h('p', { class: 'hint' }, 'Antippen setzt die Formel auf die Tafel. Mit „✏️ Bearbeiten“ lässt sie sich ändern – Brüche als {Zähler|Nenner}.'));
     return out;
   }
+  if (einfKat === 'Arbeitsblaetter' && T.arbeitsblaetterPanel) return [kats, T.arbeitsblaetterPanel()]; /* 📄 eigene Arbeitsblätter nach Fach, Jahrgang, Thema (arbeitsblaetter.js) */
   if (einfKat === 'Vorlagen') return [kats, T.vorlagenPanel ? T.vorlagenPanel() : '']; // 📌 eigene Vorlagen (meineaufgaben.js)
   if (einfKat === 'Skelette') {
     const box = h('div', { class: 'tiles' }, h('p', { class: 'hint' }, 'Wird geladen …'));
@@ -1972,7 +1973,7 @@ async function pdfEinfuegen() {
       const z = Math.min((innerWidth - 40) / (w + 80), (innerHeight - 160) / (hh + 80)); page.view = { x: 20 - 40 * z + 20, y: 70, z };
       S.board.pages.splice(start + i - 1, 0, page);
     }
-    gotoPage(start); toast(`${max} PDF-Seite(n) als neue Tafelseiten eingefügt.`);
+    gotoPage(start); toast(`${max} PDF-Seite(n) als neue Tafelseiten eingefügt.`, 8000, T.alsArbeitsblatt ? [['📄 Als Arbeitsblatt speichern', () => T.alsArbeitsblatt(start, start + max - 1)]] : undefined);
   } catch (e) { toast('Die PDF-Datei konnte nicht gelesen werden.'); }
 }
 
@@ -2253,7 +2254,7 @@ function settingsDialog() {
       chk('karteImmer', '🗺 Übersichtskarte immer zeigen (sonst nur beim Verschieben und Zoomen)', () => T.render()),
       abschnitt(T.SCHUELER ? '📲 An ein anderes Gerät senden' : '📲 Tablet → Smartboard'),
       h('label', { class: 'fld' }, 'Beim Beenden einer Tafel (bzw. Wechsel zur Startseite) fragen und senden:', auswahl('beendenSenden', [['', 'aus'], ['tafel', 'diese Tafel'], ['alles', 'alles (Sicherung: Tafeln, Notizen, Einstellungen, Listen, Vorlagen)']], '')),
-      tipp('Für das iPad bzw. Tablet: Nach dem Beenden erscheint „📲 Ans Smartboard senden?“ – ein Tipp öffnet das Teilen; dort IServ und den Ordner „_Eingang“ im Tafel-Ablageordner wählen (das iPad merkt sich den Ordner). Das Smartboard übernimmt die Datei dann von selbst. An Geräten mit verbundenem Ablageordner (PC, Board) passiert nichts.'),
+      tipp('Für das iPad bzw. Tablet: Nach dem Beenden erscheint „📲 Ans Smartboard senden?“ – ein Tipp öffnet das Teilen; dort IServ und im verbundenen Ablageordner den eigenen Ordner wählen (Name › Klasse › Fach; das iPad merkt sich den Ordner). Am Smartboard steht die Tafel dann gleich in der Liste. An Geräten mit verbundenem Ablageordner (PC, Board) passiert nichts.'),
       abschnitt('Farben in der Werkzeugleiste'), tipp('Antippen nimmt eine Farbe in die Leiste auf bzw. heraus (höchstens 8). Alle weiteren Farben gibt es immer über den Regenbogen-Knopf.'),
       farbWahl('stift', MEHR, 'Stift'), farbWahl('marker', MARKER_MEHR, 'Marker'),
       abschnitt('Werkzeugleiste anpassen'), tipp('Mit ◀ ▶ verschieben, × blendet aus – die Leiste ändert sich sofort. Noch einfacher: lange auf die Werkzeugleiste drücken und die Kärtchen ziehen.'),
@@ -3339,12 +3340,12 @@ async function tafelSichern() {
 }
 /* Tafel beenden: sichern, schließen, dann weiter (Startseite / Abmelden) */
 /* 📲 Beim Beenden ans Smartboard senden (⚙ Einstellungen; nur am Tablet ohne echten Ablageordner sinnvoll):
-   Nach dem Schließen fragt ein Fenster „Jetzt senden?“ – ein Tipp öffnet das Teilen (IServ › _Eingang), die Datei ist schon fertig */
+   Nach dem Schließen fragt ein Fenster „Jetzt senden?“ – ein Tipp öffnet das Teilen (IServ › Ablageordner › Name › Klasse › Fach), die Datei ist schon fertig */
 const amTablet = () => !F.root || F.intern;
 async function nachBeendenSenden(b) {
   const art = T.opts.beendenSenden; if (!art || !b || !amTablet()) return;
   let datei = null;
-  try { datei = art === 'alles' && T.sicherungBlob ? await T.sicherungBlob() : { blob: new Blob([JSON.stringify(b)], { type: 'application/json' }), name: `${F.safe(b.titel || 'Tafel')}.tafel.json` }; } catch (e) { return; }
+  try { datei = art === 'alles' && T.sicherungBlob ? await T.sicherungBlob() : { blob: new Blob([JSON.stringify(b)], { type: 'application/json' }), name: `${b.datum ? b.datum + ' ' : ''}${F.safe(b.titel || 'Tafel')}.tafel.json` }; } catch (e) { return; } /* Name wie im Ablageordner („Datum Titel“) – passt in die Liste am Board */
   openDlg([h('h2', {}, '📲 Ans Smartboard senden?'),
     h('p', {}, art === 'alles' ? 'Alles (Tafeln, Notizen, Einstellungen, Listen, Vorlagen) als eine Datei – ' : `„${b.titel || 'Tafel'}“ – `, T.eingangHinweis ? T.eingangHinweis() : ''),
     h('div', { class: 'acts' }, h('button', { class: 'big', onclick: closeDlg }, 'Nicht jetzt'),
@@ -3400,7 +3401,8 @@ $('bSave').onclick = e => {
   const n = S.sel && S.sel.ids ? S.sel.ids.size : 0, zu = fn => () => { T.closePops(); fn(); };
   openPop(e.currentTarget, h('div', { class: 'sp-kasten' }, h('h4', {}, '💾 Speichern'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch' } },
     h('button', { class: 'big', onclick: zu(() => speichern(true)) }, '💾 Tafel speichern (Strg+S)'),
-    h('button', { class: 'big', title: 'Als Datei an einem Ort Ihrer Wahl sichern (z. B. USB-Stick, IServ, OneDrive, am iPad: „In Dateien sichern“)', onclick: zu(speichernUnter) }, '📤 Speichern unter … (als Datei)'))),
+    h('button', { class: 'big', title: 'Als Datei an einem Ort Ihrer Wahl sichern (z. B. USB-Stick, IServ, OneDrive, am iPad: „In Dateien sichern“)', onclick: zu(speichernUnter) }, '📤 Speichern unter … (als Datei)'),
+        T.alsArbeitsblatt ? h('button', { class: 'big', title: 'Diese Seite (oder mehrere Seiten) nach Fach, Jahrgang und Thema ablegen – später unter Einfügen › 📄 Arbeitsblätter', onclick: zu(() => T.alsArbeitsblatt()) }, '📄 Als Arbeitsblatt speichern') : '')),
     h('div', { class: 'ma-kasten' }, /* eigener, farbig eingerahmter Bereich – hebt sich vom normalen Speichern ab */
       h('h4', {}, '⭐ Zu „Meine Aufgaben“ hinzufügen'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch' } },
         h('button', { class: 'big', title: 'Alles auf dieser Seite (getippte Aufgaben, Bilder, Bausteine, Handschrift)', onclick: zu(() => T.seiteZuMeinenAufgaben(false)) }, '📄 Diese Seite'),
