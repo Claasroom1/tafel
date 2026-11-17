@@ -875,7 +875,11 @@ function schnellZeichnen() {
     teile.push(knopf([h('span', {}, '🧮 Rechner')], () => { schnellWeg(); zeigeDock('werkzeuge'); }, 'Wissenschaftlicher Rechner (Seitenleiste)'));
   } else {
     const f = leistenFavs(art), cache = {};
-    const finde = id => { const kat = art === 'einfuegen' ? id.split(':')[1] : null, key = kat || '-'; cache[key] = cache[key] || leistenKacheln(art, kat); return cache[key].find(x => x.id === id); };
+    const finde = id => {
+      /* besondere Favoriten (Erklärungen, Arbeitsblätter, eigene Vorlagen …): eigene Aktion statt einer Kachel der Seitenleiste */
+      const so = T.FAV_SONDER.find(s => id.startsWith(s.prefix));
+      if (so) { const rest = id.slice(so.prefix.length), name = so.name(rest); return name ? { id, name, el: h('button', { class: 'tile', onclick: () => so.run(rest) }, h('div', { class: 'em' }, so.sym || '⭐'), name) } : null; }
+      const kat = art === 'einfuegen' ? id.split(':')[1] : null, key = kat || '-'; cache[key] = cache[key] || leistenKacheln(art, kat); return cache[key].find(x => x.id === id); };
     for (const id of f) {
       if (id.startsWith('kat:')) { const kat = id.slice(4), b = knopf([h('span', {}, einfKatName(kat)), h('span', { class: 'fl-pf' }, ' ▾')], () => { schnellOffen = schnellOffen === id ? null : id; schnellZeichnen(); }, 'Kategorie ' + einfKatName(kat), schnellOffen === id); b.dataset.klapp = id; teile.push(b); continue; }
       const it = finde(id); if (it) teile.push(knopf([kachelSymbol(it.el), h('span', {}, it.name)], aufrufen(it), it.name));
@@ -924,7 +928,16 @@ function leisteOderDock(art, el) {
   schnellOeffnen(art);
 }
 /* ☆ in der Seitenleiste: Kacheln (Classroom, Einfügen) und ganze Einfügen-Kategorien als Favorit markieren */
+/* ☆ für einzelne Inhalte außerhalb der Kachel-Listen (Erklärungen, Arbeitsblätter, eigene Vorlagen …) – Favorit der Einfügen-Leiste, je Lehrkraft */
+T.FAV_SONDER = T.FAV_SONDER || []; /* { prefix: 'einfuegen:rw:', name: rest => Name, run: rest => Aktion, sym: '📘' } */
+T.favStern = (id, ziel) => {
+  const an = () => leistenFavs('einfuegen').includes(id);
+  const s = h('span', { class: 'fav-stern' + (an() ? ' an' : ''), title: an() ? 'Aus den Favoriten nehmen' : 'Zu den Favoriten (Leiste unten bei Einfügen)' }, an() ? '★' : '☆');
+  s.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); favUmschalten('einfuegen', id); s.textContent = an() ? '★' : '☆'; s.classList.toggle('an', an()); }, true);
+  s.addEventListener('pointerdown', e => e.stopPropagation(), true); if (!ziel.isConnected || getComputedStyle(ziel).position === 'static') ziel.style.position = 'relative'; ziel.append(s); return s;
+};
 function favSterne(art, wurzel) {
+  if (art === 'mathe-rechenwege') { (wurzel || $('dock')).querySelectorAll('.rw-tile[data-rw]').forEach(el => T.favStern('einfuegen:rw:' + el.dataset.rw, el)); return; } /* 📘 jede Erklärung einzeln */
   if (art !== 'classroom' && art !== 'einfuegen' && art !== 'aufgaben') return;
   const dock = wurzel || $('dock'), f = new Set(leistenFavs(art));
   const stern = (id, ziel) => { const s = h('span', { class: 'fav-stern' + (f.has(id) ? ' an' : ''), title: f.has(id) ? 'Aus den Favoriten nehmen' : 'Zu den Favoriten (Leiste unten)' }, f.has(id) ? '★' : '☆');
@@ -933,7 +946,7 @@ function favSterne(art, wurzel) {
   if (art === 'aufgaben') { /* Themen des Aufgabengenerators – auch nach dem Jahrgangsfilter wieder */
     const deko = () => dock.querySelectorAll('.aufliste button[data-k]').forEach(b => { if (!b.querySelector('.fav-stern')) stern('aufgaben:' + b.dataset.k, b); });
     deko(); const al = dock.querySelector('.aufliste'); if (al) new MutationObserver(deko).observe(al, { childList: true }); return; }
-  dock.querySelectorAll('.dbody .tile').forEach(el => stern(art + ':' + (art === 'einfuegen' ? einfKat + ':' : '') + kachelName(el), el));
+  dock.querySelectorAll('.dbody .tile').forEach(el => { if (!el.querySelector('.fav-stern')) stern(art + ':' + (art === 'einfuegen' ? einfKat + ':' : '') + kachelName(el), el); }); /* schon mit eigenem ☆ (Vorlagen, Erklärungen): nicht doppelt */
   if (art === 'einfuegen') dock.querySelectorAll('.kats .kat').forEach(el => { const k = EINF_KAT.find(x => x[1] === kachelName(el)); if (k) stern('kat:' + k[0], el); });
 }
 T.schnellWeg = schnellWeg;
@@ -961,7 +974,7 @@ function bgVorschau(b) {
 // wahlweise ⧉ schwebend (frei verschiebbar, Größe an der Ecke, wird gemerkt). Drei Kategorien:
 // 📑 Inhaltsverzeichnis (Seitenkarten) · 🎨 Hintergrund (Farbe, Muster, Abstand) · 🛠 Seite & Ansicht (neu, duplizieren, Vorlagen, löschen …)
 const seitenPanel = h('div', { id: 'seitenPanel' }); document.body.append(seitenPanel);
-let seitenOffen = false, seitenKat = 'liste', seitenSig = '';
+let seitenOffen = false, seitenKat = 'liste', seitenSig = '', seitenAb = null; /* seitenAb: nur die Seiten eines verteilten Arbeitsblatts zeigen */
 function seitenFreiSetzen() {
   const an = !!T.opts.seitenFrei, p = T.opts.seitenPos || {};
   seitenPanel.classList.toggle('frei', an); document.body.classList.toggle('seitenFrei', an);
@@ -1032,8 +1045,16 @@ function seitenZeichnen() {
           h('button', { class: 'big prim', onclick: () => { seitenWahl = null; seitenZeichnen(); } }, 'Fertig'))
       : h('div', { class: 'row seiten-wahl' }, h('button', { class: 'big', onclick: () => neueSeite() }, '＋ Neue Seite'),
           h('button', { class: 'big', title: 'Mehrere Seiten antippen und auf einmal löschen', onclick: () => { seitenWahl = new Set(); seitenZeichnen(); } }, '☑ Auswählen')));
+    /* 📄 Arbeitsblätter, die auf mehrere Seiten verteilt eingefügt wurden: antippen = nur dessen Seiten zur Auswahl zeigen */
+    const abs = T.arbeitsblaetterDerTafel ? T.arbeitsblaetterDerTafel() : [];
+    if (seitenAb && !abs.some(a => a.seiten.length && P[a.seiten[0]].ab.id === seitenAb)) seitenAb = null;
+    if (abs.length && !seitenWahl) body.append(h('div', { class: 'chips', style: { flexWrap: 'wrap', margin: '6px 0' } },
+      h('button', { class: 'chip' + (!seitenAb ? ' on' : ''), onclick: () => { seitenAb = null; seitenZeichnen(); } }, 'Alle Seiten'),
+      ...abs.map(a => { const id = P[a.seiten[0]].ab.id;
+        return h('button', { class: 'chip' + (seitenAb === id ? ' on' : ''), title: 'Nur die Seiten dieses Arbeitsblatts zeigen', onclick: () => { seitenAb = id; if (!a.seiten.includes(S.page)) gotoPage(a.seiten[0]); seitenZeichnen(); } }, `📄 ${a.thema} (${a.seiten.length})`); })));
     const nav = h('div', { class: 'seiten-liste' });
     P.forEach((p, i) => {
+      if (seitenAb && !(p.ab && p.ab.id === seitenAb)) return;
       const titel = h('input', { type: 'text', class: 'seite-name', value: p.titel || '', placeholder: 'Titel …', onclick: e => e.stopPropagation(),
         onchange: e => { p.titel = e.target.value.trim() || undefined; if (!p.titel) delete p.titel; T.changed(); updateToolbar(); } });
       const n = p.items.reduce((m, it) => Math.max(m, it.auf || 0), 0), gew = seitenWahl && seitenWahl.has(p);
@@ -1669,7 +1690,7 @@ const EINF_TEILE = { // welche Vorlagen in welcher Kategorie stehen
   Belehrungen: [], /* wird in belehrungen_tafeln.js gefüllt (alle be_-Bausteine) */
   Wirtschaft: ['wi_maslow', 'wi_bedarf', 'wi_gueter', 'wi_prinzip', 'wi_kreislauf', 'wi_kreislauf2:offen', 'wi_kreislauf2:geschlossen', 'wi_kreislauf2:rechnen', 'wi_kreislauf2:rechnenleer', 'wi_markt', 'wi_haushalt'],
   Struktur: ['ablauf', 'mindmap', 'ms_mindmap', 'wortwolke', 'al_wortspeicher:wortarten', 'al_wortspeicher:begriffe', 'venn', 'tabelle', 'zuordnung', 'zeitstrahl'],
-  Mathe: ['koord', 'zahlenmauer', 'zahlenstrahl', 'zahlengerade','bruchkreis', 'bruchstreifen', 'bruchstuecke', 'geoerkl', 'schraegerkl', 'dreieckerkl', 'rechnen', 'stellenwert', 'hunderter', 'uhr', 'ma_prozent', 'ma_prozent:leer', 'ma_bdp', 'ma_bdp:leer', 'ma_baum'],
+  Mathe: ['koord', 'zahlenmauer', 'zahlenstrahl', 'zahlengerade','bruchkreis', 'bruchstreifen', 'bruchstuecke', 'bruchstrahl','geoerkl', 'schraegerkl', 'dreieckerkl', 'rechnen', 'stellenwert', 'hunderter', 'uhr', 'ma_prozent', 'ma_prozent:leer', 'ma_bdp', 'ma_bdp:leer', 'ma_baum'],
   Körper: ['wuerfelnetz', 'faltnetz:wuerfel', 'koerpernetz:quader', 'faltnetz:quader', 'koerpernetz:prisma', 'faltnetz:prisma', 'koerpernetz:pyramide', 'faltnetz:pyramide',
     'koerpernetz:tetraeder', 'faltnetz:tetraeder', 'koerpernetz:zylinder', 'faltnetz:zylinder', 'koerpernetz:kegel', 'faltnetz:kegel', 'wuerfelgebaeude', 'wuerfel', 'quader', 'pyramide', 'prisma', 'zylinder', 'kegel', 'kugel'],
   Sprachen: ['vokabeln', 'satzbau', 'wortarten', 'silbenboegen', 'satzglieder',
@@ -1769,7 +1790,13 @@ function einfuegenInhalt() {
       if (!SUCH_SONDER.includes(id) && id !== 'Medien') { try { for (const el of [].concat(kachelListe(id, tile))) if (el && el.textContent && el.classList && el.classList.contains('tile')) index.push({ kat: l, el, t: suchNorm(el.textContent) }); } catch (e) {} }
       index.push({ kat: l, id, t: suchNorm(l) });
       if (id === 'Uebungen' && T.UEBUNGEN) for (const [k, u] of Object.entries(T.UEBUNGEN)) index.push({ kat: l, id, t: suchNorm(u.n + ' übung'), name: '🎲 ' + u.n, ueb: k });
-    } }
+    }
+    /* 📘 Erklärungen / Rechenwege (Mathe): einzeln auffindbar, z. B. „kürzen“, „Zahlenstrahl“, „schriftlich“, „Kopfrechnen“ */
+    for (const r of T.RECHENWEGE || []) { const el = tile(h('img', { src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.svg), alt: '' }), r.name, () => T.rechenwegSchritte(r.id));
+      T.favStern('einfuegen:rw:' + r.id, el); index.push({ kat: '📘 Erklärungen / Rechenwege', t: suchNorm(r.name + ' ' + r.gruppe + ' erklärung rechenweg mathe'), el }); }
+    /* weitere Erklärungen ohne eigene Einfügen-Kachel (z. B. Vielfache & Teiler) – Geometrie-Erklärtafeln findet die Suche schon unter ➗ Mathe */
+    for (const x of T.RECHENWEGE_EXTRA || []) if (!x.k && x.da()) { const el = tile(h('div', { class: 'em' }, x.em || '📘'), x.name, () => x.run());
+      T.favStern('einfuegen:rw:' + x.id, el); index.push({ kat: '📘 Erklärungen / Rechenwege', t: suchNorm(x.name + ' ' + x.gruppe + ' erklärung teiler vielfache ggt kgv'), el }); } }
     const woerter = n.split(/\s+/).filter(Boolean), treffer = index.filter(x => woerter.every(w => x.t.includes(w) || suchNorm(x.kat).includes(w)));
     const kacheln = treffer.filter(x => x.el), kats = treffer.filter(x => !x.el);
     if (kats.length) ergebnis.append(h('div', { class: 'row', style: { flexWrap: 'wrap', gap: '6px', marginBottom: '8px' } }, ...kats.map(x => h('button', { class: 'big', onclick: () => {
@@ -1790,7 +1817,7 @@ function einfuegenInhaltKat() {
   const sichtbar = EINF_KAT.filter(([id]) => id === 'Arbeitsblaetter' ? !!T.arbeitsblaetterPanel : id === 'Belehrungen' ? Object.keys(T.BAUSTEINE).some(k => /^be_/.test(k)) : (!EINF_TEILE[id] || EINF_TEILE[id].some(da)));
   if (!sichtbar.some(([id]) => id === einfKat)) einfKat = 'Medien';
   const tile = (img, name, fn) => h('button', { class: 'tile', onclick: fn }, img, name);
-  const kats = h('div', { class: 'kats' }, ...sichtbar.map(([id, l]) => h('button', { class: 'kat' + (einfKat === id ? ' on' : ''), onclick: () => { einfKat = id; einfSuche = ''; zeigeDock('einfuegen'); } }, l)));
+  const kats = h('div', { class: 'kats' }, ...sichtbar.map(([id, l]) => h('button', { class: 'kat' + (einfKat === id ? ' on' : ''), onclick: () => { einfKat = id; einfSuche = ''; zeigeDock('einfuegen'); if (id === 'Arbeitsblaetter' && T.arbeitsblaetterFenster) T.arbeitsblaetterFenster(); } }, l)));
   let tiles;
   if (einfKat === 'Karten') {
     const stile = h('div', { class: 'kats' }, ...[['politisch', '🗺 Politisch'], ['physisch', '⛰ Physisch'], ['stumm', '◻ Stumm']].map(([v, l]) =>
@@ -1832,7 +1859,11 @@ function einfuegenInhaltKat() {
     out.push(h('p', { class: 'hint' }, 'Antippen setzt die Formel auf die Tafel. Mit „✏️ Bearbeiten“ lässt sie sich ändern – Brüche als {Zähler|Nenner}.'));
     return out;
   }
-  if (einfKat === 'Arbeitsblaetter' && T.arbeitsblaetterPanel) return [kats, T.arbeitsblaetterPanel()]; /* 📄 eigene Arbeitsblätter nach Fach, Jahrgang, Thema (arbeitsblaetter.js) */
+  if (einfKat === 'Arbeitsblaetter' && T.arbeitsblaetterFenster) /* 📄 eigene Arbeitsblätter (arbeitsblaetter.js) – in einem eigenen, großen Fenster */
+    return [kats, h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch', gap: '8px' } },
+      (() => { const b = h('button', { class: 'big prim', onclick: () => T.arbeitsblaetterFenster() }, '📄 Arbeitsblätter öffnen'); T.favStern('einfuegen:abfenster', b); return b; })(),
+      h('button', { class: 'big', onclick: () => T.alsArbeitsblatt() }, '💾 Diese Seite als Arbeitsblatt speichern')),
+      h('p', { class: 'hint' }, 'Alle gespeicherten Arbeitsblätter – nach Fach, Jahrgang und Thema, mit Suche. Antippen fügt ein: auf mehrere Seiten verteilt oder auf einer Seite untereinander.')];
   if (einfKat === 'Vorlagen') return [kats, T.vorlagenPanel ? T.vorlagenPanel() : '']; // 📌 eigene Vorlagen (meineaufgaben.js)
   if (einfKat === 'Skelette') {
     const box = h('div', { class: 'tiles' }, h('p', { class: 'hint' }, 'Wird geladen …'));
@@ -1848,7 +1879,11 @@ function einfuegenInhaltKat() {
   }
   tiles = kachelListe(einfKat, tile);
   const schwebbar = einfKat === 'Medien' || EINF_TEILE[einfKat];
-  return [kats, schwebbar ? alsSchwebe(() => kachelMenue(einfKat)) : '', einfKat === 'Struktur' && T.zettelPanel ? T.zettelPanel() : '', h('div', { class: 'tiles' }, tiles),
+  /* 📘 Erklärungen (Rechenwege): zweiter Zugang direkt unter Einfügen › Mathe – dieselben Kacheln wie Mathe › 📘 Erklärungen */
+  const erkl = einfKat === 'Mathe' && T.rechenwegePanel ? h('button', { class: 'big prim', style: { width: '100%', justifyContent: 'flex-start', margin: '0 0 8px' }, title: 'Erweitern, Kürzen, Zahlenstrahl einteilen, schriftlich rechnen, Kopfrechnen, Prozent, Terme … – Schritt für Schritt',
+    onclick: () => { T.rwZurueck = 'einfuegen'; zeigeDock('mathe-rechenwege'); } }, '📘 Erklärungen / Rechenwege – Schritt für Schritt') : '';
+  if (erkl) T.favStern('einfuegen:rwalle', erkl); /* ☆ auch für den ganzen Erklärungen-Zugang */
+  return [kats, erkl, schwebbar ? alsSchwebe(() => kachelMenue(einfKat)) : '', einfKat === 'Struktur' && T.zettelPanel ? T.zettelPanel() : '', h('div', { class: 'tiles' }, tiles),
     einfKat === 'Medien' ? h('div', { class: 'ue-erkl', style: { marginTop: '12px', display: 'block' } }, h('b', {}, '🖼 Aus einem Bild eine Übung machen'),
       h('p', { class: 'hint', style: { margin: '4px 0 0' } }, 'Bild einfügen, antippen › ☰: 🧩 Puzzle zum Zusammensetzen · 🔲 Aufdeck-Kacheln · 🏷 Beschriften / Zuordnen. Auch unter 🎲 Übungen › „Mit einem Bild“.')) : '', einfKat === 'Karten' ? h('p', { class: 'hint' }, 'Die Karten sind selbst gezeichnet und stark vereinfacht.') : ''];
 }
@@ -1887,24 +1922,31 @@ function kachelListe(kat, tile) {
   }
   const vorlagen = ((T.GERUEST_VORLAGEN || {})[kat] || []).map(([em, name, d]) => tile(h('div', { class: 'em' }, em), name, () => { /* 📝 Gerüst als bearbeitbare Vorlage */
     insertObj('geruest', { ...T.BAUSTEINE.geruest.def, ...d }); toast('Gerüst eingefügt – mit „✏️ Bearbeiten“ Texte ändern; im Kontextmenü ★ / ★★ / ★★★ für die Hilfen.', 3500); }));
+  /* Kacheln mit eigenem Menü statt eines einzelnen Bildes – gilt in beiden Kachel-Listen (mit und ohne Varianten);
+     vorher landete in „➗ Mathe“ (hat Varianten) z. B. bei „Bruchstücke zum Legen“ nur das Vorschaubild auf der Tafel */
+  const sonderKachel = k => {
+    if (k === 'schaltzeichen') { schaltzeichenMenue(); return true; } /* schwebendes Menü: Bauteile direkt antippen */
+    if (k === 'ablauf' && T.ablaufMenue) { T.ablaufMenue(); return true; } /* schwebendes Menü: Abläufe */
+    if (k === 'bruchstuecke' && T.bruchstueckeMenue) { T.bruchstueckeMenue(); return true; } /* 🍕 Form und Anzahl wählen, dann n bewegliche Stücke */
+    if (k === 'bruchstrahl' && T.bruchstrahlDialog) { const o = insertObj(k, { ...T.BAUSTEINE[k].def }); setTimeout(() => T.bruchstrahlDialog(o), 80); return true; } /* 📏 gleich die Brüche eingeben */
+    if (k === 'geoerkl' && T.geoErklMenue) { T.geoErklMenue(); return true; } /* 📐 Geodreieck erklärt */
+    if (k === 'schraegerkl' && T.schraegErklMenue) { T.schraegErklMenue(); return true; } /* 🧊 Schrägbild Schritt für Schritt */
+    if (k === 'dreieckerkl' && T.dreieckErklMenue) { T.dreieckErklMenue(); return true; } /* 🔺 Dreiecke erklärt */
+    return false;
+  };
   const KV = T.KACHEL_VARIANTEN || {}; /* „baustein:variante“ = gleicher Baustein mit voreingestellten Werten */
   const varianten = (EINF_TEILE[kat] || []).filter(k => KV[k] && T.BAUSTEINE[k.split(':')[0]]).length;
   if (varianten) { let warPaar = false; return (EINF_TEILE[kat] || []).filter(k => T.BAUSTEINE[k.split(':')[0]]).map(kk => {
     const k = kk.split(':')[0], v = KV[kk], d = { ...T.BAUSTEINE[k].def, ...(v ? v.d : {}) };
     const bild = v ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(T.genObj(k, { ...d, ...(v.vorschau || {}) }, false).svg) : T.thumb(k);
-    const el = tile(h('img', { src: bild, alt: '' }), v ? v.name : T.BAUSTEINE[k].name, () => { insertObj(k, { ...d }); if (T.BAUSTEINE[k].felder.length) toast('Eingefügt – mit „✏️ Bearbeiten“ anpassen (Maße, Inhalte …)', 2600); });
+    const el = tile(h('img', { src: bild, alt: '' }), v ? v.name : T.BAUSTEINE[k].name, () => { if (!v && sonderKachel(k)) return; insertObj(k, { ...d }); if (T.BAUSTEINE[k].felder.length) toast('Eingefügt – mit „✏️ Bearbeiten“ anpassen (Maße, Inhalte …)', 2600); });
     /* Netz links, animierte Fassung rechts daneben – Zeile für Zeile; danach geht es in einer neuen Zeile weiter */
     const paar = k === 'faltnetz' ? 'paar-b' : (k === 'wuerfelnetz' || k === 'koerpernetz') ? 'paar-a' : (warPaar ? 'nach-paar' : '');
     if (paar && el && el.classList) el.classList.add(paar); warPaar = paar === 'paar-a' || paar === 'paar-b';
     return el;
   }).concat(vorlagen); }
   return (EINF_TEILE[kat] || []).filter(k => T.BAUSTEINE[k]).map(k => tile(h('img', { src: T.thumb(k), alt: '' }), T.BAUSTEINE[k].name, () => {
-    if (k === 'schaltzeichen') return schaltzeichenMenue(); /* schwebendes Menü: Bauteile direkt antippen */
-    if (k === 'ablauf' && T.ablaufMenue) return T.ablaufMenue(); /* schwebendes Menü: Abläufe */
-    if (k === 'bruchstuecke' && T.bruchstueckeMenue) return T.bruchstueckeMenue(); /* 🍕 Form und Anzahl wählen, dann n bewegliche Stücke */
-    if (k === 'geoerkl' && T.geoErklMenue) return T.geoErklMenue(); /* 📐 Geodreieck erklärt: Tafel wählen oder alle auf neue Seiten */
-    if (k === 'schraegerkl' && T.schraegErklMenue) return T.schraegErklMenue(); /* 🧊 Schrägbild Schritt für Schritt */
-    if (k === 'dreieckerkl' && T.dreieckErklMenue) return T.dreieckErklMenue(); /* 🔺 Dreiecke erklärt */
+    if (sonderKachel(k)) return;
     const o = insertObj(k, { ...T.BAUSTEINE[k].def });
     if (k === 'wortwolke') T.editObj(o); /* gleich Begriffe sammeln */
     else if (T.BAUSTEINE[k].felder.length) toast('Eingefügt – mit „✏️ Bearbeiten“ anpassen (Maße, Inhalte …)', 2600);
@@ -2019,7 +2061,7 @@ function aufgabenPanel() {
     rechts.innerHTML = '';
     wahlKats.querySelectorAll('.kat').forEach(b => b.classList.toggle('on', b.dataset.w === matheWahl));
     typen.querySelectorAll('button').forEach(c => c.classList.toggle('on', matheWahl === 'gen' && c.dataset.k === typ));
-    if (matheWahl === 'erkl') rechts.append(h('h3', { style: { marginTop: '2px' } }, 'Erklärungen'), h('div', { class: 'tiles klein' }, h('button', { class: 'tile', onclick: () => zeigeDock('mathe-rechenwege') }, h('div', { class: 'em' }, '📘'), 'Rechenwege Schritt für Schritt')));
+    if (matheWahl === 'erkl') rechts.append(h('h3', { style: { marginTop: '2px' } }, 'Erklärungen'), h('div', { class: 'tiles klein' }, h('button', { class: 'tile', onclick: () => { T.rwZurueck = 'aufgaben'; zeigeDock('mathe-rechenwege'); } }, h('div', { class: 'em' }, '📘'), 'Rechenwege Schritt für Schritt')));
     else if (matheWahl === 'rechner') rechts.append(h('h3', { style: { marginTop: '2px' } }, 'Rechner'), h('div', { class: 'tiles klein' },
       h('button', { class: 'tile', onclick: () => taschenrechnerAufTafel() }, h('div', { class: 'em' }, '🧮'), 'Taschenrechner'),
       h('button', { class: 'tile', onclick: () => T.teilerFinder() }, h('div', { class: 'em' }, '🔢'), 'Vielfache & Teiler')),
@@ -2294,6 +2336,7 @@ function settingsDialog() {
       T.rechtliches ? h('button', { class: 'big', title: 'Datenschutzhinweis, Lizenz, Hinweis zu den Belehrungen', onclick: () => { closeDlg(); T.rechtliches(); } }, '🔒 Datenschutz & Lizenz') : ''),
     h('div', { class: 'einst' }, links, rechts),
     h('p', { class: 'hint', style: { margin: '8px 0 0' } }, nurBoard ? 'Hier nur die Einstellungen des Boards (Finger, Handballen …). Persönliche Einstellungen – Stift, Leiste, Darstellung, Sperre & PIN, Ordner – nach dem Anmelden.' : T.opts.lehrkraft ? `Gilt für ${T.opts.lehrkraft} (außer Finger, Handballen, Druck und Bildschirmtastatur – die gehören zum Board).` : 'Tipp: Mit gewählter Lehrkraft werden die Einstellungen in ihrem Ordner gespeichert.'),
+    h('p', { class: 'hint', style: { margin: '4px 0 0', opacity: '.75' } }, `Version ${T.VERSION || '?'}` + (location.protocol === 'file:' ? ' · vom eigenen Rechner bzw. aus IServ' : ' · ' + location.host)), /* zum Abgleichen: welche Fassung läuft gerade? */
     h('div', { class: 'acts' }, nurBoard ? h('button', { class: 'big', onclick: () => { closeDlg(); archiv(); anmeldenDialog(); } }, '👤 Anmelden') : '', h('button', { class: 'big prim', onclick: closeDlg }, 'Fertig'))], true);
   zeige(einstBereich);
 }

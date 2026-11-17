@@ -93,7 +93,7 @@ T.alsArbeitsblatt = (von, bis) => {
     if (!e.bild && T.vorschauBild) { try { e.bild = await T.vorschauBild(seiten[0].items, seiten[0].bg); } catch (x) {} }
     try { await sichern(e, seiten); } catch (x) { T.toast('Nicht gespeichert: ' + (x.message || x), 5000); return; }
     T.closeDlg(); neuLaden();
-    T.toast(`📄 Arbeitsblatt „${e.thema}“ gespeichert – unter Einfügen › 📄 Arbeitsblätter.`, 3000, [['Öffnen', () => T.einfuegenKategorie && T.einfuegenKategorie('Arbeitsblaetter')]]);
+    T.toast(`📄 Arbeitsblatt „${e.thema}“ gespeichert – unter Einfügen › 📄 Arbeitsblätter.`, 3000, [['Öffnen', () => T.arbeitsblaetterFenster()]]);
   };
   T.openDlg([h('h2', {}, '📄 Als Arbeitsblatt speichern'), bild,
     h('label', { class: 'fld' }, 'Thema', thema),
@@ -106,12 +106,72 @@ T.alsArbeitsblatt = (von, bis) => {
   setTimeout(() => thema.focus(), 50);
 };
 
-/* ---------- Einfügen ---------- */
+/* ---------- Vorschau & Einfügen ---------- */
+/* Bild einer Seite (alles darauf, eingepasst) in gewünschter Breite – groß genug zum Lesen */
+async function seitenBild(p, breite) {
+  const r = rahmenVon(p.items || []) || { x0: 0, y0: 0, x1: 1200, y1: 800 }, m = 16, w = r.x1 - r.x0 + 2 * m, hh = r.y1 - r.y0 + 2 * m, s = breite / w;
+  const c = document.createElement('canvas'); c.width = Math.round(w * s); c.height = Math.max(20, Math.round(hh * s));
+  const x = c.getContext('2d'), pg = { ...p, view: { x: 0, y: 0, z: 1 } }, ber = { x0: r.x0 - m, y0: r.y0 - m, x1: r.x1 + m, y1: r.y1 + m };
+  const male = () => { x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.setTransform(s, 0, 0, s, -ber.x0 * s, -ber.y0 * s); T.paintPage(x, pg, ber, 1 / s, { export: true }); };
+  male(); await new Promise(res => setTimeout(res, 400)); male(); /* Bilder sind dann geladen */
+  return c.toDataURL('image/jpeg', 0.88);
+}
+/* Antippen eines Arbeitsblatts: große Vorschau aller Seiten (blättern, zoomen), Seiten auswählen, dann einfügen –
+   mehrere Seiten: „auf Seiten verteilen“ oder „auf einer Seite untereinander“; eine Seite: „neue Seite“ oder „auf diese Seite“ */
 async function einfuegen(e) {
   let d; try { d = await laden(e); } catch (x) { d = null; }
   if (!d || !Array.isArray(d.seiten) || !d.seiten.length) { T.toast('Das Arbeitsblatt konnte nicht geladen werden.', 4000); return; }
+  const n = d.seiten.length, gross = new Array(n), klein = new Array(n), wahl = new Set(d.seiten.map((_, i) => i));
+  let k = 0, zoom = 1;
+  const bild = h('img', { alt: '', title: 'Antippen: vergrößern / wieder einpassen', style: { display: 'block', width: '100%', cursor: 'zoom-in', background: '#fff' }, onclick: () => setzeZoom(zoom > 1 ? 1 : 2) });
+  const ansicht = h('div', { style: { maxHeight: '56vh', overflow: 'auto', border: '1px solid var(--line, #ccc)', borderRadius: '10px', background: '#e5e7eb', touchAction: 'pan-x pan-y' } }, bild);
+  const stand = h('b', { style: { minWidth: '110px', textAlign: 'center' } }), zoomTxt = h('span', { class: 'hint', style: { minWidth: '50px' } });
+  const zurueck = h('button', { class: 'big', onclick: () => zeige(k - 1) }, '◀'), weiter = h('button', { class: 'big', onclick: () => zeige(k + 1) }, '▶');
+  const leiste = h('div', { class: 'row', style: { flexWrap: 'nowrap', gap: '8px', overflowX: 'auto', padding: '4px 0' } });
+  const knoepfe = h('div', { class: 'row', style: { flexWrap: 'wrap', gap: '8px', marginTop: '6px' } }), zahl = h('span', { class: 'hint' });
+  const setzeZoom = z => { zoom = T.clamp(z, 1, 4); bild.style.width = zoom * 100 + '%'; bild.style.cursor = zoom > 1 ? 'zoom-out' : 'zoom-in'; zoomTxt.textContent = Math.round(zoom * 100) + ' %'; };
+  const zeige = async i => {
+    k = T.clamp(i, 0, n - 1); stand.textContent = `Seite ${k + 1}/${n}`; zurueck.disabled = k === 0; weiter.disabled = k === n - 1;
+    [...leiste.children].forEach((el, j) => { el.style.outline = j === k ? '3px solid var(--acc, #4f46e5)' : 'none'; });
+    if (!gross[k]) { bild.style.opacity = '.4'; gross[k] = await seitenBild(d.seiten[k], 1500); }
+    if (k === T.clamp(i, 0, n - 1)) { bild.src = gross[k]; bild.style.opacity = '1'; }
+  };
+  const aktionen = () => {
+    const sel = [...wahl].sort((a, b) => a - b), m = sel.length, teil = { ...d, seiten: sel.map(i => d.seiten[i]) }, los = art => { T.closeDlg(); einsetzen(e, teil, art); };
+    zahl.textContent = n > 1 ? `${m} von ${n} Seiten gewählt` : '';
+    knoepfe.innerHTML = '';
+    if (!m) { knoepfe.append(h('span', { class: 'hint' }, 'Mindestens eine Seite ankreuzen.')); return; }
+    knoepfe.append(m > 1 ? h('button', { class: 'big prim', onclick: () => los('seiten') }, `📑 Auf ${m} Seiten verteilen`) : h('button', { class: 'big prim', onclick: () => los('seiten') }, '📄 Als neue Seite'),
+      m > 1 ? h('button', { class: 'big', onclick: () => los('untereinander') }, '⬇ Auf einer Seite untereinander') : h('button', { class: 'big', title: 'Unter das, was schon auf der aktuellen Seite steht', onclick: () => los('hier') }, '⬇ Auf diese Seite (darunter)'));
+  };
+  d.seiten.forEach((p, i) => {
+    const img = h('img', { alt: '', style: { width: '120px', height: '90px', objectFit: 'contain', background: '#fff', display: 'block', borderRadius: '6px' } });
+    const haken = h('input', { type: 'checkbox', title: 'Diese Seite einfügen', style: { width: '22px', height: '22px' }, onclick: ev => ev.stopPropagation(), onchange: ev => { ev.target.checked ? wahl.add(i) : wahl.delete(i); aktionen(); } });
+    haken.checked = true;
+    leiste.append(h('div', { style: { flex: '0 0 auto', cursor: 'pointer', padding: '4px', borderRadius: '8px', background: 'var(--surface2, #f3f4f6)' }, title: 'Seite ' + (i + 1) + ' ansehen', onclick: () => zeige(i) },
+      img, h('label', { class: 'row', style: { alignItems: 'center', gap: '6px', justifyContent: 'center', marginTop: '4px' }, onclick: ev => ev.stopPropagation() }, n > 1 ? haken : '', h('span', {}, String(i + 1)))));
+    klein[i] = img;
+  });
+  T.openDlg([h('h2', {}, `📄 ${e.thema}`),
+    h('div', { class: 'row', style: { alignItems: 'center', gap: '8px', flexWrap: 'wrap' } }, zurueck, stand, weiter, h('span', { style: { flex: 1 } }),
+      h('button', { class: 'big', title: 'Verkleinern', onclick: () => setzeZoom(zoom - 0.5) }, '🔍−'), zoomTxt, h('button', { class: 'big', title: 'Vergrößern', onclick: () => setzeZoom(zoom + 0.5) }, '🔍＋')),
+    ansicht,
+    n > 1 ? h('div', { class: 'row', style: { alignItems: 'center', gap: '8px', marginTop: '6px' } }, h('b', {}, 'Alle Seiten'), zahl,
+      h('button', { class: 'big', onclick: () => { const alle = wahl.size === n; wahl.clear(); if (!alle) d.seiten.forEach((_, i) => wahl.add(i)); leiste.querySelectorAll('input').forEach((c, i) => { c.checked = wahl.has(i); }); aktionen(); } }, 'Alle / keine')) : '',
+    n > 1 ? leiste : '',
+    knoepfe,
+    h('p', { class: 'hint' }, 'Bild antippen = vergrößern (dann verschieben bzw. scrollen), nochmals = einpassen. ' + (n > 1 ? 'Häkchen = diese Seite einfügen. Verteilte Seiten heißen „' + e.thema + ' (1/…)“ und stehen im 📑 Seiten-Menü zur Auswahl.' : ''))], true);
+  setzeZoom(1); aktionen(); await zeige(0);
+  for (let i = 0; i < n; i++) { if (!T.h || !klein[i].isConnected) break; klein[i].src = await seitenBild(d.seiten[i], 260); } /* Mini-Vorschauen nach und nach */
+}
+/* Rahmen aller Elemente einer Seite (Weltkoordinaten) */
+const rahmenVon = items => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const it of items) { const b = T.bbox(it); x0 = Math.min(x0, b.x0); y0 = Math.min(y0, b.y0); x1 = Math.max(x1, b.x1); y1 = Math.max(y1, b.y1); }
+  return isFinite(x0) ? { x0, y0, x1, y1 } : null; };
+const verschiebe = (it, dx, dy) => { if (it.t === 's') it.p = it.p.map(q => [T.r1(q[0] + dx), T.r1(q[1] + dy), q[2]]); else { it.x += dx; it.y += dy; } };
+function einsetzen(e, d, art) {
   T.snap();
-  const start = S.page + 1;
+  const abId = T.uid(), n = d.seiten.length;
   const neu = d.seiten.map(p => {
     const k = JSON.parse(JSON.stringify(p)), ids = new Map((k.items || []).map(it => [it.id, T.uid()]));
     k.items = (k.items || []).map(it => {
@@ -121,10 +181,52 @@ async function einfuegen(e) {
     if (T.neueGruppen) T.neueGruppen(k.items);
     if (!k.view) k.view = { x: 0, y: 0, z: 1 };
     return k; });
-  S.board.pages.splice(start, 0, ...neu);
-  T.gotoPage(start); T.changed && T.changed();
-  T.toast(`📄 „${e.thema}“ eingefügt (${neu.length} Seite${neu.length === 1 ? '' : 'n'} ab Seite ${start + 1}).`, 2500);
+  if (art === 'seiten') { /* jede Seite eine Tafelseite – Titel und Kennung fürs 📑 Seiten-Menü */
+    neu.forEach((p, i) => { p.titel = n > 1 ? `${e.thema} (${i + 1}/${n})` : e.thema; p.ab = { id: abId, thema: e.thema, teil: i + 1, von: n }; });
+    const start = S.page + 1;
+    S.board.pages.splice(start, 0, ...neu);
+    T.gotoPage(start); T.changed();
+    T.toast(`📄 „${e.thema}“ eingefügt (${n} Seite${n === 1 ? '' : 'n'} ab Seite ${start + 1}).`, 2500);
+    return;
+  }
+  /* untereinander: alle Seiten nacheinander nach unten, linksbündig – auf eine neue Seite bzw. unter das Vorhandene dieser Seite */
+  const ziel = art === 'hier' ? T.page() : Object.assign(T.newPage(neu[0].bg || 'weiss'), { abstand: neu[0].abstand || null, titel: e.thema });
+  const vorher = rahmenVon(ziel.items), ABST = 60;
+  let y = vorher ? vorher.y1 + ABST : 0, x = vorher ? vorher.x0 : 0, erster = null;
+  for (const p of neu) {
+    const r = rahmenVon(p.items); if (!r) continue;
+    p.items.forEach(it => verschiebe(it, x - r.x0, y - r.y0));
+    if (!erster) erster = { x, y };
+    ziel.items.push(...p.items); y += r.y1 - r.y0 + ABST;
+  }
+  if (art !== 'hier') {
+    const z = Math.min(1, (T.W - T.ox - 80) / Math.max(400, (rahmenVon(ziel.items) || { x1: 1000, x0: 0 }).x1 - (rahmenVon(ziel.items) || { x0: 0 }).x0));
+    ziel.view = { x: 40 - (erster ? erster.x : 0) * z, y: 70 - (erster ? erster.y : 0) * z, z };
+    S.board.pages.splice(S.page + 1, 0, ziel); T.gotoPage(S.page + 1);
+  } else { const v = T.page().view; if (erster) { v.y = 70 - erster.y * v.z; } T.render(); T.renderOver(); }
+  T.changed();
+  T.toast(`📄 „${e.thema}“ ${art === 'hier' ? 'auf diese Seite gesetzt' : 'auf einer neuen Seite untereinander eingefügt'} – nach unten scrollen für den Rest.`, 3000);
 }
+
+/* ---------- ⭐ Favoriten (Einfügen-Leiste): ein einzelnes Arbeitsblatt bzw. das Arbeitsblätter-Fenster ---------- */
+const favId = e => 'einfuegen:ab:' + encodeURIComponent(e.id) + '|' + e.thema;
+T.FAV_SONDER = T.FAV_SONDER || [];
+T.FAV_SONDER.push({ prefix: 'einfuegen:ab:', sym: '📄', name: rest => rest.slice(rest.indexOf('|') + 1),
+  run: async rest => { cache = null; const id = decodeURIComponent(rest.slice(0, rest.indexOf('|'))), e = (await liste()).find(x => String(x.id) === id);
+    if (e) einfuegen(e); else T.toast('Dieses Arbeitsblatt gibt es nicht mehr (gelöscht, umbenannt oder anderer Ablageordner).', 4000); } },
+  { prefix: 'einfuegen:abfenster', sym: '📄', name: () => 'Arbeitsblätter', run: () => T.arbeitsblaetterFenster() });
+
+/* ---------- Eigenes Fenster (Einfügen › ☰ Alle › 📄 Arbeitsblätter) ---------- */
+T.arbeitsblaetterFenster = () => {
+  T.openDlg([h('h2', {}, '📄 Arbeitsblätter'), T.arbeitsblaetterPanel(),
+    h('p', { class: 'hint' }, 'Antippen fügt das Arbeitsblatt ein – vorher fragt die App: auf mehrere Seiten verteilen oder auf einer Seite untereinander.')], true);
+};
+/* Liste der Arbeitsblätter, die auf dieser Tafel auf mehrere Seiten verteilt sind (für das 📑 Seiten-Menü) */
+T.arbeitsblaetterDerTafel = () => {
+  const m = new Map(); if (!S.board) return [];
+  S.board.pages.forEach((p, i) => { if (p.ab && p.ab.id) { if (!m.has(p.ab.id)) m.set(p.ab.id, { thema: p.ab.thema, seiten: [] }); m.get(p.ab.id).seiten.push(i); } });
+  return [...m.values()];
+};
 
 T.arbeitsblaetterPanel = () => {
   const box = h('div', {}, h('p', { class: 'hint' }, 'Wird geladen …'));
@@ -158,7 +260,7 @@ T.arbeitsblaetterPanel = () => {
         else if (e.bildFh) e.bildFh.getFile().then(f => { e.bild = URL.createObjectURL(f); img.src = e.bild; }).catch(() => {});
         const t = h('button', { class: 'tile vl-tile', title: verwalten ? '' : 'Antippen: als neue Seite(n) hinter der aktuellen einfügen', onclick: () => { if (!verwalten) einfuegen(e); } },
           e.bild || e.bildFh ? img : h('div', { class: 'em' }, '📄'), e.thema);
-        if (!verwalten) return t;
+        if (!verwalten) { if (T.favStern) T.favStern(favId(e), t); return t; } /* ☆ = in die Einfügen-Leiste */
         return h('div', { class: 'vl-verw' }, t, h('div', { class: 'row' },
           h('button', { class: 'big warn', title: 'Löschen', onclick: async () => { if (await T.frage(`Arbeitsblatt „${e.thema}“ löschen?`, { ok: '🗑 Löschen' })) { try { await loeschen(e); } catch (x) { T.toast('Nicht gelöscht: ' + (x.message || x), 4000); } neuLaden(); } } }, '🗑')));
       })));

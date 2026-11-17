@@ -46,6 +46,12 @@ if defined INK (
   >> "%DESKTOP%\Tafel-App (ohne SMART Ink).url" echo URL=!U!/Tafel%%20starten%%20^(ohne%%20SMART%%20Ink^).bat
   >> "%DESKTOP%\Tafel-App (ohne SMART Ink).url" echo IconFile=%ORDNER%\app\icons\tafel-ohne-ink.ico
   >> "%DESKTOP%\Tafel-App (ohne SMART Ink).url" echo IconIndex=0
+  if exist "%ORDNER%\Tafel online starten (ohne SMART Ink).bat" (
+    > "%DESKTOP%\Tafel-App online (ohne SMART Ink).url" echo [InternetShortcut]
+    >> "%DESKTOP%\Tafel-App online (ohne SMART Ink).url" echo URL=!U!/Tafel%%20online%%20starten%%20^(ohne%%20SMART%%20Ink^).bat
+    >> "%DESKTOP%\Tafel-App online (ohne SMART Ink).url" echo IconFile=%ORDNER%\app\icons\tafel-ohne-ink.ico
+    >> "%DESKTOP%\Tafel-App online (ohne SMART Ink).url" echo IconIndex=0
+  )
 )
 if exist "%DESKTOP%\Tafel-App.url" (
   echo   Verknuepfung angelegt: Tafel-App

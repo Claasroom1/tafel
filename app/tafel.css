@@ -1704,3 +1704,6 @@ body.seitenAuf:not(.seitenFrei):not(.seite-links) #nreiter.links-leiste, body.se
 #sitzplanBox .sp-klein { font-size: 13px; color: var(--muted); }
 #sitzplanBox .sp-flaeche { flex: 1; min-height: 0; padding: 8px; touch-action: none; background: var(--bg); }
 #sitzplanBox .sp-flaeche svg { display: block; }
+
+/* ☆ auf den Erklärungs-Kacheln links oben (rechts sitzt 📝) */
+.rw-tile .fav-stern { top: 4px; left: 4px; right: auto; transform: none; }

@@ -389,9 +389,9 @@ T.BAUSTEINE = {
   // + und −: Komma unter Komma, Übertragszeile, Doppelstrich, Ergebniszeile. ·: Aufgabe in einer Zeile, darunter Zeilen für die Teilprodukte.
   // zelle = Kästchengröße (auf karierten Seiten genau das Tafelraster), raster = eigene Kästchen zeichnen (auf unkarierten Seiten)
   schriftlich: { name: 'Schriftliche Aufgabe', gruppe: 'Mathe', def: { op: '+', a: '123', b: '45', label: '', zelle: 48, raster: true },
-    felder: [{ k: 'a', l: 'Erste Zahl', typ: 'text' }, { k: 'op', l: 'Rechenart', typ: 'auswahl', opts: [['+', 'plus'], ['−', 'minus'], ['·', 'mal']] }, { k: 'b', l: 'Zweite Zahl', typ: 'text' }, { k: 'raster', l: 'Kästchen zeichnen', typ: 'check' }],
+    felder: [{ k: 'a', l: 'Erste Zahl', typ: 'text' }, { k: 'op', l: 'Rechenart', typ: 'auswahl', opts: [['+', 'plus'], ['−', 'minus'], ['·', 'mal']] }, { k: 'b', l: 'Zweite Zahl (bei plus/minus weitere mit ; trennen, z. B. 45; 128)', typ: 'text' }, { k: 'raster', l: 'Kästchen zeichnen', typ: 'check' }],
     gen: (d, P) => {
-      const c = +d.zelle || 48, fs = c * 0.62, A = String(d.a).replace(/\./g, '').trim(), Bz = String(d.b).replace(/\./g, '').trim();
+      const c = +d.zelle || 48, fs = c * 0.62, A = String(d.a).replace(/\./g, '').trim(), Bliste = String(d.b).split(';').map(z => z.replace(/\./g, '').trim()).filter(Boolean), Bz = Bliste[0] || '0';
       const zeichen = (txt, col, row, farbe = P.ink, gr = fs, extra = '') => tx(col * c + c / 2, row * c + c / 2, txt, farbe, gr, 'middle', extra);
       let s = '', cols, rows; const zahlen = [];
       if (d.op === '·') {
@@ -399,22 +399,27 @@ T.BAUSTEINE = {
         const start = cols - 1 - auf.length; auf.forEach((ch, i) => zahlen.push([ch, start + i, 0]));
         if (d.label) zahlen.push([d.label, 0, 0, 'klein']);
         s += ln(c * 0.9, c, (cols - 0.1) * c, c, P.ink, 3); // Strich unter der Aufgabe
-        const yl = (rows - 1) * c; s += ln(c * 0.9, yl - 3, (cols - 0.1) * c, yl - 3, P.ink, 3) + ln(c * 0.9, yl + 3, (cols - 0.1) * c, yl + 3, P.ink, 3); // Ergebnis
+        rows += 1; /* Zeilen: Aufgabe, Teilprodukte, Übertrag, Ergebnis, frei */
+        const ye = (rows - 2) * c; s += ln(c * 0.9, ye, (cols - 0.1) * c, ye, P.ink, 4.5); // etwas dickerer Strich über dem Ergebnis
+        const yl = (rows - 1) * c; s += ln(c * 0.9, yl - 3, (cols - 0.1) * c, yl - 3, P.ink, 2.5) + ln(c * 0.9, yl + 3, (cols - 0.1) * c, yl + 3, P.ink, 2.5); // Doppelstrich unter dem Ergebnis
       } else {
-        const teile = [A, Bz].map(z => z.split(',')), ganz = Math.max(...teile.map(t => t[0].length)), komma = Math.max(...teile.map(t => (t[1] || '').length));
-        cols = 2 + ganz + 1 + (komma ? komma + 1 : 0); rows = 5; // Rechenzeichen, Überlauf-Stelle, Ziffern …, frei
+        /* untereinander: alle Zahlen (jede weitere mit eigenem Rechenzeichen), Übertragszeile, dicker Strich, Ergebnis, Doppelstrich darunter */
+        const teile = [A, ...Bliste].map(z => z.split(',')), n = teile.length, ganz = Math.max(...teile.map(t => t[0].length)), komma = Math.max(...teile.map(t => (t[1] || '').length));
+        cols = 2 + ganz + 1 + (komma ? komma + 1 : 0); rows = n + 3; // Rechenzeichen, Überlauf-Stelle, Ziffern …; Zeilen: Zahlen, Übertrag, Ergebnis, frei
         teile.forEach(([g, f], r) => {
           [...g].forEach((ch, i) => zahlen.push([ch, 2 + ganz - g.length + i, r]));
           if (komma) { zahlen.push([',', 2 + ganz, r]); [...(f || '')].forEach((ch, i) => zahlen.push([ch, 3 + ganz + i, r])); }
+          if (r) zahlen.push([d.op === '−' ? '−' : '+', 0, r]);
         });
-        zahlen.push([d.op === '−' ? '−' : '+', 0, 1]); if (d.label) zahlen.push([d.label, 0, 0, 'klein']);
-        s += rc(c, 2 * c, (cols - 1) * c, c, 'none', P.soft, 0) + zeichen('Ü', 0, 2, P.red, fs * 0.55); // Übertragszeile
-        s += ln(c * 0.9, 3 * c - 3, (cols - 0.1) * c, 3 * c - 3, P.ink, 3) + ln(c * 0.9, 3 * c + 3, (cols - 0.1) * c, 3 * c + 3, P.ink, 3);
+        if (d.label) zahlen.push([d.label, 0, 0, 'klein']);
+        s += rc(c, n * c, (cols - 1) * c, c, 'none', P.soft, 0) + zeichen('Ü', 0, n, P.red, fs * 0.55); // Übertragszeile
+        s += ln(c * 0.9, (n + 1) * c, (cols - 0.1) * c, (n + 1) * c, P.ink, 4.5); // etwas dickerer Strich: Übertrag | Ergebnis
+        s += ln(c * 0.9, (n + 2) * c - 3, (cols - 0.1) * c, (n + 2) * c - 3, P.ink, 2.5) + ln(c * 0.9, (n + 2) * c + 3, (cols - 0.1) * c, (n + 2) * c + 3, P.ink, 2.5); // Doppelstrich unter dem Ergebnis
       }
       const W = cols * c, H = rows * c;
       if (d.raster) { let g = ''; for (let i = 0; i <= cols; i++) g += ln(i * c, 0, i * c, H, P.grid, 1); for (let j = 0; j <= rows; j++) g += ln(0, j * c, W, j * c, P.grid, 1); s = g + s; }
       for (const [ch, col, row, klein] of zahlen) s += zeichen(ch, col, row, P.ink, klein ? fs * 0.72 : fs, klein ? '' : 'font-weight="500"');
-      return { svg: doc(W, H, s), w: W, h: H, ergebnis: (d.op === '·' ? rows - 0.5 : 3.5) * c }; // Mitte der Ergebniszeile (für die Lösung daneben)
+      return { svg: doc(W, H, s), w: W, h: H, ergebnis: (rows - 1.5) * c }; // Mitte der Ergebniszeile (für die Lösung daneben)
     } },
   // einzelne Lösung (Aufgabengenerator): verdeckt als „?“-Kärtchen, Antippen deckt auf bzw. wieder zu
   loesung: { name: 'Lösung zum Antippen', gruppe: 'Werkzeug', def: { text: '', offen: false, size: 36 },

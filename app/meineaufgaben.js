@@ -208,6 +208,13 @@ T.alsVorlage = ganzeSeite => {
     h('div', { class: 'acts' }, h('button', { class: 'big prim', onclick: speichern }, '📌 Speichern'))]);
   setTimeout(() => name.focus(), 50);
 };
+/* ⭐ Favoriten (Einfügen-Leiste): eine eigene oder gemeinsame Vorlage direkt einsetzen */
+const vlFavId = v => 'einfuegen:vl:' + encodeURIComponent(v.id) + '|' + v.name;
+T.FAV_SONDER = T.FAV_SONDER || [];
+T.FAV_SONDER.push({ prefix: 'einfuegen:vl:', sym: '📌', name: rest => rest.slice(rest.indexOf('|') + 1),
+  run: async rest => { const id = decodeURIComponent(rest.slice(0, rest.indexOf('|'))); vorlagen = null; await vorlagenLaden();
+    const v = vorlagen.find(x => String(x.id) === id) || (await gemeinsamLaden()).find(x => String(x.id) === id);
+    if (v) { seiteEinsetzen(v, !!v.seite); if (!v.seite) T.toast('📌 „' + v.name + '“ eingesetzt.', 1800); } else T.toast('Diese Vorlage gibt es nicht mehr.', 3000); } });
 T.vorlagenPanel = () => {
   const box = h('div', {}, h('p', { class: 'hint' }, 'Wird geladen …'));
   let verwalten = false;
@@ -219,6 +226,7 @@ T.vorlagenPanel = () => {
     const gemKachel = v => {
       const t = h('button', { class: 'tile vl-tile', title: verwalten ? '' : (v.seite ? 'Antippen: als neue Seite einfügen' : 'Antippen: in die Mitte der Tafel einsetzen'), onclick: () => { if (!verwalten) einsetzenV(v, '👥'); } },
         vbild(v, '👥'), (v.seite ? '📄 ' : '') + v.name, h('span', { class: 'vl-autor' }, 'von ' + (v.autor || '?')));
+      if (!verwalten && T.favStern) T.favStern(vlFavId(v), t); /* ☆ = in die Einfügen-Leiste */
       if (!verwalten || v.autor !== lk()) return t; // löschen darf nur, wer sie freigegeben hat
       return h('div', { class: 'vl-verw' }, t, h('div', { class: 'row' }, h('button', { class: 'big warn', title: 'Freigabe zurücknehmen (für alle löschen)', onclick: async () => { if (await T.frage(`Gemeinsame Vorlage „${v.name}“ für alle löschen?`, { ok: '🗑 Löschen' }) && await gemeinsamLoeschen(v)) zeichne(); } }, '🗑')));
     };
@@ -235,7 +243,7 @@ T.vorlagenPanel = () => {
       box.append(h('div', { class: 'tiles' }, ...vorlagen.filter(passt).map(v => {
         const t = h('button', { class: 'tile vl-tile', title: verwalten ? '' : (v.seite ? 'Antippen: als neue Seite einfügen' : 'Antippen: in die Mitte der Tafel einsetzen'), onclick: () => { if (!verwalten) einsetzenV(v, '📌'); } },
           vbild(v, v.seite ? '📄' : '📌'), v.name);
-        if (!verwalten) return t;
+        if (!verwalten) { if (T.favStern) T.favStern(vlFavId(v), t); return t; } /* ☆ = in die Einfügen-Leiste */
         return h('div', { class: 'vl-verw' }, t, h('div', { class: 'row' },
           h('button', { class: 'big', title: 'Umbenennen', onclick: async () => { const n = await T.frage('Neuer Name:', { feld: { wert: v.name }, ok: '✔ Umbenennen' }); if (n && n.trim()) { v.name = n.trim(); await vorlagenSichern(); zeichne(); } } }, '✏️'),
           h('button', { class: 'big warn', title: 'Löschen', onclick: async () => { if (await T.frage(`Vorlage „${v.name}“ löschen?`, { ok: '🗑 Löschen' })) { vorlagen.splice(vorlagen.indexOf(v), 1); await vorlagenSichern(); zeichne(); } } }, '🗑'),

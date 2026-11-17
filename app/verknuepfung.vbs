@@ -30,5 +30,6 @@ pf86 = ws.ExpandEnvironmentStrings("%ProgramFiles(x86)%")
 pf = ws.ExpandEnvironmentStrings("%ProgramFiles%")
 If fso.FileExists(pf86 & "\SMART Technologies\SMART Product Drivers\SMARTInk.exe") Or fso.FileExists(pf & "\SMART Technologies\SMART Product Drivers\SMARTInk.exe") Then
   Lnk "Tafel-App (ohne SMART Ink)", ordner & "\Tafel starten (ohne SMART Ink).bat", "Tafel-App; SMART Ink ist pausiert, solange die Tafel offen ist", ordner & "\app\icons\tafel-ohne-ink.ico"
+  If fso.FileExists(ordner & "\Tafel online starten (ohne SMART Ink).bat") Then Lnk "Tafel-App online (ohne SMART Ink)", ordner & "\Tafel online starten (ohne SMART Ink).bat", "Tafel-App von claasroom1.github.io (wie die installierte App); SMART Ink ist pausiert", ordner & "\app\icons\tafel-ohne-ink.ico"
 End If
 WScript.Quit 0

@@ -29,6 +29,7 @@ Damit lassen sich Tafelbilder zu Hause vorbereiten und in der Schule weiterverwe
 
 Windows fragt beim ersten Start evtl. „Möchten Sie diese Datei öffnen?“ – mit „Öffnen“ bestätigen.
 `Tafel starten (ohne SMART Ink).bat` ist nur für Schul-PCs mit SMART-Software gedacht.
+`Tafel online starten (ohne SMART Ink).bat` öffnet dieselbe Fassung wie die über diese Webadresse installierte App (gleiche Tafeln und Einstellungen) und schaltet SMART Ink währenddessen aus – die installierte Edge-App selbst kann das nicht.
 Wer nichts herunterladen möchte, kann die Tafel auch einfach über die Webadresse öffnen und dort installieren (Edge › „App installieren“).
 
 ## Auf dem iPad mit Apple Pencil

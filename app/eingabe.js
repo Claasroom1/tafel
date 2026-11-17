@@ -156,7 +156,9 @@ function choose(P, e, wx, wy) {
   if (ih) return instAction(P, ih, wx, wy);
   { /* 🧩 Puzzleteil: mit Finger, Stift und Maus direkt greifen und ziehen – rastet an der richtigen Stelle magnetisch ein */
     const pz = S.tool !== 'radierer' && topObjAt(wx, wy);
-    if (pz && pz.d && pz.d.puzzle && !pz.d.puzzle.ok && !pz.fest) { select([pz.id]); return moveSel(P, wx, wy, pz, false); } }
+    if (pz && pz.d && pz.d.puzzle && !pz.d.puzzle.ok && !pz.fest) { select([pz.id]); return moveSel(P, wx, wy, pz, false); }
+    /* 🍕 Bruchstücke zum Legen: ebenso mit Finger, Stift und Maus greifen (am Board meldet sich der Finger oft als Stift) */
+    if (pz && pz.k === 'bruchstueck' && !pz.fest && S.tool !== 'auswahl') { const sh = S.sel && selHit(wx, wy); if (sh) return sh(P); /* Griffe (↻ drehen) des gewählten Stücks */ select([pz.id]); return moveSel(P, wx, wy, pz, false); } }
   { /* 🎚 Regler in Vorlagen (Prozentstreifen, Binärzahl …): Griff = Teil mit „zieh: true“ – mit Finger, Stift und Maus anfassen und verschieben */
     const ro = S.tool !== 'radierer' && S.tool !== 'auswahl' && topObjAt(wx, wy), Bt = ro && T.BAUSTEINE[ro.k];
     /* ✏️ Texte direkt ändern (zahlen.js): im Bearbeiten-Modus öffnet auch ein Stift-Tipp auf eine Zeile das Eingabefeld */

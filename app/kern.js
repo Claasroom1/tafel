@@ -3,6 +3,7 @@
 (function () {
 const T = window.T = window.T || {};
 
+T.VERSION = '2026-11-21s';        // wie in sw.js (bei jeder neuen Fassung mit hochzählen) – steht unten in ⚙ Einstellungen
 T.CM = 40;                       // Weltpixel pro Zentimeter
 T.uid = () => Math.random().toString(36).slice(2, 10);
 T.clamp = (v, a, b) => Math.max(a, Math.min(b, v));

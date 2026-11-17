@@ -22,6 +22,8 @@ try {
   Verknuepfung 'Tafel-App' (Join-Path $ordner 'Tafel starten.bat') 'Tafel-App fuer das Smartboard' $ico
   $smart = @("${env:ProgramFiles(x86)}\SMART Technologies\SMART Product Drivers\SMARTInk.exe", "$env:ProgramFiles\SMART Technologies\SMART Product Drivers\SMARTInk.exe") | Where-Object { Test-Path $_ }
   if ($smart) { Verknuepfung 'Tafel-App (ohne SMART Ink)' (Join-Path $ordner 'Tafel starten (ohne SMART Ink).bat') 'Tafel-App; SMART Ink ist pausiert, solange die Tafel offen ist' $icoInk }
+  # Online-Fassung (dieselbe wie die über GitHub installierte App) – ebenfalls ohne SMART Ink
+  if ($smart -and (Test-Path (Join-Path $ordner 'Tafel online starten (ohne SMART Ink).bat'))) { Verknuepfung 'Tafel-App online (ohne SMART Ink)' (Join-Path $ordner 'Tafel online starten (ohne SMART Ink).bat') 'Tafel-App von claasroom1.github.io (wie die installierte App); SMART Ink ist pausiert, solange die Tafel offen ist' $icoInk }
 
   # Windows zeigt sonst evtl. noch das alte Symbol aus dem Zwischenspeicher
   try { & ie4uinit.exe -show } catch {}

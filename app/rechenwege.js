@@ -35,7 +35,8 @@ const raster = (x0, y0, sp, ze, C) => {
 };
 const zellen = (x0, y0, C) => ({
   z: (sp, ze, s, f = 'ink', o = {}) => tx(x0 + sp * C + C / 2, y0 + ze * C + C / 2 + (o.dy || 0), s, { g: o.g || C * 0.68, f: F[f], w: o.w || 600, a: 'middle', i: o.i }),
-  strich: (sp0, sp1, ze, f = F.ink) => ln(x0 + sp0 * C + 4, y0 + ze * C, x0 + (sp1 + 1) * C - 4, y0 + ze * C, f, 3.5),
+  strich: (sp0, sp1, ze, f = F.ink) => ln(x0 + sp0 * C + 4, y0 + ze * C, x0 + (sp1 + 1) * C - 4, y0 + ze * C, f, 5), /* trennt Übertrag und Ergebnis (etwas dicker) */
+  doppel: (sp0, sp1, ze, f = F.ink) => ln(x0 + sp0 * C + 4, y0 + ze * C - 3, x0 + (sp1 + 1) * C - 4, y0 + ze * C - 3, f, 2.5) + ln(x0 + sp0 * C + 4, y0 + ze * C + 3, x0 + (sp1 + 1) * C - 4, y0 + ze * C + 3, f, 2.5), /* Doppelstrich unter dem Ergebnis */
   quer: (sp, ze) => ln(x0 + sp * C + 10, y0 + ze * C + C - 10, x0 + sp * C + C - 10, y0 + ze * C + 10, F.rot, 2.5),
   mx: sp => x0 + sp * C + C / 2, oy: ze => y0 + ze * C
 });
@@ -57,12 +58,33 @@ const neu = (gruppe, id, name, jg, hh, inhalt) => {
 const neuSchritte = (gruppe, id, name, jg, hh, bilder) => { const frames = bilder.map(b => karte(name, jg, hh, b)); R.push({ gruppe, id, name, svg: frames[frames.length - 1], frames, h: hh }); };
 
 // ---------- Schriftlich rechnen ----------
+{ // Regeln für SuS: 358 + 246 + 17 = 621 (Stellen untereinander, Zeichen je Zahl, Übertrag, dicker Strich, Doppelstrich)
+  const C = 50, x0 = 50, y0 = 120, Z = zellen(x0, y0, C), dy = 74, ys = 140;
+  neu('Schriftlich rechnen (Kl. 5/6)', 'schr-regeln', 'Schriftlich addieren und subtrahieren – so geht’s', 'Klasse 5', ys + 7 * dy + 20,
+    raster(x0, y0, 4, 6, C) +
+    st(1, Z.z(1, 0, 'H', 'orange', { g: 22 }) + Z.z(2, 0, 'Z', 'gruen', { g: 22 }) + Z.z(3, 0, 'E', 'blau', { g: 22 })) +
+    Z.z(1, 1, '3', 'orange') + Z.z(2, 1, '5', 'gruen') + Z.z(3, 1, '8', 'blau') +
+    Z.z(1, 2, '2', 'orange') + Z.z(2, 2, '4', 'gruen') + Z.z(3, 2, '6', 'blau') +
+    Z.z(2, 3, '1', 'gruen') + Z.z(3, 3, '7', 'blau') +
+    st(2, Z.z(0, 2, '+', 'rot', { w: 800 }) + Z.z(0, 3, '+', 'rot', { w: 800 })) +
+    st(3, `<rect x="${x0 + C}" y="${y0 + 4 * C}" width="${3 * C}" height="${C}" fill="#fef2f2"/>` + Z.z(0, 4, 'Ü', 'rot', { g: 18 }) + Z.strich(0, 3, 5)) +
+    st(4, Z.z(3, 5, '1', 'blau', { w: 800 }) + Z.z(2, 4, '2', 'rot', { g: 22 })) +
+    st(5, Z.z(2, 5, '2', 'gruen', { w: 800 }) + Z.z(1, 4, '1', 'rot', { g: 22 })) +
+    st(6, Z.z(1, 5, '6', 'orange', { w: 800 }) + Z.doppel(0, 3, 6)) +
+    schritt(290, ys, '1', 'lila', [[['Stellen untereinander: ', 'lila', 1], 'Einer unter Einer,'], ['Zehner unter Zehner, Hunderter unter Hunderter.']], 20) +
+    schritt(290, ys + dy, '2', 'rot', [[['Rechenzeichen: ', 'rot', 1], 'jede weitere Zahl bekommt ihr eigenes'], ['Zeichen – bei drei Zahlen also ', ['+  +', 'rot', 1], '  (bzw.  ', ['−  −', 'rot', 1], ').']], 20) +
+    schritt(290, ys + 2 * dy, '3', 'rot', [[['Unter die Zahlen: ', 'rot', 1], 'eine Zeile für den ', ['Übertrag', 'rot', 1], ','], ['darunter einen ', ['etwas dickeren Strich', 'ink', 1], '.']], 20) +
+    schritt(290, ys + 3 * dy, '4', 'blau', [[['Von rechts beginnen: ', 'blau', 1], 'Einer: 8 + 6 + 7 = 21'], ['→ schreibe ', ['1', 'blau', 1], ', der Übertrag ', ['2', 'rot', 1], ' kommt zu den Zehnern.']], 20) +
+    schritt(290, ys + 4 * dy, '5', 'gruen', [[['Zehner: ', 'gruen', 1], '5 + 4 + 1 + ', ['2', 'rot', 1], ' = 12 → schreibe ', ['2', 'gruen', 1], ','], ['Übertrag ', ['1', 'rot', 1], ' zu den Hundertern.']], 20) +
+    schritt(290, ys + 5 * dy, '6', 'orange', [[['Hunderter: ', 'orange', 1], '3 + 2 + ', ['1', 'rot', 1], ' = 6.  Ergebnis: ', ['621', 'orange', 1]], ['Unter das Ergebnis kommt der ', ['Doppelstrich', 'ink', 1], '.']], 20) +
+    schritt(290, ys + 6 * dy, '7', 'lila', [[['Minus geht genauso: ', 'lila', 1], 'Stellen untereinander, von rechts,'], ['ergänzen oder abziehen – wie in deiner Klasse. Am Ende: Probe!']], 20));
+}
 { // 478 + 356 = 834
   const C = 50, x0 = 60, y0 = 110, Z = zellen(x0, y0, C);
   neu('Schriftlich rechnen (Kl. 5/6)', 'add', 'Schriftlich addieren', 'Klasse 5', 420,
     raster(x0, y0, 4, 5, C) + Z.z(1, 0, 'H', 'orange', { g: 22 }) + Z.z(2, 0, 'Z', 'gruen', { g: 22 }) + Z.z(3, 0, 'E', 'blau', { g: 22 }) +
     Z.z(1, 1, '4', 'orange') + Z.z(2, 1, '7', 'gruen') + Z.z(3, 1, '8', 'blau') +
-    Z.z(0, 2, '+') + Z.z(1, 2, '3', 'orange') + Z.z(2, 2, '5', 'gruen') + Z.z(3, 2, '6', 'blau') + Z.strich(0, 3, 4) +
+    Z.z(0, 2, '+') + Z.z(1, 2, '3', 'orange') + Z.z(2, 2, '5', 'gruen') + Z.z(3, 2, '6', 'blau') + Z.strich(0, 3, 4) + Z.doppel(0, 3, 5) +
     kasten(310, 330, 650, 56) + txs(330, 358, [['Tipp: ', 'lila', 1], 'Bei den Einern beginnen. Stellen genau untereinander!'], { g: 22 }) +
     st(1, Z.z(3, 4, '4', 'blau', { w: 800 }) + Z.z(2, 3, '1', 'rot', { g: 22 })) +
     st(2, Z.z(2, 4, '3', 'gruen', { w: 800 }) + Z.z(1, 3, '1', 'rot', { g: 22 })) +
@@ -76,7 +98,7 @@ const neuSchritte = (gruppe, id, name, jg, hh, bilder) => { const frames = bilde
   neu('Schriftlich rechnen (Kl. 5/6)', 'sub-erg', 'Schriftlich subtrahieren – Ergänzen', 'Klasse 5', 470,
     raster(x0, y0, 4, 5, C) + Z.z(1, 0, 'H', 'orange', { g: 22 }) + Z.z(2, 0, 'Z', 'gruen', { g: 22 }) + Z.z(3, 0, 'E', 'blau', { g: 22 }) +
     Z.z(1, 1, '7', 'orange') + Z.z(2, 1, '2', 'gruen') + Z.z(3, 1, '5', 'blau') +
-    Z.z(0, 2, '−') + Z.z(1, 2, '3', 'orange') + Z.z(2, 2, '4', 'gruen') + Z.z(3, 2, '8', 'blau') + Z.strich(0, 3, 4) +
+    Z.z(0, 2, '−') + Z.z(1, 2, '3', 'orange') + Z.z(2, 2, '4', 'gruen') + Z.z(3, 2, '8', 'blau') + Z.strich(0, 3, 4) + Z.doppel(0, 3, 5) +
     st(1, Z.z(3, 4, '7', 'blau', { w: 800 }) + Z.z(2, 3, '1', 'rot', { g: 22 })) +
     st(2, Z.z(2, 4, '7', 'gruen', { w: 800 }) + Z.z(1, 3, '1', 'rot', { g: 22 })) +
     st(3, Z.z(1, 4, '3', 'orange', { w: 800 })) +
@@ -91,7 +113,7 @@ const neuSchritte = (gruppe, id, name, jg, hh, bilder) => { const frames = bilde
   neu('Schriftlich rechnen (Kl. 5/6)', 'sub-abz', 'Schriftlich subtrahieren – Abziehen', 'Klasse 5', 470,
     raster(x0, y0, 4, 5, C) + Z.z(1, 0, 'H', 'orange', { g: 22 }) + Z.z(2, 0, 'Z', 'gruen', { g: 22 }) + Z.z(3, 0, 'E', 'blau', { g: 22 }) +
     Z.z(1, 2, '7', 'orange') + Z.z(2, 2, '2', 'gruen') + Z.z(3, 2, '5', 'blau') +
-    Z.z(0, 3, '−') + Z.z(1, 3, '3', 'orange') + Z.z(2, 3, '4', 'gruen') + Z.z(3, 3, '8', 'blau') + Z.strich(0, 3, 4) +
+    Z.z(0, 3, '−') + Z.z(1, 3, '3', 'orange') + Z.z(2, 3, '4', 'gruen') + Z.z(3, 3, '8', 'blau') + Z.strich(0, 3, 4) + Z.doppel(0, 3, 5) +
     st(1, Z.quer(3, 2) + Z.z(3, 1, '15', 'rot', { g: 24 }) + Z.quer(2, 2) + Z.z(3, 4, '7', 'blau', { w: 800 })) + bis(1, st(1, Z.z(2, 1, '1', 'rot', { g: 24 }))) + // 2 Zehner → 1 Zehner
     st(2, Z.z(2, 1, '11', 'rot', { g: 24 }) + Z.quer(1, 2) + Z.z(1, 1, '6', 'rot', { g: 24 }) + Z.z(2, 4, '7', 'gruen', { w: 800 })) +
     st(3, Z.z(1, 4, '3', 'orange', { w: 800 })) +
@@ -126,7 +148,7 @@ const neuSchritte = (gruppe, id, name, jg, hh, bilder) => { const frames = bilde
     if (k >= 4) s += Z.z(5, 2, '8', 'blau') + merk(4, 2, '1');
     if (k >= 5) s += Z.z(4, 2, '5', 'blau') + merk(3, 2, '2');
     if (k >= 6) s += Z.z(3, 2, '4', 'blau') + Z.z(2, 2, '1', 'blau');
-    if (k >= 7) s += Z.z(3, 3, '1', 'rot', { g: 22 }) + Z.strich(2, 5, 4) + Z.z(2, 4, '8', 'gruen', { w: 800 }) + Z.z(3, 4, '7', 'gruen', { w: 800 }) + Z.z(4, 4, '4', 'gruen', { w: 800 }) + Z.z(5, 4, '8', 'gruen', { w: 800 });
+    if (k >= 7) s += Z.z(3, 3, '1', 'rot', { g: 22 }) + Z.strich(2, 5, 4) + Z.doppel(2, 5, 5) + Z.z(2, 4, '8', 'gruen', { w: 800 }) + Z.z(3, 4, '7', 'gruen', { w: 800 }) + Z.z(4, 4, '4', 'gruen', { w: 800 }) + Z.z(5, 4, '8', 'gruen', { w: 800 });
     if (k === 0) s += tx(410, 200, 'Weiter mit ▶ – Schritt für Schritt.', { g: 24, f: F.grau });
     S.forEach((st, i) => {
       if (i >= k) return; const y = yS[i], aktiv = i === k - 1 && k <= S.length;
@@ -153,8 +175,121 @@ const neuSchritte = (gruppe, id, name, jg, hh, bilder) => { const frames = bilde
     schritt(510, 310, '3', 'blau', [[['6 herunterholen', 'lila', 1], ' → 6 : 3 = ', ['2', 'blau', 1]], ['(2 · 3 = 6)   Rest 0']], 22) +
     st(4, mark(502, 370, 466, 60) + kasten(510, 375, 450, 50) + txs(530, 400, [['Probe: ', 'lila', 1], '252 · 3 = 756 ✓'], { g: 22 })));
 }
+{ // 467 + 285 + 139 = 891 – mehrere Zahlen
+  const C = 50, x0 = 60, y0 = 110, Z = zellen(x0, y0, C);
+  neu('Schriftlich rechnen (Kl. 5/6)', 'add-mehr', 'Schriftlich addieren – mehrere Zahlen', 'Klasse 5', 500,
+    raster(x0, y0, 4, 6, C) + Z.z(1, 0, 'H', 'orange', { g: 22 }) + Z.z(2, 0, 'Z', 'gruen', { g: 22 }) + Z.z(3, 0, 'E', 'blau', { g: 22 }) +
+    Z.z(1, 1, '4', 'orange') + Z.z(2, 1, '6', 'gruen') + Z.z(3, 1, '7', 'blau') +
+    Z.z(0, 2, '+') + Z.z(1, 2, '2', 'orange') + Z.z(2, 2, '8', 'gruen') + Z.z(3, 2, '5', 'blau') +
+    Z.z(0, 3, '+') + Z.z(1, 3, '1', 'orange') + Z.z(2, 3, '3', 'gruen') + Z.z(3, 3, '9', 'blau') + Z.strich(0, 3, 5) + Z.doppel(0, 3, 6) +
+    st(1, Z.z(3, 5, '1', 'blau', { w: 800 }) + Z.z(2, 4, '2', 'rot', { g: 22 })) +
+    st(2, Z.z(2, 5, '9', 'gruen', { w: 800 }) + Z.z(1, 4, '1', 'rot', { g: 22 })) +
+    st(3, Z.z(1, 5, '8', 'orange', { w: 800 })) +
+    txs(310, 120, [['Alle Zahlen ', 'ink'], ['stellengerecht', 'lila', 1], ' untereinander schreiben.'], { g: 22 }) +
+    schritt(310, 175, '1', 'blau', [[['Einer: ', 'blau', 1], '7 + 5 + 9 = 21'], ['schreibe ', ['1', 'blau', 1], ', Übertrag ', ['2', 'rot', 1]]]) +
+    schritt(310, 265, '2', 'gruen', [[['Zehner: ', 'gruen', 1], '6 + 8 + 3 + ', ['2', 'rot', 1], ' = 19'], ['schreibe ', ['9', 'gruen', 1], ', Übertrag ', ['1', 'rot', 1]]]) +
+    schritt(310, 355, '3', 'orange', [[['Hunderter: ', 'orange', 1], '4 + 2 + 1 + ', ['1', 'rot', 1], ' = 8 → schreibe ', ['8', 'orange', 1]]]) +
+    st(4, mark(52, 414, 896, 76) + kasten(60, 420, 880, 64) + txs(80, 440, [['Achtung: ', 'rot', 1], 'Bei mehreren Zahlen kann der Übertrag auch 2 oder mehr sein.'], { g: 21 }) +
+      txs(80, 468, [['Überschlag: ', 'lila', 1], '500 + 300 + 100 = 900 – Ergebnis 891 passt ✓'], { g: 21 })));
+}
+{ // 900 − 345 − 218 = 337 – mehrere Zahlen (Ergänzen) bzw. erst zusammenzählen
+  const C = 50, x0 = 60, y0 = 110, Z = zellen(x0, y0, C);
+  neu('Schriftlich rechnen (Kl. 5/6)', 'sub-mehr', 'Schriftlich subtrahieren – mehrere Zahlen', 'Klasse 5', 600,
+    raster(x0, y0, 4, 6, C) + Z.z(1, 0, 'H', 'orange', { g: 22 }) + Z.z(2, 0, 'Z', 'gruen', { g: 22 }) + Z.z(3, 0, 'E', 'blau', { g: 22 }) +
+    Z.z(1, 1, '9', 'orange') + Z.z(2, 1, '0', 'gruen') + Z.z(3, 1, '0', 'blau') +
+    Z.z(0, 2, '−') + Z.z(1, 2, '3', 'orange') + Z.z(2, 2, '4', 'gruen') + Z.z(3, 2, '5', 'blau') +
+    Z.z(0, 3, '−') + Z.z(1, 3, '2', 'orange') + Z.z(2, 3, '1', 'gruen') + Z.z(3, 3, '8', 'blau') + Z.strich(0, 3, 5) + Z.doppel(0, 3, 6) +
+    st(1, Z.z(3, 5, '7', 'blau', { w: 800 }) + Z.z(2, 4, '2', 'rot', { g: 22 })) +
+    st(2, Z.z(2, 5, '3', 'gruen', { w: 800 }) + Z.z(1, 4, '1', 'rot', { g: 22 })) +
+    st(3, Z.z(1, 5, '3', 'orange', { w: 800 })) +
+    txs(310, 120, [['Ergänzen: ', 'lila', 1], 'Untere Ziffern addieren, dann bis oben ergänzen.'], { g: 22 }) +
+    schritt(310, 175, '1', 'blau', [[['Einer: ', 'blau', 1], '5 + 8 = 13;  13 bis 20: ', ['7', 'blau', 1]], ['schreibe 7, Übertrag ', ['2', 'rot', 1]]]) +
+    schritt(310, 265, '2', 'gruen', [[['Zehner: ', 'gruen', 1], '4 + 1 + ', ['2', 'rot', 1], ' = 7;  7 bis 10: ', ['3', 'gruen', 1]], ['schreibe 3, Übertrag ', ['1', 'rot', 1]]]) +
+    schritt(310, 355, '3', 'orange', [[['Hunderter: ', 'orange', 1], '3 + 2 + ', ['1', 'rot', 1], ' = 6;  6 bis 9: ', ['3', 'orange', 1]]]) +
+    st(4, mark(52, 414, 896, 96) + kasten(60, 420, 880, 84, '#f0fdf4', '#bbf7d0') + txs(80, 442, [['Oder in zwei Schritten: ', 'gruen', 1], 'erst die abzuziehenden Zahlen addieren,'], { g: 21 }) +
+      txs(80, 476, ['345 + 218 = ', ['563', 'gruen', 1], ',  dann  900 − 563 = ', ['337', 'gruen', 1], '  (abziehen oder ergänzen)'], { g: 21 })) +
+    st(5, mark(52, 524, 896, 60) + kasten(60, 530, 880, 48) + txs(80, 554, [['Probe: ', 'lila', 1], '337 + 345 + 218 = 900 ✓'], { g: 22 })));
+}
+
+// ---------- Kopfrechnen: leichte Strategien (jede Zeile ein Schritt) ----------
+const strategien = (id, name, jg, einleitung, liste) => {
+  const y0 = 165, dy = 84;
+  neu('Kopfrechnen (Kl. 5/6)', id, name, jg, y0 + liste.length * dy + 20,
+    txs(60, 115, einleitung, { g: 23 }) +
+    liste.map(([titel, farbe, beispiel, tipp], i) => { const y = y0 + i * dy;
+      return st(i + 1, mark(44, y - 26, 912, dy - 6) + `<circle cx="76" cy="${y}" r="16" fill="${F[farbe]}"/>` + tx(76, y + 1, String(i + 1), { g: 19, f: '#fff', w: 700, a: 'middle' }) +
+        tx(104, y, titel, { g: 21, w: 700, f: F[farbe] }) + (tipp ? tx(104, y + 32, '💡 ' + tipp, { g: 17, f: F.grau }) : '') + txs(440, y, beispiel, { g: 22 })); }).join(''));
+};
+strategien('kr-plus', 'Kopfrechnen: Plus und Minus', 'Klasse 5', [['Nicht alles auf einmal – ', 'ink'], ['Rechenwege', 'lila', 1], ', die das Rechnen leicht machen:'], [
+  ['Schrittweise', 'blau', ['47 + 38 = 47 + ', ['30', 'blau', 1], ' + ', ['8', 'blau', 1], ' = 77 + 8 = ', ['85', 'blau', 1]], 'erst die Zehner, dann die Einer'],
+  ['Hilfsaufgabe (runden)', 'orange', ['56 + 29 = 56 + ', ['30', 'orange', 1], ' − ', ['1', 'orange', 1], ' = ', ['85', 'orange', 1]], 'mit der runden Zahl rechnen, dann ausgleichen'],
+  ['Geschickt tauschen', 'gruen', ['17 + 25 + 3 = ', ['17 + 3', 'gruen', 1], ' + 25 = 20 + 25 = ', ['45', 'gruen', 1]], 'Zahlen, die zusammen eine runde Zahl ergeben'],
+  ['Gegensinnig verändern', 'lila', ['48 + 27 = ', ['50', 'lila', 1], ' + ', ['25', 'lila', 1], ' = ', ['75', 'lila', 1]], 'bei Plus: eine Zahl + 2, die andere − 2 – die Summe bleibt'],
+  ['Gleichsinnig verändern', 'rot', ['83 − 48 = ', ['85', 'rot', 1], ' − ', ['50', 'rot', 1], ' = ', ['35', 'rot', 1]], 'bei Minus: beide Zahlen + 2 – der Unterschied bleibt'],
+  ['Ergänzen (minus)', 'blau', ['82 − 77:  von 77 bis 82 sind es ', ['5', 'blau', 1]], 'gut, wenn die Zahlen nah beieinander liegen']]);
+strategien('kr-mal', 'Kopfrechnen: Mal und Geteilt', 'Klasse 5', [['Mit dem ', 'ink'], ['kleinen Einmaleins', 'lila', 1], ' und ein paar Tricks:'], [
+  ['Zerlegen', 'blau', ['7 · 14 = ', ['7 · 10', 'blau', 1], ' + ', ['7 · 4', 'blau', 1], ' = 70 + 28 = ', ['98', 'blau', 1]], 'eine Zahl in Zehner und Einer zerlegen'],
+  ['Nachbaraufgabe', 'orange', ['9 · 8 = ', ['10 · 8', 'orange', 1], ' − 8 = 80 − 8 = ', ['72', 'orange', 1]], 'von einer leichten Aufgabe aus rechnen'],
+  ['Verdoppeln und Halbieren', 'gruen', ['25 · 12 = ', ['50', 'gruen', 1], ' · ', ['6', 'gruen', 1], ' = ', ['300', 'gruen', 1]], 'eine Zahl · 2, die andere : 2 – das Ergebnis bleibt'],
+  ['Mit Nullen', 'lila', ['30 · 40 = ', ['3 · 4', 'lila', 1], ' · 100 = ', ['1 200', 'lila', 1]], 'erst ohne Nullen rechnen, dann die Nullen anhängen'],
+  ['Geteilt zerlegen', 'rot', ['84 : 4 = ', ['80 : 4', 'rot', 1], ' + ', ['4 : 4', 'rot', 1], ' = 20 + 1 = ', ['21', 'rot', 1]], 'in Zahlen zerlegen, die gut teilbar sind'],
+  ['Umkehraufgabe prüfen', 'blau', ['84 : 4 = 21, denn ', ['21 · 4 = 84', 'blau', 1], ' ✓'], 'Geteilt-Aufgaben mit Mal kontrollieren']]);
 
 // ---------- Brüche & Dezimalzahlen ----------
+/* Streifen aus n gleichen Teilen, k davon gefärbt (für Erweitern/Kürzen) */
+const streifen = (x, y, w, hh, n, k, farbe, rand = F.ink) => { let s = ''; for (let i = 0; i < n; i++) s += `<rect x="${x + i * w / n}" y="${y}" width="${w / n}" height="${hh}" fill="${i < k ? farbe : '#fff'}" stroke="${rand}" stroke-width="${n > 16 ? 1.5 : 2.5}"/>`; return s; };
+{ // 2/3 = 8/12; 2/3 und 3/4 vergleichen
+  neu('Brüche & Dezimalzahlen (Kl. 6/7)', 'erw-allein', 'Brüche erweitern', 'Klasse 6', 720,
+    txs(60, 115, [['Erweitern: ', 'blau', 1], 'Zähler ', ['und', 'blau', 1], ' Nenner mit derselben Zahl ', ['multiplizieren', 'blau', 1], ' (nicht mit 0).'], { g: 24 }) +
+    bruch(90, 225, '2', '3', 'ink', 44) + streifen(460, 200, 480, 50, 3, 2, '#bfdbfe') + tx(700, 275, '2 von 3 Teilen', { g: 19, f: F.grau, a: 'middle' }) +
+    st(1, mark(44, 150, 912, 150, true) + tx(140, 225, '=', { g: 44, a: 'middle' }) + bruch(220, 225, '2 · 4', '3 · 4', 'blau', 34) + tx(300, 225, '=', { g: 44, a: 'middle' }) + bruch(360, 225, '8', '12', 'blau', 44)) +
+    st(2, mark(44, 305, 912, 120, true) + streifen(460, 320, 480, 50, 12, 8, '#93c5fd') + tx(700, 395, '8 von 12 Teilen – gleich viel gefärbt!', { g: 19, f: F.blau, a: 'middle', w: 600 }) +
+      txs(60, 345, ['Jedes Drittel wird in ', ['4', 'blau', 1], ' Teile geteilt:'], { g: 21 }) + txs(60, 380, ['mehr Teile, aber ', ['kleinere', 'blau', 1], ' Teile.'], { g: 21 })) +
+    st(3, mark(44, 440, 912, 150, true) + txs(60, 470, [['Wozu? ', 'orange', 1], 'Brüche mit gleichem Nenner kann man leicht vergleichen.'], { g: 22 }) +
+      bruch(110, 540, '2', '3') + tx(160, 540, '=', { g: 34, a: 'middle' }) + bruch(215, 540, '8', '12', 'blau') + tx(300, 540, 'und', { g: 24, a: 'middle' }) +
+      bruch(370, 540, '3', '4') + tx(420, 540, '=', { g: 34, a: 'middle' }) + bruch(475, 540, '9', '12', 'orange') +
+      txs(560, 540, ['→  ', ['9/12 > 8/12', 'orange', 1], ', also  3/4 > 2/3'], { g: 22 })) +
+    st(4, mark(52, 609, 896, 96) + kasten(60, 615, 880, 84) + txs(80, 640, [['Merke: ', 'lila', 1], 'Beim Erweitern bleibt der ', ['Wert', 'lila', 1], ' des Bruchs gleich –'], { g: 22 }) +
+      txs(80, 674, ['nur die Einteilung wird ', ['feiner', 'lila', 1], '. Erweiterungszahl: jede Zahl außer 0.'], { g: 22 })));
+}
+{ // 18/24 = 9/12 = 3/4; ggT 6
+  neu('Brüche & Dezimalzahlen (Kl. 6/7)', 'kuerz', 'Brüche kürzen', 'Klasse 6', 790,
+    txs(60, 115, [['Kürzen: ', 'gruen', 1], 'Zähler ', ['und', 'gruen', 1], ' Nenner durch dieselbe Zahl ', ['dividieren', 'gruen', 1], '.'], { g: 24 }) +
+    bruch(130, 220, '18', '24', 'ink', 44) +
+    st(1, mark(240, 160, 716, 120, true) + txs(260, 195, [['Gemeinsamen Teiler suchen: ', 'orange', 1]], { g: 22 }) +
+      txs(260, 240, ['18 und 24 sind beide teilbar durch ', ['2', 'orange', 1], ', ', ['3', 'orange', 1], ' und ', ['6', 'orange', 1], '.'], { g: 22 })) +
+    st(2, mark(44, 290, 420, 150, true) + txs(60, 318, [['Schrittweise: ', 'gruen', 1]], { g: 22 }) +
+      bruch(110, 372, '18', '24', 'ink', 32) + tx(170, 372, '=', { g: 32, a: 'middle' }) + bruch(230, 372, '9', '12', 'gruen', 32) + tx(230, 428, ': 2', { g: 20, f: F.gruen, w: 700, a: 'middle' }) +
+      tx(290, 372, '=', { g: 32, a: 'middle' }) + bruch(350, 372, '3', '4', 'gruen', 32) + tx(350, 428, ': 3', { g: 20, f: F.gruen, w: 700, a: 'middle' })) +
+    st(3, mark(470, 290, 486, 150, true) + txs(490, 318, [['Oder in einem Schritt: ', 'blau', 1]], { g: 22 }) +
+      txs(490, 362, ['mit dem ', ['größten', 'blau', 1], ' gemeinsamen Teiler'], { g: 20 }) + txs(490, 400, ['ggT(18, 24) = ', ['6', 'blau', 1], ':   18 : 6 = 3,  24 : 6 = 4'], { g: 20 })) +
+    st(4, mark(44, 452, 912, 166, true) + streifen(80, 470, 840, 46, 24, 18, '#bbf7d0') + tx(500, 534, '18 von 24 Teilen', { g: 18, f: F.grau, a: 'middle' }) +
+      streifen(80, 552, 840, 46, 4, 3, '#86efac') + tx(500, 612, '3 von 4 Teilen – gleich viel gefärbt: weniger, aber größere Teile', { g: 18, f: F.gruen, a: 'middle', w: 600 })) +
+    st(5, mark(52, 644, 896, 126) + kasten(60, 650, 880, 114) + txs(80, 675, [['Merke: ', 'lila', 1], 'Der ', ['Wert', 'lila', 1], ' bleibt gleich. Gekürzt wird nur mit einem gemeinsamen Teiler.'], { g: 21 }) +
+      txs(80, 709, [['Vollständig gekürzt', 'lila', 1], ', wenn Zähler und Nenner keinen gemeinsamen'], { g: 21 }) + txs(80, 739, ['Teiler außer 1 mehr haben – z. B. 3/4.'], { g: 21 })));
+}
+{ // Zahlenstrahl für Brüche einteilen (für SuS): 1/3, 3/4, 5/4 → Hauptnenner 12 → 12 Kästchen je Ganzes
+  const K = 34, xa = 92, ya = 300, X = n => xa + n * K; /* n = Anzahl Kästchen ab 0; 12 Kästchen = 1 Ganzes */
+  let kaest = ''; for (let i = 0; i < 24; i++) kaest += `<rect x="${X(i)}" y="${ya - K}" width="${K}" height="${K}" fill="#f8fafc" stroke="${F.gitter}" stroke-width="1"/>`;
+  let teil = ''; for (let i = 1; i < 24; i++) if (i % 12) teil += ln(X(i), ya - 9, X(i), ya + 9, F.ink, 2);
+  const ganz = [0, 1, 2].map(v => ln(X(v * 12), ya - 18, X(v * 12), ya + 18, F.ink, 3.5) + tx(X(v * 12), ya + 40, String(v), { g: 28, w: 700, a: 'middle' })).join('');
+  const marke = (n, z, nn, f, hoch = 0, extra = '') => `<circle cx="${X(n)}" cy="${ya}" r="8" fill="${F[f]}" stroke="#fff" stroke-width="2"/>` + bruch(X(n), ya - K - 52 - hoch, z, nn, f, 24) + extra;
+  const bogen = (n0, n1, f, txt, tief = 0) => pfeil(`M${X(n0) + 6} ${ya + 62} Q${(X(n0) + X(n1)) / 2} ${ya + 96 + tief} ${X(n1)} ${ya + 14}`, f, 2.5) + tx((X(n0) + X(n1)) / 2 + 20, ya + 90 + tief, txt, { g: 17, f: F[f], w: 700, a: 'middle' });
+  const yT = 470, dyT = 64;
+  neu('Brüche & Dezimalzahlen (Kl. 6/7)', 'bruchstrahl', 'Zahlenstrahl für Brüche einteilen', 'Klasse 6', 880,
+    txs(60, 112, [['Aufgabe: ', 'lila', 1], 'Trage ', ['1/3', 'blau', 1], ', ', ['3/4', 'rot', 1], ' und ', ['5/4', 'orange', 1], ' am Zahlenstrahl ein.'], { g: 24 }) +
+    ln(xa, ya, X(24) + 40, ya, F.ink, 3) + `<path d="M${X(24) + 52} ${ya} l-16 -9 v18 z" fill="${F.ink}"/>` + ganz +
+    st(3, kaest + ganz) + st(4, teil) +
+    st(5, marke(4, 1, 3, 'blau') + bogen(0, 4, 'blau', '4 Kästchen') + marke(9, 3, 4, 'rot', 0) + bogen(0, 9, 'rot', '9 Kästchen', 40)) +
+    st(6, marke(15, 5, 4, 'orange', 0, tx(X(15) + 34, ya - K - 52, '= 1 ¼', { g: 24, f: F.orange, w: 700 }))) +
+    schritt(60, yT, '1', 'blau', [[['Nenner ansehen: ', 'blau', 1], '1/3 → Drittel,  3/4 und 5/4 → Viertel.']], 20) +
+    schritt(60, yT + dyT, '2', 'orange', [[['Hauptnenner: ', 'orange', 1], 'kleinste Zahl, in der 3 und 4 aufgehen → ', ['12', 'orange', 1], '.']], 20) +
+    schritt(60, yT + 2 * dyT, '3', 'gruen', [[['Einheit wählen: ', 'gruen', 1], 'von 0 bis 1 genau ', ['12 Kästchen', 'gruen', 1], ' (oder 12 cm) – 1 Kästchen = 1/12.']], 20) +
+    schritt(60, yT + 3 * dyT, '4', 'lila', [[['Einteilen: ', 'lila', 1], 'Drittel = alle ', ['4', 'lila', 1], ' Kästchen,  Viertel = alle ', ['3', 'lila', 1], ' Kästchen.']], 20) +
+    schritt(60, yT + 4 * dyT, '5', 'rot', [[['Eintragen: ', 'rot', 1], '1/3 = 4/12 → 4 Kästchen;   3/4 = 9/12 → 9 Kästchen.']], 20) +
+    schritt(60, yT + 5 * dyT, '6', 'orange', [[['Über 1 hinaus: ', 'orange', 1], '5/4 = 1 ¼ → 12 + 3 = ', ['15', 'orange', 1], ' Kästchen (ein Ganzes und ein Viertel).']], 20) +
+    st(7, mark(52, 832, 896, 40) + kasten(60, 836, 880, 34) + txs(80, 853, [['Merke: ', 'lila', 1], 'Die Länge des Ganzen muss sich durch jeden Nenner teilen lassen.'], { g: 19 })));
+}
 { // 2/3 = 8/12; 12/18 = 2/3
   // Bogenpfeil über dem Zähler bzw. unter dem Nenner (c = Höhe des Bruchstrichs)
   const bogen = (x1, x2, c, oben, f, txt) => { const y = c + (oben ? -60 : 60);
@@ -216,7 +351,7 @@ const neuSchritte = (gruppe, id, name, jg, hh, bilder) => { const frames = bilde
     raster(x0, y0, 6, 5, C) + `<rect x="${x0 + 3 * C}" y="${y0}" width="${C}" height="${5 * C}" fill="#fee2e2" opacity=".7"/>` +
     Z.z(1, 0, 'Z', 'grau', { g: 20 }) + Z.z(2, 0, 'E', 'grau', { g: 20 }) + Z.z(4, 0, 'z', 'grau', { g: 20 }) + Z.z(5, 0, 'h', 'grau', { g: 20 }) +
     Z.z(2, 1, '3') + Z.z(3, 1, ',', 'rot', { w: 800 }) + Z.z(4, 1, '7') + Z.z(5, 1, '5') +
-    Z.z(0, 2, '+') + Z.z(1, 2, '1') + Z.z(2, 2, '2') + Z.z(3, 2, ',', 'rot', { w: 800 }) + Z.z(4, 2, '4') + Z.strich(0, 5, 4) +
+    Z.z(0, 2, '+') + Z.z(1, 2, '1') + Z.z(2, 2, '2') + Z.z(3, 2, ',', 'rot', { w: 800 }) + Z.z(4, 2, '4') + Z.strich(0, 5, 4) + Z.doppel(0, 5, 5) +
     st(1, mark(52, 404, 540, 34) + Z.z(5, 2, '0', 'grau', { i: true }) + txs(60, 420, [['① Lücken mit ', 'ink'], ['0', 'grau', 1], ' auffüllen: 12,4 = 12,40'], { g: 21 })) +
     st(2, mark(52, 440, 540, 34) + Z.z(2, 3, '1', 'rot', { g: 22 }) + Z.z(1, 4, '1', 'ink', { w: 800 }) + Z.z(2, 4, '6', 'ink', { w: 800 }) + Z.z(3, 4, ',', 'rot', { w: 800 }) + Z.z(4, 4, '1', 'ink', { w: 800 }) + Z.z(5, 4, '5', 'ink', { w: 800 }) +
       txs(60, 456, [['② Von rechts addieren, ', 'ink'], ['Komma', 'rot', 1], ' bleibt an seiner Stelle'], { g: 21 })) +
@@ -324,15 +459,34 @@ function schritte(r) {
   addEventListener('keydown', taste, true); w.onclose = () => removeEventListener('keydown', taste, true);
   geh(0);
 }
-T.rechenwegSchritte = id => { const r = R.find(x => x.id === id); if (r && r.frames) schritte(r); };
+/* Weitere Mathe-Erklärungen der App (nur verlinkt, kein doppelter Inhalt): Geometrie-Erklärtafeln und der Teiler-Finder */
+const EXTRA = [
+  { id: 'x:teiler', gruppe: 'Teilbarkeit (Kl. 5/6)', name: 'Vielfache & Teiler (ggT, kgV)', em: '🔢', da: () => !!T.teilerFinder, run: () => T.teilerFinder() },
+  { id: 'x:geoerkl', gruppe: 'Geometrie', name: 'Geodreieck erklärt', k: 'geoerkl', da: () => !!T.geoErklMenue, run: () => T.geoErklMenue() },
+  { id: 'x:dreieckerkl', gruppe: 'Geometrie', name: 'Dreiecke erklärt', k: 'dreieckerkl', da: () => !!T.dreieckErklMenue, run: () => T.dreieckErklMenue() },
+  { id: 'x:schraegerkl', gruppe: 'Geometrie', name: 'Schrägbild zeichnen', k: 'schraegerkl', da: () => !!T.schraegErklMenue, run: () => T.schraegErklMenue() }];
+T.RECHENWEGE_EXTRA = EXTRA;
+const extraNach = id => EXTRA.find(x => x.id === id && x.da());
+T.rechenwegSchritte = id => { const x = extraNach(id); if (x) return x.run(); const r = R.find(x => x.id === id); if (r && r.frames) schritte(r); else if (r) T.addBild(url(r), W, r.h, null, 0.92, 1.6); };
+/* ⭐ Favoriten (Einfügen-Leiste): einzelne Erklärung bzw. alle Erklärungen */
+T.FAV_SONDER = T.FAV_SONDER || [];
+T.FAV_SONDER.push({ prefix: 'einfuegen:rw:', sym: '📘', name: id => { const x = extraNach(id); if (x) return x.name; const r = R.find(x => x.id === id); return r && r.name; }, run: id => T.rechenwegSchritte(id) },
+  { prefix: 'einfuegen:rwalle', sym: '📘', name: () => 'Erklärungen / Rechenwege', run: () => { T.rwZurueck = 'einfuegen'; T.zeigeDock('mathe-rechenwege'); } });
+/* Reihenfolge der Themen: Rechnen · Teilbarkeit · Brüche · Prozent · Terme · Geometrie */
+const THEMEN = ['Schriftlich rechnen', 'Kopfrechnen', 'Teilbarkeit', 'Brüche', 'Prozent', 'Terme', 'Geometrie'];
+const rang = t => { const i = THEMEN.findIndex(x => t.startsWith(x)); return i < 0 ? 99 : i; };
 T.rechenwegePanel = () => {
   const gruppen = [];
-  for (const r of R) { let g = gruppen.find(x => x[0] === r.gruppe); if (!g) gruppen.push(g = [r.gruppe, []]); g[1].push(r); }
-  return [h('button', { class: 'big', onclick: () => T.zeigeDock('aufgaben') }, '← Mathe'),
-    ...gruppen.flatMap(([titel, liste]) => [h('h3', {}, titel), h('div', { class: 'tiles rw-tiles' }, ...liste.map(r =>
-      h('div', { class: 'tile rw-tile', role: 'button', title: r.name + (r.frames ? ' – Schritt für Schritt' : ' – auf die Tafel'), onclick: () => r.frames ? schritte(r) : T.addBild(url(r), W, r.h, null, 0.92, 1.6) },
-        h('img', { src: url(r), alt: '' }), r.name,
-        h('button', { class: 'rw-notiz', title: 'In die Notizen legen – dort ein- und ausblenden', onclick: e => { e.stopPropagation(); T.notizHilfe(r.name, url(r), W, r.h, r.frames && r.frames.map(svgUrl)); } }, '📝'))))]),
-    h('p', { class: 'hint' }, 'Kachel antippen: Erklärung Schritt für Schritt durchklicken (Weiter ▶, Pfeiltasten). ⤴ Auf die Tafel legt den gezeigten Stand groß auf die Tafel, 📝 legt sie in die Notizen – dort über den Reiter am rechten Rand ein- und ausblenden und durchblättern. Alle Beispiele sind nachgerechnet.')];
+  const dazu = (gruppe, el) => { let g = gruppen.find(x => x[0] === gruppe); if (!g) gruppen.push(g = [gruppe, []]); g[1].push(el); };
+  for (const r of R) dazu(r.gruppe, h('div', { class: 'tile rw-tile', role: 'button', 'data-rw': r.id, title: r.name + (r.frames ? ' – Schritt für Schritt' : ' – auf die Tafel'), onclick: () => r.frames ? schritte(r) : T.addBild(url(r), W, r.h, null, 0.92, 1.6) },
+    h('img', { src: url(r), alt: '' }), r.name,
+    h('button', { class: 'rw-notiz', title: 'In die Notizen legen – dort ein- und ausblenden', onclick: e => { e.stopPropagation(); T.notizHilfe(r.name, url(r), W, r.h, r.frames && r.frames.map(svgUrl)); } }, '📝')));
+  for (const x of EXTRA) if (x.da()) dazu(x.gruppe, h('div', { class: 'tile rw-tile', role: 'button', 'data-rw': x.id, title: x.name, onclick: () => x.run() },
+    x.k && T.thumb ? h('img', { src: T.thumb(x.k), alt: '' }) : h('div', { class: 'em' }, x.em || '📘'), x.name));
+  gruppen.sort((a, b) => rang(a[0]) - rang(b[0]));
+  const zurueck = T.rwZurueck === 'einfuegen' ? 'einfuegen' : 'aufgaben'; /* geöffnet über Einfügen › Mathe bzw. Mathe › 📘 Erklärungen */
+  return [h('button', { class: 'big', onclick: () => T.zeigeDock(zurueck) }, zurueck === 'einfuegen' ? '← Einfügen' : '← Mathe'),
+    ...gruppen.flatMap(([titel, liste]) => [h('h3', {}, titel), h('div', { class: 'tiles rw-tiles' }, ...liste)]),
+    h('p', { class: 'hint' }, 'Kachel antippen: Erklärung Schritt für Schritt durchklicken (Weiter ▶, Pfeiltasten). ⤴ Auf die Tafel legt den gezeigten Stand groß auf die Tafel, 📝 legt sie in die Notizen – dort über den Reiter am rechten Rand ein- und ausblenden und durchblättern. ☆ = in die Einfügen-Leiste. Alle Beispiele sind nachgerechnet.')];
 };
 })();
