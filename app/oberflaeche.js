@@ -2006,12 +2006,12 @@ async function pdfEinfuegen() {
     const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise, max = Math.min(pdf.numPages, 30);
     T.snap(); const start = S.page + 1;
     for (let i = 1; i <= max; i++) {
-      const pg = await pdf.getPage(i), vp0 = pg.getViewport({ scale: 1 }), sc = 1600 / vp0.width, vp = pg.getViewport({ scale: sc });
+      const pg = await pdf.getPage(i), vp0 = pg.getViewport({ scale: 1 }), sc = 1300 / vp0.width, vp = pg.getViewport({ scale: sc }); /* 1300 px, JPEG 60 %: gleich gut lesbar, etwa halb so groß wie früher (1600 px, 85 %) – Tafel und Arbeitsblatt-Sammlung bleiben schlank */
       const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
       const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
       await pg.render({ canvasContext: ctx, viewport: vp }).promise;
       const page = T.newPage('weiss'), w = 1200, hh = w * vp.height / vp.width;
-      page.items.push({ t: 'o', id: T.uid(), k: 'bild', d: { src: c.toDataURL('image/jpeg', 0.85) }, x: 40, y: 40, w, h: hh, r: 0 });
+      page.items.push({ t: 'o', id: T.uid(), k: 'bild', d: { src: c.toDataURL('image/jpeg', 0.6) }, x: 40, y: 40, w, h: hh, r: 0 });
       const z = Math.min((innerWidth - 40) / (w + 80), (innerHeight - 160) / (hh + 80)); page.view = { x: 20 - 40 * z + 20, y: 70, z };
       S.board.pages.splice(start + i - 1, 0, page);
     }

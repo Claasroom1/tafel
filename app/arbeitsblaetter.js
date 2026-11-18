@@ -69,6 +69,12 @@ async function loeschen(e) {
   }
 }
 
+/* JPEG-Bild verkleinern (nur wenn es dadurch wirklich kleiner wird) */
+const verkleinern = src => new Promise(ok => { const img = new Image();
+  img.onload = () => { const f = Math.min(1, 1300 / img.naturalWidth), c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * f); c.height = Math.round(img.naturalHeight * f);
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height); const u = c.toDataURL('image/jpeg', 0.6); ok(u.length < src.length * 0.9 ? u : src); };
+  img.onerror = () => ok(src); img.src = src; });
+
 /* ---------- Speichern-Dialog ---------- */
 /* von, bis: Seitenindex (0-basiert); ohne Angabe die aktuelle Seite */
 T.alsArbeitsblatt = (von, bis) => {
@@ -90,6 +96,11 @@ T.alsArbeitsblatt = (von, bis) => {
     const seiten = JSON.parse(JSON.stringify(S.board.pages.slice(a, b + 1)));
     if (!seiten.some(p => p.items && p.items.length)) { T.toast('Diese Seite(n) sind leer.'); return; }
     seiten.forEach(p => p.items.forEach(i => { delete i.ag; }));
+    /* große Seitenbilder (ältere PDF-Importe, Fotos) schlank speichern: höchstens 1300 px breit, JPEG 60 % – auch in der offenen Tafel */
+    const neu = new Map();
+    for (const p of seiten) for (const it of p.items) if (it.k === 'bild' && it.d && /^data:image\/jpeg/.test(it.d.src || '') && it.d.src.length > 350000) {
+      if (!neu.has(it.d.src)) neu.set(it.d.src, await verkleinern(it.d.src)); it.d.src = neu.get(it.d.src); }
+    if ([...neu].some(([a, b]) => a !== b)) { for (const p of S.board.pages) for (const it of p.items) if (it.k === 'bild' && it.d && neu.has(it.d.src)) it.d = { ...it.d, src: neu.get(it.d.src) }; T.changed(); T.render(); }
     if (!e.bild && T.vorschauBild) { try { e.bild = await T.vorschauBild(seiten[0].items, seiten[0].bg); } catch (x) {} }
     try { await sichern(e, seiten); } catch (x) { T.toast('Nicht gespeichert: ' + (x.message || x), 5000); return; }
     T.closeDlg(); neuLaden();
