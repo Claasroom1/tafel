@@ -207,7 +207,7 @@ function leisteAnpassen(box) {
 }
 function curKind() { return S.tool === 'marker' ? 'marker' : S.tool === 'radierer' ? 'radierer' : 'stift'; }
 function updateToolbar() {
-  if (typeof seitenNachziehen === 'function') requestAnimationFrame(seitenNachziehen); /* 📑 Seiten-Leiste aktuell halten */
+  if (typeof seitenNachziehen === 'function') T.wennRuhig('seiten', seitenNachziehen, 800); /* 📑 Seiten-Leiste aktuell halten – Vorschaubilder erst in einer Schreibpause */
   for (const [id] of TOOLS) $('t_' + id).classList.toggle('on', S.tool === id || (id === 'form' && !!formLeisteEl)); /* Formen: markiert, solange die Formenleiste steht (wie Favoriten) */
   const feder = (S.stiftArt === 'laser' ? S.vorLaser : S.stiftArt) === 'kalli';
   const mk = S.tool === 'marker';
@@ -2371,7 +2371,7 @@ function status() {
   else if (F.root) st.textContent = S.dirty ? '● ungespeichert' : '';
   else { st.textContent = F.pending ? '⚠ Ordner bestätigen' : '⚠ kein Ablageordner'; st.classList.add('warn'); }
 }
-T.onChange = () => { status(); updateToolbar(); clearTimeout(backupT); backupT = setTimeout(backup, 2500); };
+T.onChange = () => { status(); updateToolbar(); T.wennRuhig('backup', backup, 3000); }; /* Sicherung erst in einer Schreibpause – große Tafeln (PDF-Arbeitsblätter) bremsen sonst den Stift */
 let backupT = 0;
 async function backup() { if (!S.board) return; try { await T.idbSet('backup', { json: JSON.stringify(S.board), dirty: S.dirty, file: S.file, zeit: Date.now() }); } catch (e) {} }
 async function speichern(manuell) {
@@ -2395,7 +2395,7 @@ async function speichern(manuell) {
   } catch (e) { toast('Speichern fehlgeschlagen: ' + (e.message || e), 5000); }
   saving = false; status();
 }
-setInterval(() => { if (T.opts.autoSpeichern !== false && S.board && S.dirty && F.root && S.file && !S.drag && !T.live) speichern(false); }, 20000); /* 💾 automatisch – abschaltbar */
+setInterval(() => { if (T.opts.autoSpeichern !== false && S.board && S.dirty && F.root && S.file && !S.drag && !T.live) T.wennRuhig('autosave', () => { if (S.dirty && !saving) speichern(false); }, 4000); }, 20000); /* 💾 automatisch – abschaltbar; erst in einer Schreibpause (4 s ohne Stift) */
 addEventListener('beforeunload', e => { if (S.board && S.dirty) { backup(); e.preventDefault(); e.returnValue = ''; } });
 
 function topInfo() {

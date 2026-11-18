@@ -58,7 +58,9 @@ function stiftLog(art, e) {
 }
 T.stiftLog = stiftLog;
 const stiftAktiv = () => [...ptrs.values()].some(q => q.type === 'pen') || performance.now() < stiftRuheBis;
+T.zeigerAktiv = () => ptrs.size > 0; /* liegt gerade Stift/Finger/Maus auf? (für T.wennRuhig) */
 function down(e) {
+  T.letzteEingabe = performance.now();
   stiftLog(S.board ? 'down' : 'down-ohne-tafel', e);
   if (!S.board) return;
   e.preventDefault();
@@ -95,7 +97,7 @@ function down(e) {
   P.h = choose(P, e, wx, wy);
 }
 function move(e) {
-  const P = ptrs.get(e.pointerId);
+  const P = ptrs.get(e.pointerId); if (P) T.letzteEingabe = performance.now();
   if (!P) {
     /* Pencil liegt auf, aber Safari hat kein „Aufsetzen“ gemeldet (oder der Strich wurde zu früh beendet): Strich hier beginnen statt ihn zu verlieren */
     if (e.pointerType === 'pen' && (e.buttons & 1) && e.pressure > 0 && S.board) { stiftLog('neu', e); down(e); return; }
@@ -116,7 +118,7 @@ function move(e) {
 }
 function up(e) {
   stiftLog('up', e);
-  const P = ptrs.get(e.pointerId); if (!P) return;
+  const P = ptrs.get(e.pointerId); if (!P) return; T.letzteEingabe = performance.now();
   P.x = e.clientX; P.y = e.clientY; ptrs.delete(e.pointerId);
   if (P.type === 'pen') stiftRuheBis = performance.now() + (IPAD ? 900 : 500); /* Hand hebt meist erst nach dem Stift ab */
   if (P.h && P.h.up) P.h.up(P, e);

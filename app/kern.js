@@ -3,8 +3,18 @@
 (function () {
 const T = window.T = window.T || {};
 
-T.VERSION = '2026-11-21s';        // wie in sw.js (bei jeder neuen Fassung mit hochzählen) – steht unten in ⚙ Einstellungen
+T.VERSION = '2026-11-21t';        // wie in sw.js (bei jeder neuen Fassung mit hochzählen) – steht unten in ⚙ Einstellungen
 T.CM = 40;                       // Weltpixel pro Zentimeter
+/* Schreiben hat Vorrang: Nebenarbeiten (Sicherung, Seitenbilder, Autospeichern) erst, wenn gerade kein Stift/Finger aufliegt
+   und seit „ruhe“ ms nichts geschrieben wurde – dann im Leerlauf des Browsers. Gleicher Schlüssel = nur der letzte Auftrag zählt. */
+T.letzteEingabe = 0;
+T.wennRuhig = (() => { const warte = new Map();
+  return (key, fn, ruhe = 1200) => {
+    clearTimeout(warte.get(key));
+    const versuch = () => { const rest = ruhe - (performance.now() - T.letzteEingabe);
+      if (rest > 0 || (T.zeigerAktiv && T.zeigerAktiv())) { warte.set(key, setTimeout(versuch, Math.max(rest, 300) + 50)); return; }
+      warte.delete(key); if (window.requestIdleCallback) requestIdleCallback(() => fn(), { timeout: 1500 }); else fn(); };
+    warte.set(key, setTimeout(versuch, 0)); }; })();
 T.uid = () => Math.random().toString(36).slice(2, 10);
 T.clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 T.r1 = v => Math.round(v * 10) / 10;

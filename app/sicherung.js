@@ -96,6 +96,7 @@ T.sicherungDialog = async () => {
 
 // Knopf auf der Startseite (Kopfzeile) + Erinnerung, wenn ohne Ablageordner gearbeitet wird
 const knopf = () => {
+  if (T.S && T.S.board) return; /* Tafel offen: Startseite unsichtbar – nichts prüfen (sonst bei jeder Änderung eine teure Stil-Berechnung) */
   const A = document.getElementById('archiv'); if (!A || getComputedStyle(A).display === 'none') return;
   const kopf = A.querySelector('.kopf'); if (!kopf || kopf.querySelector('.sich-kopf') || kopf.querySelector('.name-wahl')) return; /* angemeldet: steht im Namensmenü */
   const tage = tageSeit(), alt = !F.supported && (tage == null || tage > 7);
