@@ -41,6 +41,7 @@ T.entbuendeln = (start) => {
   const st = { a: 52, b: 27, op: '−', ...(start || {}) };
   const buehne = h('div', { class: 'eb-buehne', style: { width: BUEHNE_W + 'px', height: BUEHNE_H + 'px' } });
   const heft = h('div', { class: 'eb-heft' }), info = h('div', { class: 'eb-info' }), zaehler = {};
+  const aufgabe = h('span', { class: 'eb-aufgabe' }), jetzt = h('span', { class: 'eb-jetzt' }), gross = h('div', { class: 'eb-gross' }, aufgabe, jetzt); /* groß oben: ganze Aufgabe + aktueller Rechenschritt */
   for (const s of ['H', 'Z', 'E']) {
     buehne.append(h('div', { class: 'eb-spalte eb-' + s, style: { left: SP[s].x - 6 + 'px', width: SP[s].w + 'px' } }, h('b', {}, NAME[s])));
     zaehler[s] = h('div', { class: 'eb-zahl', style: { left: SP[s].x - 6 + 'px', width: SP[s].w + 'px' } }); buehne.append(zaehler[s]);
@@ -52,14 +53,17 @@ T.entbuendeln = (start) => {
   const weiter = h('button', { class: 'big prim' }, 'Weiter ▶'), alles = h('button', { class: 'big' }, '▶▶ Alles'), neu = h('button', { class: 'big' }, '↺ Neu');
   const w = T.widget('🧊 Bündeln & Entbündeln', [
     h('div', { class: 'row', style: { gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' } }, fA, fOp, fB, neu, h('span', { style: { flex: 1 } }), tempo, weiter, alles),
-    info, h('div', { class: 'eb-wrap' }, buehne, heft)], Math.max(10, innerWidth / 2 - 560), 60);
+    gross, info, h('div', { class: 'eb-wrap' }, buehne, heft)], Math.max(10, innerWidth / 2 - 560), 60);
   /* kleinere Bildschirme (iPad hochkant): Bühne und Heft passend verkleinern */
-  const wrap = w.querySelector('.eb-wrap'), passe = () => { const z = Math.min(1, (innerWidth - 40) / (BUEHNE_W + 230), (innerHeight - 230) / BUEHNE_H); wrap.style.zoom = String(Math.max(0.45, z)); };
+  const wrap = w.querySelector('.eb-wrap'), passe = () => { const z = Math.min(1, (innerWidth - 40) / (BUEHNE_W + 270), (innerHeight - 300) / BUEHNE_H); wrap.style.zoom = String(Math.max(0.45, z)); };
   passe(); addEventListener('resize', passe); const zuAlt = w.onclose; w.onclose = () => { removeEventListener('resize', passe); zuAlt && zuAlt(); };
 
   let lauf = null, schritte = [], k = 0, besch = false;
   const t = ms => ms * (+tempo.value || 1);
   const sag = (txt, farbe) => { info.textContent = txt; info.style.borderColor = farbe || 'var(--acc, #4f46e5)'; };
+  /* großer Rechenschritt oben, aktuelle Stelle im Heft gelb */
+  const zeig = (txt, farbe, s) => { jetzt.textContent = txt; jetzt.style.color = farbe || '#1d4ed8'; if (s !== undefined && lauf) { lauf.akt = s; heftMalen(); } };
+  const aufgabeZeigen = fertig => { const L = lauf; aufgabe.textContent = `${L.a} ${L.op} ${L.b} = ${fertig ? (L.op === '−' ? L.a - L.b : L.a + L.b) : '?'}`; aufgabe.classList.toggle('eb-ok', !!fertig); };
 
   function aufbau() {
     let a = Math.round(+fA.value || 0), b = Math.round(+fB.value || 0); const op = fOp.value;
@@ -74,7 +78,7 @@ T.entbuendeln = (start) => {
     /* Schritte: je Stelle von rechts nach links (nur so weit, wie es Stellen gibt) */
     const stellen = Math.max(String(a).length, String(b).length);
     schritte = ['E', 'Z', 'H'].slice(0, stellen).map(s => () => op === '−' ? minusStelle(s) : plusStelle(s));
-    k = 0; weiter.disabled = alles.disabled = false;
+    k = 0; weiter.disabled = alles.disabled = false; aufgabeZeigen(false); zeig('Zuerst die Einer', '#475569');
     sag(op === '−' ? `${a} − ${b}: Wir rechnen von rechts – zuerst die Einer. „Weiter ▶“ zeigt den nächsten Schritt.` : `${a} + ${b}: Wir rechnen von rechts – zuerst die Einer. „Weiter ▶“ zeigt den nächsten Schritt.`);
     return true;
   }
@@ -83,11 +87,11 @@ T.entbuendeln = (start) => {
   /* Rechnung wie im Heft: H Z E, darüber kleine rote Zahlen beim Entbündeln, Übertrag, Ergebnis */
   function heftMalen() {
     const L = lauf, z = n => String(n);
-    const zeile = (zeichen, werte, kl) => h('div', { class: 'eb-zeile' + (kl ? ' ' + kl : '') }, h('span', { class: 'eb-op' }, zeichen), ...['H', 'Z', 'E'].map(s => h('span', {}, werte[s] == null ? '' : werte[s])));
+    const zeile = (zeichen, werte, kl) => h('div', { class: 'eb-zeile' + (kl ? ' ' + kl : '') }, h('span', { class: 'eb-op' }, zeichen), ...['H', 'Z', 'E'].map(s => h('span', { class: L.akt === s ? 'eb-akt' : '' }, werte[s] == null ? '' : werte[s]))); /* aktuelle Stelle gelb hinterlegt */
     const zeige = (x, s) => (s === 'H' && x >= 100) || (s === 'Z' && x >= 10) || s === 'E';
     const oben = {}, unten = {}; for (const s of ['H', 'Z', 'E']) { if (zeige(L.a, s)) oben[s] = z(L.d[s]); if (zeige(L.b, s)) unten[s] = z(L.e[s]); }
     heft.innerHTML = '';
-    heft.append(h('div', { class: 'eb-zeile eb-kopf' }, h('span', { class: 'eb-op' }), h('span', {}, 'H'), h('span', {}, 'Z'), h('span', {}, 'E')));
+    heft.append(h('div', { class: 'eb-zeile eb-kopf' }, h('span', { class: 'eb-op' }), ...['H', 'Z', 'E'].map(s => h('span', { class: L.akt === s ? 'eb-akt' : '' }, s))));
     if (L.op === '−') heft.append(zeile('', L.neuOben, 'eb-rot'));
     const ob = zeile('', oben); if (L.op === '−') ['H', 'Z', 'E'].forEach((s, i) => { if (L.neuOben[s] != null) ob.children[i + 1].classList.add('eb-weg-strich'); }); heft.append(ob);
     heft.append(zeile(L.op, unten));
@@ -97,7 +101,7 @@ T.entbuendeln = (start) => {
   /* ----- Entbündeln: oberstes Teil der Stelle „von“ wird größer, zerfällt in 10 Teile, die zur tieferen Stelle schweben ----- */
   async function entbuendeln(von) {
     const nach = TIEFER[von], L = lauf, el = L.teile[von].pop(); zaehlen();
-    sag(`Entbündeln: 1 ${NAME1[von]} wird in 10 ${NAME[nach]} getauscht.`, '#dc2626');
+    sag(`Entbündeln: 1 ${NAME1[von]} wird in 10 ${NAME[nach]} getauscht.`, '#dc2626'); zeig(`Entbündeln: 1 ${NAME1[von]} = 10 ${NAME[nach]}`, '#dc2626');
     el.style.zIndex = 5; el.style.boxShadow = '0 0 0 3px #dc2626';
     const gr = el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.45)' }], { duration: t(450), easing: 'ease-out', fill: 'forwards' });
     await gr.finished.catch(() => {}); await warte(t(150));
@@ -118,7 +122,7 @@ T.entbuendeln = (start) => {
   /* ----- Bündeln: 10 Teile kommen zusammen, werden zu einem Teil der höheren Stelle, das als Übertrag hinüberwandert ----- */
   async function buendeln(von) {
     const nach = HOEHER[von], L = lauf, zehn = L.teile[von].splice(L.teile[von].length - 10, 10); zaehlen();
-    sag(`Bündeln: 10 ${NAME[von]} werden zu 1 ${NAME1[nach]} – das ist der Übertrag.`, '#dc2626');
+    sag(`Bündeln: 10 ${NAME[von]} werden zu 1 ${NAME1[nach]} – das ist der Übertrag.`, '#dc2626'); zeig(`Bündeln: 10 ${NAME[von]} = 1 ${NAME1[nach]} → Übertrag`, '#dc2626');
     const gx = SP[von].x + SP[von].w - (von === 'E' ? 40 : 10 * C + 30), gy = OBEN + (von === 'E' ? 120 : 200);
     await Promise.all(zehn.map((s, i) => { s.style.zIndex = 6; s.style.boxShadow = '0 0 0 2px #dc2626'; return bewege(s, von === 'E' ? gx : gx + i * C, von === 'E' ? gy + i * C - 120 : gy - 190, t(700), t(i * 50)); }));
     await warte(t(200));
@@ -132,12 +136,15 @@ T.entbuendeln = (start) => {
   /* ----- eine Stelle bei Minus ----- */
   async function minusStelle(s) {
     const L = lauf, weg = L.e[s];
+    zeig(`${NAME[s]}: ${L.teile[s].length} − ${weg}`, '#1d4ed8', s);
     if (L.teile[s].length < weg) {
+      zeig(`${NAME[s]}: ${L.teile[s].length} − ${weg}  geht nicht!`, '#dc2626', s);
       sag(`${NAME[s]}: ${L.teile[s].length} − ${weg} geht nicht – es reicht nicht. Wir holen uns 1 ${NAME1[HOEHER[s]]}.`, '#dc2626'); await warte(t(1400));
       if (!L.teile[HOEHER[s]].length && HOEHER[HOEHER[s]]) { await entbuendeln(HOEHER[HOEHER[s]]); await warte(t(500)); } /* z. B. 302 − 7: erst Hunderter → Zehner */
       await entbuendeln(HOEHER[s]); await warte(t(600));
     }
     sag(`${NAME[s]}: ${L.teile[s].length} − ${weg} = ${L.teile[s].length - weg}. Wir nehmen ${weg} ${weg === 1 ? NAME1[s] : NAME[s]} weg.`);
+    zeig(`${NAME[s]}: ${L.teile[s].length} − ${weg} = ${L.teile[s].length - weg}`, '#16a34a', s);
     const wegT = L.teile[s].splice(L.teile[s].length - weg, weg);
     await Promise.all(wegT.map((el, i) => { el.style.boxShadow = '0 0 0 2px #dc2626'; return el.animate([{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(70px) rotate(20deg)' }], { duration: t(700), delay: t(i * 60), fill: 'forwards' }).finished.catch(() => {}); }));
     wegT.forEach(el => el.remove()); zaehlen();
@@ -145,7 +152,8 @@ T.entbuendeln = (start) => {
   }
   /* ----- eine Stelle bei Plus ----- */
   async function plusStelle(s) {
-    const L = lauf, dazu = L.e[s];
+    const L = lauf, dazu = L.e[s], ue = L.ue[s] === '1', summe = L.teile[s].length + dazu;
+    zeig(`${NAME[s]}: ${L.d[s]} + ${dazu}${ue ? ' + 1' : ''} = ${summe}`, '#1d4ed8', s); /* + 1 = Übertrag von rechts */
     sag(`${NAME[s]}: Die ${dazu} ${dazu === 1 ? NAME1[s] : NAME[s]} der zweiten Zahl kommen dazu.`, FARBE.b);
     const neu = []; for (let i = 0; i < dazu; i++) { const el = teil(s, FARBE.b), p = lage(s, 0); setze(el, p.x + (s === 'E' ? 40 : 0), BUEHNE_H - (s === 'E' ? C : s === 'Z' ? 10 * C : 10 * C) - 4); el.style.opacity = '0'; buehne.append(el); neu.push(el); }
     await Promise.all(neu.map((el, i) => { const p = lage(s, L.teile[s].length + i); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: t(250), delay: t(i * 70), fill: 'forwards' }).finished.then(() => { el.style.opacity = '1'; }).catch(() => {}); return bewege(el, p.x, p.y, t(800), t(i * 70)); }));
@@ -153,6 +161,7 @@ T.entbuendeln = (start) => {
     const n = L.teile[s].length;
     if (n >= 10 && HOEHER[s]) { sag(`${NAME[s]}: zusammen ${n} – das sind 10 oder mehr. Wir bündeln!`, '#dc2626'); await warte(t(1300)); await buendeln(s); await warte(t(400)); }
     sag(`${NAME[s]}: Es bleiben ${L.teile[s].length} ${L.teile[s].length === 1 ? NAME1[s] : NAME[s]} – ins Ergebnis.`);
+    zeig(n >= 10 && HOEHER[s] ? `${NAME[s]}: ${n} = 1 ${NAME1[HOEHER[s]]} + ${L.teile[s].length} ${NAME[s]}` : `${NAME[s]}: Ergebnis ${L.teile[s].length}`, '#16a34a', s);
     L.erg[s] = String(L.teile[s].length); heftMalen();
   }
   async function naechster() {
@@ -160,6 +169,7 @@ T.entbuendeln = (start) => {
     besch = true; weiter.disabled = alles.disabled = true;
     try { await schritte[k++](); } finally { besch = false; }
     if (k >= schritte.length) { for (const s of ['H', 'Z']) { if (lauf.erg[s] === '0') lauf.erg[s] = ''; else if (lauf.erg[s]) break; } heftMalen(); /* führende Nullen schreibt man nicht */
+      lauf.akt = null; heftMalen(); aufgabeZeigen(true); zeig('✓ fertig', '#16a34a');
       const erg = lauf.op === '−' ? lauf.a - lauf.b : lauf.a + lauf.b; sag(`Fertig: ${lauf.a} ${lauf.op} ${lauf.b} = ${erg}. ` + (lauf.op === '−' ? `Probe: ${erg} + ${lauf.b} = ${lauf.a} ✓` : `Probe: ${erg} − ${lauf.b} = ${lauf.a} ✓`), '#16a34a'); }
     else weiter.disabled = alles.disabled = false;
   }
@@ -180,9 +190,12 @@ document.head.append(Object.assign(document.createElement('style'), { textConten
   + '.eb-zahl{position:absolute;bottom:8px;text-align:center;font:600 18px system-ui;color:#475569}'
   + '.eb-teil{position:absolute;border:1.5px solid rgba(0,0,0,.55);border-radius:2px;box-sizing:border-box;will-change:transform,left,top}'
   + '.eb-info{margin:0 0 8px;padding:8px 12px;border-left:5px solid var(--acc,#4f46e5);background:var(--surface2,#f1f5f9);border-radius:8px;font:600 19px system-ui;min-height:28px}'
-  + '.eb-heft{background:#fff;color:#111;border:1px solid #cbd5e1;border-radius:14px;padding:12px 16px;font:600 30px "Segoe UI",system-ui;min-width:170px}'
-  + '.eb-zeile{display:grid;grid-template-columns:34px repeat(3,40px);text-align:center;line-height:1.35;min-height:1.35em}'
-  + '.eb-kopf{font-size:16px;color:#64748b}.eb-rot{color:#dc2626;font-size:20px;min-height:1.2em}.eb-erg{color:#16a34a}'
+  + '.eb-heft{background:#fff;color:#111;border:1px solid #cbd5e1;border-radius:14px;padding:12px 16px;font:700 40px "Segoe UI",system-ui;min-width:220px}'
+  + '.eb-gross{display:flex;align-items:baseline;gap:24px;flex-wrap:wrap;margin:0 0 6px;padding:6px 14px;background:#fff;color:#111;border:1px solid #cbd5e1;border-radius:14px}'
+  + '.eb-aufgabe{font:800 44px "Segoe UI",system-ui;letter-spacing:.5px}.eb-aufgabe.eb-ok{color:#16a34a}.eb-jetzt{font:700 34px "Segoe UI",system-ui}'
+  + '.eb-akt{background:#fef08a;border-radius:6px;box-shadow:0 0 0 2px #facc15 inset}'
+  + '.eb-zeile{display:grid;grid-template-columns:40px repeat(3,54px);text-align:center;line-height:1.3;min-height:1.3em}'
+  + '.eb-kopf{font-size:18px;color:#64748b}.eb-rot{color:#dc2626;font-size:24px;min-height:1.2em}.eb-erg{color:#16a34a}'
   + '.eb-weg-strich{text-decoration:line-through;text-decoration-color:#dc2626;text-decoration-thickness:3px}'
   + '.eb-strich{border-top:4px solid #111;margin:2px 0}.eb-doppel{border-top:2.5px solid #111;border-bottom:2.5px solid #111;height:3px;margin-top:2px}' }));
 })();
