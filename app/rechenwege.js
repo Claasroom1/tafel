@@ -461,6 +461,7 @@ function schritte(r) {
 }
 /* Weitere Mathe-Erklärungen der App (nur verlinkt, kein doppelter Inhalt): Geometrie-Erklärtafeln und der Teiler-Finder */
 const EXTRA = [
+  { id: 'x:entb', gruppe: 'Schriftlich rechnen (Kl. 5/6)', name: 'Bündeln & Entbündeln – animiert', em: '🧊', da: () => !!T.entbuendeln, run: () => T.entbuendeln() },
   { id: 'x:teiler', gruppe: 'Teilbarkeit (Kl. 5/6)', name: 'Vielfache & Teiler (ggT, kgV)', em: '🔢', da: () => !!T.teilerFinder, run: () => T.teilerFinder() },
   { id: 'x:geoerkl', gruppe: 'Geometrie', name: 'Geodreieck erklärt', k: 'geoerkl', da: () => !!T.geoErklMenue, run: () => T.geoErklMenue() },
   { id: 'x:dreieckerkl', gruppe: 'Geometrie', name: 'Dreiecke erklärt', k: 'dreieckerkl', da: () => !!T.dreieckErklMenue, run: () => T.dreieckErklMenue() },
