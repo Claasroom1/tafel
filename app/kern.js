@@ -3,7 +3,7 @@
 (function () {
 const T = window.T = window.T || {};
 
-T.VERSION = '2026-11-21w';        // wie in sw.js (bei jeder neuen Fassung mit hochzählen) – steht unten in ⚙ Einstellungen
+T.VERSION = '2026-11-21x';        // wie in sw.js (bei jeder neuen Fassung mit hochzählen) – steht unten in ⚙ Einstellungen
 T.CM = 40;                       // Weltpixel pro Zentimeter
 /* Schreiben hat Vorrang: Nebenarbeiten (Sicherung, Seitenbilder, Autospeichern) erst, wenn gerade kein Stift/Finger aufliegt
    und seit „ruhe“ ms nichts geschrieben wurde – dann im Leerlauf des Browsers. Gleicher Schlüssel = nur der letzte Auftrag zählt. */
