@@ -461,6 +461,7 @@ function schritte(r) {
 }
 /* Weitere Mathe-Erklärungen der App (nur verlinkt, kein doppelter Inhalt): Geometrie-Erklärtafeln und der Teiler-Finder */
 const EXTRA = [
+  { id: 'x:runden', gruppe: 'Zahlen & Runden (Kl. 5)', name: 'Runden – animiert', em: '🎯', da: () => !!T.rundenAnim, run: () => T.rundenAnim() },
   { id: 'x:entb', gruppe: 'Schriftlich rechnen (Kl. 5/6)', name: 'Bündeln & Entbündeln – animiert', em: '🧊', da: () => !!T.entbuendeln, run: () => T.entbuendeln() },
   { id: 'x:erwanim', gruppe: 'Brüche & Dezimalzahlen (Kl. 6/7)', name: 'Erweitern & Kürzen – animiert', em: '🍰', da: () => !!T.bruchErweitern, run: () => T.bruchErweitern() },
   { id: 'x:strahlanim', gruppe: 'Brüche & Dezimalzahlen (Kl. 6/7)', name: 'Brüche am Zahlenstrahl – animiert', em: '📏', da: () => !!T.bruchStrahlAnim, run: () => T.bruchStrahlAnim() },
@@ -476,7 +477,7 @@ T.FAV_SONDER = T.FAV_SONDER || [];
 T.FAV_SONDER.push({ prefix: 'einfuegen:rw:', sym: '📘', name: id => { const x = extraNach(id); if (x) return x.name; const r = R.find(x => x.id === id); return r && r.name; }, run: id => T.rechenwegSchritte(id) },
   { prefix: 'einfuegen:rwalle', sym: '📘', name: () => 'Erklärungen / Rechenwege', run: () => { T.rwZurueck = 'einfuegen'; T.zeigeDock('mathe-rechenwege'); } });
 /* Reihenfolge der Themen: Rechnen · Teilbarkeit · Brüche · Prozent · Terme · Geometrie */
-const THEMEN = ['Schriftlich rechnen', 'Kopfrechnen', 'Teilbarkeit', 'Brüche', 'Prozent', 'Terme', 'Geometrie'];
+const THEMEN = ['Schriftlich rechnen', 'Kopfrechnen', 'Zahlen', 'Teilbarkeit', 'Brüche', 'Prozent', 'Terme', 'Geometrie'];
 const rang = t => { const i = THEMEN.findIndex(x => t.startsWith(x)); return i < 0 ? 99 : i; };
 T.rechenwegePanel = () => {
   const gruppen = [];

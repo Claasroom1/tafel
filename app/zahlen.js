@@ -8,7 +8,7 @@
 'use strict';
 (function () {
 const B = T.BAUSTEINE, h = T.h;
-const AUSNAHMEN = new Set(['text', 'formel', 'bild', 'ukarte', 'uziel', 'uknopf', 'loesung', 'kacheln', 'abdeckung', 'bruchstrahl', 'bruchstueck', 'bruchganzes', 'bruchvorlage', 'bruchpfeil']); /* Brüche: eigenes, einfaches Menü (bruchstuecke.js) */
+const AUSNAHMEN = new Set(['text', 'formel', 'bild', 'ukarte', 'uziel', 'uknopf', 'loesung', 'kacheln', 'abdeckung', 'bruchstrahl', 'bruchstueck', 'bruchganzes', 'bruchvorlage', 'bruchpfeil', 'runden']); /* Brüche: eigenes, einfaches Menü (bruchstuecke.js) */
 const OHNE_ZAHLEN = new Set(['sp_turnier', 'sp_teams', 'be_uebersicht']); /* Zahlen kommen dort aus dem Ablauf (Spielnummern, Haken) */
 const ZAHL = /\d+(?:[.,]\d+)*/g;
 const ent = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
