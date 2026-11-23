@@ -40,6 +40,9 @@ function ganzesSvg(d, P) {
   return { svg: T._svg.doc(W, H, s), w: W, h: H, B };
 }
 const B = T.BAUSTEINE;
+/* ◐ durchsichtig / deckend – direkt im Kontextmenü (gilt für alle markierten Elemente; Deckkraft wie beim Schieberegler: it.alpha) */
+const DURCH = { l: '◐ durchsichtig / deckend', aus: o => { const ids = T.S.sel && T.S.sel.ids && T.S.sel.ids.size ? T.S.sel.ids : new Set([o.id]), pg = T.page(), an = !(o.alpha < 1);
+  T.snap(); pg.items.forEach((it, i) => { if (ids.has(it.id)) { const n = { ...it }; if (an) n.alpha = 0.5; else delete n.alpha; pg.items[i] = n; } }); T.render(); T.renderOver(); T.changed && T.changed(); } };
 B.bruchstueck = { name: 'Bruchstück', gruppe: 'Mathe', def: { form: 'kreis', nenner: 4, a0: 0, a1: 0.25, farbe: '#fdba74', beschr: true },
   felder: [{ k: 'farbe', l: 'Farbe', typ: 'auswahl', opts: FARBEN }, { k: 'beschr', l: 'Bruch (1/n) auf das Stück schreiben', typ: 'check' }],
   gen: (d, P) => stueckSvg(d, P) };
@@ -80,7 +83,8 @@ B.bruchstueck.schnell = d => [
     T.snap(); const pg = T.page(); pg.items = pg.items.filter(i => i.id !== o.id); const A = teil(o.d.a0, m), Bb = teil(m, o.d.a1); T.addItem(A); T.addItem(Bb); T.S.sel = null; T.render(); T.renderOver();
     T.toast(`Halbiert: zwei Stücke zu je 1/${o.d.nenner * 2}.`, 2200); } },
   { l: d.beschr === false ? '½ Bruch zeigen' : '½ Bruch ausblenden', f: dd => ({ d: { ...dd, beschr: dd.beschr === false } }) },
-  { l: '🎨 Farbe wechseln', f: dd => { const i = FARBEN.findIndex(c => c[0] === dd.farbe); return { d: { ...dd, farbe: FARBEN[(i + 1) % FARBEN.length][0] } }; } }];
+  { l: '🎨 Farbe wechseln', f: dd => { const i = FARBEN.findIndex(c => c[0] === dd.farbe); return { d: { ...dd, farbe: FARBEN[(i + 1) % FARBEN.length][0] } }; } }, DURCH];
+B.bruchganzes.schnell = () => [DURCH];
 // Auswahl vor dem Einfügen: Form, Anzahl der Stücke, Farbe
 T.bruchstueckeMenue = () => {
   const h = T.h, st = { form: 'kreis', n: 4, farbe: '#fdba74', beschr: true, ganzes: true };
@@ -191,7 +195,7 @@ B.bruchstrahl = { name: 'Brüche am Zahlenstrahl', gruppe: 'Mathe', def: { bruec
     return { svg: T._svg.doc(breite, H, s), w: breite, h: H };
   } };
 // Kontextmenü: ein einfaches Fenster statt „Zahlen anpassen“ – Brüche eintippen, Einteilung und Anzeige mit Knöpfen, Vorschau sofort
-B.bruchstrahl.schnell = () => [{ l: '🔢 Brüche eingeben', aus: o => bruchstrahlDialog(o) }];
+B.bruchstrahl.schnell = () => [{ l: '🔢 Brüche eingeben', aus: o => bruchstrahlDialog(o) }, DURCH];
 T.bruchstrahlDialog = o => bruchstrahlDialog(o);
 function bruchstrahlDialog(o) {
   const h = T.h, d = { ...B.bruchstrahl.def, ...o.d };
@@ -215,4 +219,110 @@ function bruchstrahlDialog(o) {
       T.snap(); T.replaceItem({ ...o, d: { ...d }, w: g.w * sk, h: g.h * sk }); T.closeDlg(); T.render(); T.renderOver(); } }, '✔ Übernehmen'))]);
   vorschau(); setTimeout(() => { eingabe.focus(); eingabe.select(); }, 60);
 }
+
+// ---------- ✏️ Bruchrechnen zum Ausfüllen (wie die schriftliche Aufgabe): Bruchstriche mit Kästchen, Rechenzeichen, Bögen „· □“ / „: □“ ----------
+// art: erweitern · kuerzen · plus · minus · mal · geteilt. „aufgabe“ (z. B. 2/3 + 1/4) steht schon drin – leer = alles zum Ausfüllen.
+// Schritte abwählbar: ohne Erweitern (gleichnamige Brüche), ohne Kürzen; Pfeile ein/aus oder „↗ Pfeile lösen“ = einzeln verschiebbar.
+// Lösung verdeckt; ☰ „👁 Lösung zeigen“ (grün). Immer weißes Blatt mit dunkler Schrift. Mit dem Stift hineinschreiben.
+const BV_ARTEN = [['erweitern', 'Erweitern'], ['kuerzen', 'Kürzen'], ['plus', 'Addieren (+)'], ['minus', 'Subtrahieren (−)'], ['mal', 'Multiplizieren (·)'], ['geteilt', 'Dividieren (:)']];
+const bvBrueche = s => [...String(s || '').matchAll(/(\d+)\s*\/\s*(\d+)/g)].map(m => ({ z: +m[1], n: +m[2] })).filter(b => b.n > 0);
+const BV = { FW: 120, OW: 58, MY: 158, H: 316 };
+/* Aufbau: Folge aus Brüchen {k: Schlüssel} und Zeichen; Bögen [von, bis, oben?, Zeichen, Schlüssel der Zahl] */
+function bvAufbau(d) {
+  const art = d.art, erw = d.erweitern !== false, kue = d.kuerzen !== false, F = k => ({ k });
+  if (art === 'erweitern') return { s: [F('A'), '=', F('E')], b: [['A', 'E', true, '·', 'k'], ['A', 'E', false, '·', 'k']] };
+  if (art === 'kuerzen') return { s: [F('A'), '=', F('K')], b: [['A', 'K', true, ':', 'k'], ['A', 'K', false, ':', 'k']] };
+  const s = [], b = [];
+  if (art === 'plus' || art === 'minus') { const o = art === 'plus' ? '+' : '−';
+    s.push(F('A'), o, F('B'), '=');
+    if (erw) { s.push(F('A2'), o, F('B2'), '='); b.push(['A', 'A2', true, '·', 'ka'], ['B', 'B2', false, '·', 'kb']); }
+    s.push(F('S')); }
+  else if (art === 'mal') s.push(F('A'), '·', F('B'), '=', F('S'));
+  else s.push(F('A'), ':', F('B'), '=', F('A2'), '·', F('B2'), '=', F('S')); /* geteilt: mal dem Kehrwert */
+  if (kue) { s.push('=', F('K')); b.push(['S', 'K', true, ':', 'g']); }
+  return { s, b };
+}
+/* Lösung: Werte je Schlüssel – nur wenn die Aufgabe vollständig ist */
+function bvLoesung(d, br) {
+  const [A, Bb] = br, art = d.art; if (!A) return null;
+  if (art === 'erweitern') { const k = +d.faktor; return k > 1 ? { E: { z: A.z * k, n: A.n * k }, k } : null; }
+  if (art === 'kuerzen') { const k = +d.faktor || ggT(A.z, A.n); return k > 1 && !(A.z % k) && !(A.n % k) ? { K: { z: A.z / k, n: A.n / k }, k } : null; }
+  if (!Bb) return null;
+  let L = {}, z, n;
+  if (art === 'plus' || art === 'minus') {
+    const HN = d.erweitern === false && A.n === Bb.n ? A.n : kgV(A.n, Bb.n), a = A.z * HN / A.n, b = Bb.z * HN / Bb.n;
+    z = art === 'plus' ? a + b : a - b; n = HN; if (z < 0) return null;
+    L = { A2: { z: a, n: HN }, B2: { z: b, n: HN }, ka: HN / A.n, kb: HN / Bb.n };
+  } else if (art === 'mal') { z = A.z * Bb.z; n = A.n * Bb.n; }
+  else { if (!Bb.z) return null; L = { A2: { z: A.z, n: A.n }, B2: { z: Bb.n, n: Bb.z } }; z = A.z * Bb.n; n = A.n * Bb.z; }
+  const g = ggT(z, n); Object.assign(L, { S: { z, n }, K: { z: z / g, n: n / g }, g: g > 1 ? g : '–' });
+  return L;
+}
+/* Bogen mit Pfeil und Kästchen „· □“ – x1…x2 auf Höhe y0, oben oder unten (für Vorlage und einzelnen Bogenpfeil) */
+function bvBogen(x1, x2, y0, oben, zeichen, zahl, mitKasten) {
+  const akz = '#2563eb', kq = oben ? y0 - 84 : y0 + 84, mx = (x1 + x2) / 2, ly = oben ? y0 - 42 : y0 + 42, a = Math.atan2(y0 - kq, x2 - mx);
+  return `<path d="M${f(x1)} ${f(y0)} Q${f(mx)} ${f(kq)} ${f(x2)} ${f(y0)}" fill="none" stroke="${akz}" stroke-width="3"/>`
+    + `<path d="M${f(x2)} ${f(y0)} l${f(-15 * Math.cos(a - 0.45))} ${f(-15 * Math.sin(a - 0.45))} M${f(x2)} ${f(y0)} l${f(-15 * Math.cos(a + 0.45))} ${f(-15 * Math.sin(a + 0.45))}" stroke="${akz}" stroke-width="3" fill="none" stroke-linecap="round"/>`
+    + `<rect x="${f(mx - 44)}" y="${f(ly - 24)}" width="88" height="48" rx="10" fill="#fff" stroke="${akz}" stroke-width="2"${mitKasten ? ' stroke-dasharray="5 4"' : ''}/>`
+    + tx(mx - 24, ly, zeichen, akz, 34, 'middle', 'font-weight="800"') + (zahl != null && zahl !== '' ? tx(mx + 16, ly, String(zahl), '#16a34a', 30, 'middle', 'font-weight="700"') : '');
+}
+/* Lage der Teile in der Vorlage (auch für „Pfeile lösen“) */
+function bvLagen(d) {
+  const A = bvAufbau(d), xs = {}, pos = []; let x = 30;
+  for (const t of A.s) { const w = typeof t === 'string' ? BV.OW : BV.FW; pos.push(x + w / 2); if (typeof t !== 'string') xs[t.k] = x + w / 2; x += w; }
+  return { A, xs, pos, W: x + 30 };
+}
+B.bruchvorlage = { name: 'Bruchrechnen zum Ausfüllen', gruppe: 'Mathe', def: { art: 'plus', aufgabe: '', faktor: '', erweitern: true, kuerzen: true, pfeile: true, kaestchen: true, loesung: false },
+  felder: [{ k: 'art', l: 'Rechenart', typ: 'auswahl', opts: BV_ARTEN },
+    { k: 'aufgabe', l: 'Aufgabe vorgeben (z. B. 2/3 + 1/4 – leer = alles zum Ausfüllen)', typ: 'text' },
+    { k: 'faktor', l: 'Erweitern/Kürzen mit … (nur für die Lösung)', typ: 'text' },
+    { k: 'erweitern', l: 'Schritt „Erweitern auf gleiche Nenner“ (Plus/Minus) – aus bei gleichnamigen Brüchen', typ: 'check' },
+    { k: 'kuerzen', l: 'Schritt „Ergebnis kürzen“', typ: 'check' },
+    { k: 'pfeile', l: 'Bögen mit Pfeil (· □ / : □)', typ: 'check' },
+    { k: 'kaestchen', l: 'Gestrichelte Kästchen für Zähler und Nenner', typ: 'check' },
+    { k: 'loesung', l: 'Lösung zeigen (grün)', typ: 'check' }],
+  gen: d => {
+    const { A, xs, pos, W } = bvLagen(d), br = bvBrueche(d.aufgabe), L = d.loesung ? bvLoesung(d, br) : null;
+    const { MY, H } = BV, fs = 44, gruen = '#16a34a', ink = '#1f2937', gitter = '#94a3b8'; /* immer weißes Blatt – auch auf dunkler Tafel gut lesbar */
+    const kasten = (cx, cy) => d.kaestchen ? `<rect x="${f(cx - 46)}" y="${f(cy - 30)}" width="92" height="60" rx="8" fill="none" stroke="${gitter}" stroke-width="2" stroke-dasharray="6 5"/>` : '';
+    const paar = (cx, v, farbe) => { const g = String(v.z).length > 3 || String(v.n).length > 3 ? fs * 0.62 : fs;
+      return tx(cx, MY - 40, String(v.z), farbe, g, 'middle', 'font-weight="700"') + tx(cx, MY + 40, String(v.n), farbe, g, 'middle', 'font-weight="700"'); };
+    let out = `<rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="18" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>`; /* weißer Hintergrund */
+    A.s.forEach((t, i) => {
+      const cx = pos[i];
+      if (typeof t === 'string') { out += tx(cx, MY + 2, t, ink, fs, 'middle', 'font-weight="700"'); return; }
+      out += ln(cx - 48, MY, cx + 48, MY, ink, 4) + kasten(cx, MY - 40) + kasten(cx, MY + 40); /* Bruchstrich vorgegeben */
+      const vorgabe = t.k === 'A' ? br[0] : t.k === 'B' ? br[1] : null;
+      if (vorgabe) out += paar(cx, vorgabe, ink); else if (L && L[t.k]) out += paar(cx, L[t.k], gruen);
+    });
+    if (d.pfeile !== false) for (const [v, z, oben, zeichen, wk] of A.b) out += bvBogen(xs[v] + 6, xs[z] - 6, oben ? MY - 82 : MY + 82, oben, zeichen, L ? L[wk] : null, d.kaestchen);
+    return { svg: T._svg.doc(W, H, out), w: W, h: H };
+  } };
+/* ↗ Pfeile lösen: jeder Bogen wird ein eigenes Element (verschieben, breiter ziehen, löschen) – in der Vorlage aus */
+function bvPfeileLoesen(o) {
+  const d = { ...B.bruchvorlage.def, ...o.d }, { A, xs, W } = bvLagen(d), s = o.w / W, neu = [];
+  for (const [v, z, oben, zeichen] of A.b) {
+    const x1 = xs[v] + 6 - 12, breite = xs[z] - xs[v] - 12 + 24, y0 = oben ? BV.MY - 82 : BV.MY + 82, top = oben ? y0 - 96 : y0 - 14;
+    neu.push({ t: 'o', id: T.uid(), k: 'bruchpfeil', d: { zeichen, lage: oben ? 'oben' : 'unten', breite: Math.round(breite), kaestchen: d.kaestchen }, x: o.x + x1 * s, y: o.y + top * s, w: breite * s, h: 110 * s, r: 0 });
+  }
+  if (!neu.length) { T.toast('Hier gibt es keine Pfeile.', 2000); return; }
+  T.snap(); T.replaceItem({ ...o, d: { ...o.d, pfeile: false } }); neu.forEach(x => T.addItem(x)); T.S.sel = null; T.render(); T.renderOver();
+  T.toast('↗ Die Pfeile sind jetzt einzelne Elemente – antippen und verschieben, an der Ecke breiter ziehen, 🗑 löschen.', 4000);
+}
+B.bruchvorlage.schnell = d => [
+  { l: d.loesung ? '🙈 Lösung verdecken' : '👁 Lösung zeigen', f: dd => ({ d: { ...dd, loesung: !dd.loesung } }) },
+  ...(d.art === 'plus' || d.art === 'minus' ? [{ l: d.erweitern === false ? '➕ Schritt Erweitern' : '➖ Ohne Erweitern (gleichnamig)', f: dd => ({ d: { ...dd, erweitern: dd.erweitern === false } }) }] : []),
+  ...(d.art !== 'erweitern' && d.art !== 'kuerzen' ? [{ l: d.kuerzen === false ? '➕ Schritt Kürzen' : '➖ Ohne Kürzen', f: dd => ({ d: { ...dd, kuerzen: dd.kuerzen === false } }) }] : []),
+  { l: d.pfeile === false ? '↷ Pfeile zeigen' : '↷ Pfeile ausblenden', f: dd => ({ d: { ...dd, pfeile: dd.pfeile === false } }) },
+  ...(d.pfeile === false ? [] : [{ l: '↗ Pfeile lösen (verschiebbar)', aus: o => bvPfeileLoesen(o) }]), DURCH];
+/* ↷ einzelner Bogenpfeil „· □“ / „: □“ – frei verschieben, breiter ziehen; oben oder unten gebogen */
+B.bruchpfeil = { name: 'Bogenpfeil (· □ / : □)', gruppe: 'Mathe', def: { zeichen: '·', lage: 'oben', breite: 260, zahl: '', kaestchen: true },
+  felder: [{ k: 'zeichen', l: 'Zeichen', typ: 'auswahl', opts: [['·', '· (erweitern)'], [':', ': (kürzen)']] }, { k: 'lage', l: 'Bogen', typ: 'auswahl', opts: [['oben', 'nach oben gewölbt'], ['unten', 'nach unten gewölbt']] },
+    { k: 'breite', l: 'Breite', typ: 'zahl', min: 120, max: 900 }, { k: 'zahl', l: 'Zahl im Kästchen (leer = zum Ausfüllen)', typ: 'text' }, { k: 'kaestchen', l: 'Kästchen gestrichelt', typ: 'check' }],
+  gen: d => { const W = T.clamp(+d.breite || 260, 120, 900), H = 110, oben = d.lage !== 'unten', y0 = oben ? 96 : 14;
+    return { svg: T._svg.doc(W, H, bvBogen(12, W - 12, y0, oben, d.zeichen || '·', d.zahl, d.kaestchen)), w: W, h: H }; } };
+B.bruchpfeil.schnell = d => [{ l: d.lage === 'unten' ? '⤴ nach oben gewölbt' : '⤵ nach unten gewölbt', f: dd => ({ d: { ...dd, lage: dd.lage === 'unten' ? 'oben' : 'unten' } }) },
+  { l: d.zeichen === ':' ? '· erweitern' : ': kürzen', f: dd => ({ d: { ...dd, zeichen: dd.zeichen === ':' ? '·' : ':' } }) }, DURCH];
+{ const KV = T.KACHEL_VARIANTEN = T.KACHEL_VARIANTEN || {}; /* Einfügen › Mathe: je Rechenart eine Kachel */
+  for (const [v, l] of BV_ARTEN) KV['bruchvorlage:' + v] = { name: 'Bruchrechnen: ' + l, d: { art: v } }; }
 })();

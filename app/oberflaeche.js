@@ -1690,7 +1690,7 @@ const EINF_TEILE = { // welche Vorlagen in welcher Kategorie stehen
   Belehrungen: [], /* wird in belehrungen_tafeln.js gefüllt (alle be_-Bausteine) */
   Wirtschaft: ['wi_maslow', 'wi_bedarf', 'wi_gueter', 'wi_prinzip', 'wi_kreislauf', 'wi_kreislauf2:offen', 'wi_kreislauf2:geschlossen', 'wi_kreislauf2:rechnen', 'wi_kreislauf2:rechnenleer', 'wi_markt', 'wi_haushalt'],
   Struktur: ['ablauf', 'mindmap', 'ms_mindmap', 'wortwolke', 'al_wortspeicher:wortarten', 'al_wortspeicher:begriffe', 'venn', 'tabelle', 'zuordnung', 'zeitstrahl'],
-  Mathe: ['koord', 'zahlenmauer', 'zahlenstrahl', 'zahlengerade','bruchkreis', 'bruchstreifen', 'bruchstuecke', 'bruchstrahl','geoerkl', 'schraegerkl', 'dreieckerkl', 'rechnen', 'stellenwert', 'hunderter', 'uhr', 'ma_prozent', 'ma_prozent:leer', 'ma_bdp', 'ma_bdp:leer', 'ma_baum'],
+  Mathe: ['koord', 'zahlenmauer', 'zahlenstrahl', 'zahlengerade','bruchkreis', 'bruchstreifen', 'bruchstuecke', 'bruchstrahl', 'bruchvorlage:erweitern', 'bruchvorlage:kuerzen', 'bruchvorlage:plus', 'bruchvorlage:minus', 'bruchvorlage:mal', 'bruchvorlage:geteilt', 'bruchpfeil', 'geoerkl', 'schraegerkl', 'dreieckerkl', 'rechnen', 'stellenwert', 'hunderter', 'uhr', 'ma_prozent', 'ma_prozent:leer', 'ma_bdp', 'ma_bdp:leer', 'ma_baum'],
   Körper: ['wuerfelnetz', 'faltnetz:wuerfel', 'koerpernetz:quader', 'faltnetz:quader', 'koerpernetz:prisma', 'faltnetz:prisma', 'koerpernetz:pyramide', 'faltnetz:pyramide',
     'koerpernetz:tetraeder', 'faltnetz:tetraeder', 'koerpernetz:zylinder', 'faltnetz:zylinder', 'koerpernetz:kegel', 'faltnetz:kegel', 'wuerfelgebaeude', 'wuerfel', 'quader', 'pyramide', 'prisma', 'zylinder', 'kegel', 'kugel'],
   Sprachen: ['vokabeln', 'satzbau', 'wortarten', 'silbenboegen', 'satzglieder',
