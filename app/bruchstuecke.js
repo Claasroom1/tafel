@@ -47,7 +47,7 @@ B.bruchstueck = { name: 'Bruchstück', gruppe: 'Mathe', def: { form: 'kreis', ne
   felder: [{ k: 'farbe', l: 'Farbe', typ: 'auswahl', opts: FARBEN }, { k: 'beschr', l: 'Bruch (1/n) auf das Stück schreiben', typ: 'check' }],
   gen: (d, P) => stueckSvg(d, P) };
 B.bruchganzes = { name: 'Ganzes (Umriss)', gruppe: 'Mathe', def: { form: 'kreis' }, felder: [], gen: (d, P) => ganzesSvg(d, P) };
-// Kachel unter Einfügen › Mathe (Vorschau: Kreis in vier Stücken, leicht auseinandergezogen)
+// Kachel unter Vorlagen › Mathe (Vorschau: Kreis in vier Stücken, leicht auseinandergezogen)
 B.bruchstuecke = { name: 'Bruchstücke zum Legen', gruppe: 'Mathe', def: { form: 'kreis', n: 4 }, felder: [],
   gen: (d, P) => {
     let s = ''; const w = 2 * R + 60;
@@ -323,6 +323,6 @@ B.bruchpfeil = { name: 'Bogenpfeil (· □ / : □)', gruppe: 'Mathe', def: { ze
     return { svg: T._svg.doc(W, H, bvBogen(12, W - 12, y0, oben, d.zeichen || '·', d.zahl, d.kaestchen)), w: W, h: H }; } };
 B.bruchpfeil.schnell = d => [{ l: d.lage === 'unten' ? '⤴ nach oben gewölbt' : '⤵ nach unten gewölbt', f: dd => ({ d: { ...dd, lage: dd.lage === 'unten' ? 'oben' : 'unten' } }) },
   { l: d.zeichen === ':' ? '· erweitern' : ': kürzen', f: dd => ({ d: { ...dd, zeichen: dd.zeichen === ':' ? '·' : ':' } }) }, DURCH];
-{ const KV = T.KACHEL_VARIANTEN = T.KACHEL_VARIANTEN || {}; /* Einfügen › Mathe: je Rechenart eine Kachel */
+{ const KV = T.KACHEL_VARIANTEN = T.KACHEL_VARIANTEN || {}; /* Vorlagen › Mathe: je Rechenart eine Kachel */
   for (const [v, l] of BV_ARTEN) KV['bruchvorlage:' + v] = { name: 'Bruchrechnen: ' + l, d: { art: v } }; }
 })();

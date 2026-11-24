@@ -1,5 +1,5 @@
 // Tafel-App (Lehrkräfte-Version) – 📝 Protokollvorlage (Konferenz, Dienstbesprechung, Fachgruppe, Elterngespräch …)
-// Einfügen › 📋 Stunde & Rückmeldung (vorn). Braucht vorlagen-kern.js (T.VL). Unten ziehen = mehr Tagesordnungspunkte, rechts = breiter.
+// Vorlagen › 📋 Stunde & Rückmeldung (vorn). Braucht vorlagen-kern.js (T.VL). Unten ziehen = mehr Tagesordnungspunkte, rechts = breiter.
 'use strict';
 (function () {
 const B = T.BAUSTEINE, VL = T.VL; if (!B || !VL) return;
@@ -47,7 +47,7 @@ B.ms_protokoll.schnell = [{ l: '＋ TOP', f: dd => ({ d: { ...dd, zeilen: Math.m
   { l: '＋ Aufgabe', f: dd => ({ d: { ...dd, aufgaben: Math.min(10, (dd.aufgaben == null ? 3 : +dd.aufgaben) + 1) } }) }];
 dehnen.ms_protokoll = (d, dy) => ({ zeilen: Math.round(T.clamp((+d.zeilen || 4) + Math.round(dy / (2 * ABST + 10)), 1, 15)) }); /* unten ziehen = mehr TOPs */
 
-// Kachel vorn in Einfügen › 📋 Stunde & Rückmeldung
+// Kachel vorn in Vorlagen › 📋 Stunde & Rückmeldung
 nachDemZeichnen.push(() => document.querySelectorAll('.tiles').forEach(box => {
   if (T.MS_KATEGORIE) return; /* steht jetzt in der Kategorie „📝 Mitschrift & Lernen“ */
   if (box.querySelector('.lv-tile') || ![...box.children].some(c => /^(Blitzlicht|Exit-Ticket)/.test(c.textContent.trim()))) return;

@@ -433,7 +433,7 @@ const KAP = [
   { id: 'werkzeuge', ico: '📐', titel: 'Werkzeuge',
     text: ['„Werkzeuge“ enthält Lineal, Geodreieck, Winkelmesser, Zirkel und den wissenschaftlichen Rechner.',
       'Antippen blendet ein Werkzeug ein bzw. wieder aus. Mit dem Finger verschieben, mit zwei Fingern drehen und vergrößern. Der Stift zeichnet an der Kante entlang; beim Zirkel den Stift an die Mine setzen und herumfahren.'],
-    schritte: ['„Werkzeuge“ antippen.', 'z. B. „Geodreieck“ antippen – es liegt auf der Tafel.', 'Verschieben mit dem Finger, drehen mit zwei Fingern.', 'Ausschalten: „Werkzeuge“ › „Geodreieck“ noch einmal antippen.', '🧮 Rechner: öffnet die Seitenleiste mit dem Rechner.'],
+    schritte: ['„Werkzeuge“ antippen.', 'z. B. „Geodreieck“ antippen – es liegt auf der Tafel.', 'Verschieben mit dem Finger, drehen mit zwei Fingern.', 'Ausschalten: „Werkzeuge“ › „Geodreieck“ noch einmal antippen.', '🧮 Rechner: öffnet ihn als Fenster auf der Tafel (verschieben am Kopf, schließen mit ×).'],
     video: [
       async () => {
         const art = await menueAuf('werkzeuge', 'Unten auf „Werkzeuge“ tippen.');
@@ -451,20 +451,21 @@ const KAP = [
         await tippe(() => [...document.querySelectorAll('#schnellLeiste .fl-k, #dock [data-inst="geodreieck"]')].filter(b => /Geodreieck/.test(b.textContent)), '… und noch einmal „Geodreieck“ – weg ist es.');
       },
       async () => {
-        if (!dockAuf()) { await menueAuf('werkzeuge', 'Den Rechner gibt es auch hier: „Werkzeuge“ …'); await tippe(knopf('#schnellLeiste', /Rechner/), '… „🧮 Rechner“ öffnet die Seitenleiste.'); await warte(500); }
-        await zeige(() => { const d = dockAuf(); return d && ([...d.querySelectorAll('h3')].find(x => /Rechner/.test(x.textContent)) || d.querySelector('.dbody')); }, 'Der wissenschaftliche Rechner steht in der Seitenleiste.');
-        await dockZu();
+        if (!dockAuf()) { await menueAuf('werkzeuge', 'Den Rechner gibt es auch hier: „Werkzeuge“ …'); await tippe(knopf('#schnellLeiste', /Rechner/), '… „🧮 Rechner“ öffnet ihn als Fenster auf der Tafel.'); await warte(500); }
+        else await tippe(() => [...document.querySelectorAll('#dock .tile')].filter(b => /Rechner/.test(b.textContent)), '„🧮 Rechner“ öffnet ihn als Fenster auf der Tafel.');
+        await zeige(() => document.querySelector('.widget.w-rechner'), 'Der wissenschaftliche Rechner – verschieben am Kopf, schließen mit ×.');
+        const w = document.querySelector('.widget.w-rechner'); if (w) w.remove(); if (dockAuf()) await dockZu(); /* Rechner öffnet sich als Fenster – eine Seitenleiste gibt es dann nicht */
       }
     ] },
-  { id: 'einfuegen', ico: '🧩', titel: 'Einfügen',
-    text: ['„Einfügen“ bringt Vorlagen, Bausteine, Bilder, Karten, Formeln und mehr auf die Tafel. In der Leiste stehen oben ◇ Formen und 🧮 Aufgaben, darunter Ihre ⭐ Favoriten. „☰ Alle“ öffnet alles als Seitenleiste – dort mit ☆ Favoriten wählen.',
+  { id: 'einfuegen', ico: '🧩', titel: 'Vorlagen (Einfügen)',
+    text: ['„Vorlagen“ (unten in der Leiste) bringt Vorlagen, Bausteine, Bilder, Karten, Formeln, Erklärungen und mehr auf die Tafel. In der Liste stehen 🧮 Aufgaben und Ihre ⭐ Favoriten; „☰ Alle Vorlagen“ öffnet alles als Seitenleiste – dort mit ☆ Favoriten wählen. Formen (Linien, Flächen, Körper) haben unten einen eigenen Knopf „Formen“.',
       'Ganz oben in der Seitenleiste: 🔍 Suche – z. B. „Bruch“ findet alle passenden Vorlagen. Eine Vorlage antippen setzt sie in die Mitte der Tafel. Danach: ☰ › „✏️ Texte direkt ändern“ – jede Zeile antippen und neuen Text eintippen.'],
-    schritte: ['„Einfügen“ antippen, dann „☰ Alle“.', 'Oben suchen, z. B. „Bruch“ – oder links eine Kategorie wählen.', 'Eine Vorlage antippen – sie steht auf der Tafel.', '☰ am Element › „✏️ Texte direkt ändern“.', 'Fertig: „✔ Texte fertig“.'],
+    schritte: ['„Vorlagen“ antippen, dann „☰ Alle Vorlagen“.', 'Oben suchen, z. B. „Bruch“ – oder links eine Kategorie wählen.', 'Eine Vorlage antippen – sie steht auf der Tafel.', '☰ am Element › „✏️ Texte direkt ändern“.', 'Fertig: „✔ Texte fertig“.'],
     video: [
       async () => {
-        const art = await menueAuf('einfuegen', 'Unten auf „Einfügen“ tippen.');
-        if (art === 'leiste') await zeige('#schnellLeiste', 'Oben ◇ Formen und 🧮 Aufgaben, darunter Ihre ⭐ Favoriten.');
-        await alleAuf('einfuegen', '„☰ Alle“ öffnet alle Vorlagen als Seitenleiste.');
+        const art = await menueAuf('einfuegen', 'Unten auf „Vorlagen“ tippen.');
+        if (art === 'leiste') await zeige('#schnellLeiste', 'Darin: 🧮 Aufgaben und Ihre ⭐ Favoriten.');
+        await alleAuf('einfuegen', '„☰ Alle Vorlagen“ öffnet alles als Seitenleiste.');
       },
       async () => { await zeigeAlle('#dock .kats .kat', el => 'Kategorie: ' + el.textContent.replace(/[☆★]/g, '').trim(), 4, 900); },
       async () => {
@@ -522,8 +523,8 @@ const KAP = [
     ] },
   { id: 'speichern', ico: '💾', titel: 'Speichern & Vorlagen',
     text: ['Angemeldet speichert die Tafel alle 20 Sekunden von selbst in Ihren Ordner. Oben links unter „📁 Tafel ▾“: 💾 Speichern (Strg+S), 📤 Speichern unter … (als Datei, z. B. auf USB-Stick oder in IServ), ⭐ Zu „Meine Aufgaben“, 📌 Als Vorlage speichern, ⇅ Import / Export.',
-      '📌 Vorlage: ein fertiges Tafelbild zum Wiederverwenden – die ganze Seite oder nur das Markierte. Später finden Sie es unter Einfügen › 📌 Meine Vorlagen.'],
-    schritte: ['Oben links „📁 Tafel ▾“ antippen.', '„💾 Speichern“ oder „📤 Speichern unter …“.', '„📌 Als Vorlage speichern …“ antippen.', '„📄 Diese Seite als Vorlage“ oder „☑ Auswahl als Vorlage“.', 'Einsetzen: Einfügen › 📌 Meine Vorlagen.'],
+      '📌 Vorlage: ein fertiges Tafelbild zum Wiederverwenden – die ganze Seite oder nur das Markierte. Später finden Sie es unter Vorlagen › 📌 Meine Vorlagen.'],
+    schritte: ['Oben links „📁 Tafel ▾“ antippen.', '„💾 Speichern“ oder „📤 Speichern unter …“.', '„📌 Als Vorlage speichern …“ antippen.', '„📄 Diese Seite als Vorlage“ oder „☑ Auswahl als Vorlage“.', 'Einsetzen: Vorlagen › 📌 Meine Vorlagen.'],
     video: [
       async () => { await tippe('#bArchiv', 'Oben links „📁 Tafel“ antippen.'); await warte(300); },
       async () => { await zeigeAlle(() => [...document.querySelectorAll('#pop button')].filter(b => /Speichern|Vorlage|Import/.test(b.textContent)), titelText, 5, 1700); },
@@ -531,7 +532,7 @@ const KAP = [
         if (!T.alsVorlage) { await sage('Vorlagen speichern gibt es in dieser Fassung nicht.'); return; }
         await tippe(knopf('#pop', /Als Vorlage speichern/), '„📌 Als Vorlage speichern …“ antippen.'); await warte(300);
         await zeige('#pop .vl-kasten', 'Hier: die ganze Seite oder nur das Markierte als Vorlage.');
-        await zeige(knopf('#pop', /Diese Seite als Vorlage/), '„📄 Diese Seite als Vorlage“ – später unter Einfügen › 📌 Meine Vorlagen.');
+        await zeige(knopf('#pop', /Diese Seite als Vorlage/), '„📄 Diese Seite als Vorlage“ – später unter Vorlagen › 📌 Meine Vorlagen.');
       },
       async () => { await sage('Wir speichern jetzt nicht – das Menü schließt sich wieder.', 2000); T.closePops(); }
     ] },

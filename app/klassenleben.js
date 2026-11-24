@@ -1,4 +1,4 @@
-// Tafel-App – 🤝 Klassenleben & Lernen: Vorlagen für Klassenlehrer-Stunden, Sozialtraining und Methoden (Einfügen › 🤝 Klassenleben & Lernen)
+// Tafel-App – 🤝 Klassenleben & Lernen: Vorlagen für Klassenlehrer-Stunden, Sozialtraining und Methoden (Vorlagen › 🤝 Klassenleben & Lernen)
 // Klassenregeln erarbeiten · Arbeitsverhalten erklärt · Sozialverhalten erklärt · Lernen lernen · Kalender · Gefühlskarten ·
 // Impulse zum Nachdenken · Präsentieren mit Plakat · Präsentieren mit PowerPoint/PC · Präsentationen bewerten
 'use strict';
@@ -258,7 +258,7 @@ B.kl_smart = { name: 'SMART-Ziele setzen', gruppe: 'Struktur', def: { thema: 'er
   } };
 B.kl_smart.schnell = [{ l: '🔁 Erklärt ↔ leer', f: dd => ({ d: { ...dd, thema: dd.thema === 'leer' ? 'erklaert' : 'leer' } }) }];
 
-// Kacheln unter Einfügen › 🤝 Klassenleben & Lernen (gleicher Baustein, voreingestellte Tafel)
+// Kacheln unter Vorlagen › 🤝 Klassenleben & Lernen (gleicher Baustein, voreingestellte Tafel)
 const KV = T.KACHEL_VARIANTEN = T.KACHEL_VARIANTEN || {};
 KV['kl_smart:erklaert'] = { name: 'SMART-Ziele (erklärt)', d: { thema: 'erklaert' } }; KV['kl_smart:leer'] = { name: 'SMART-Ziele (leer, eigenes Ziel)', d: { thema: 'leer' } };
 KV['kl_regeln:weg'] = { name: 'Klassenregeln erarbeiten', d: { thema: 'weg' } }; KV['kl_regeln:plakat'] = { name: 'Unsere Klassenregeln (Plakat)', d: { thema: 'plakat' } };

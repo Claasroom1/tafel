@@ -976,6 +976,7 @@ body.seite-links.notizFrei.notizAuf #nreiter { left: var(--dockW); }
 
 /* Taschenrechner als Fenster auf der Tafel */
 .widget.w-rechner .wb { width: 340px; }
+.widget.w-rechner { min-width: 0; }
 
 /* Classroom-Werkzeug in den Notizen */
 .nbody .wk-knoepfe { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }

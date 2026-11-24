@@ -199,7 +199,7 @@ T.BAUSTEINE = {
       return k === alt ? null : { ...d, k };
     } },
   bruchstreifen: { name: 'Bruchstreifen', gruppe: 'Mathe', def: { n: 5, k: 2, laenge: 14, farbe: '#4fc3f7', zeigen: false },
-    felder: [{ k: 'k', l: 'Zähler (gefärbte Teile) – oben', typ: 'zahl', min: 0, max: 40 }, { k: 'n', l: 'Nenner (Teile insgesamt) – unten', typ: 'zahl', min: 1, max: 40 }, { k: 'laenge', l: 'Länge (cm)', typ: 'zahl', min: 4, max: 40 }, { k: 'farbe', l: 'Farbe', typ: 'farbe' }, { k: 'zeigen', l: 'Bruch daneben schreiben', typ: 'check' }],
+    felder: [{ k: 'k', l: 'Zähler (gefärbte Teile) – oben', typ: 'zahl', min: 0, max: 100 }, { k: 'n', l: 'Nenner (Teile insgesamt) – unten, bis 100', typ: 'zahl', min: 1, max: 100 }, { k: 'laenge', l: 'Länge (cm)', typ: 'zahl', min: 4, max: 40 }, { k: 'farbe', l: 'Farbe', typ: 'farbe' }, { k: 'zeigen', l: 'Bruch daneben schreiben', typ: 'check' }],
     gen: (d, P) => {
       const n = Math.max(1, Math.round(d.n)), k = T.clamp(Math.round(d.k), 0, n), L = d.laenge * CM, h = 1.5 * CM, m = 14, W = L + 2 * m + (d.zeigen ? 80 : 0), H = h + 2 * m;
       let s = rc(m, m, L, h, 'none', P.soft, 0);

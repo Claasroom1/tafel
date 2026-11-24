@@ -1,4 +1,4 @@
-// Tafel-App – Paket 3b: Bausteine für Einfügen › 🔬 Naturwissenschaft (alle Zeichnungen selbst erstellt, schematisch)
+// Tafel-App – Paket 3b: Bausteine für Vorlagen › 🔬 Naturwissenschaft (alle Zeichnungen selbst erstellt, schematisch)
 // Beschriftungsbilder: Pflanzenzelle, Tierzelle, Blüte, Auge, Mikroskop, Herz – Beschriftung als Begriffe, Nummern oder leere Kästchen,
 // Legende wahlweise (Nummern, Wortspeicher, Funktionen). Dazu: Teilchenmodell-Bild und Energieflussdiagramm.
 // Eigenständig: braucht nur T.BAUSTEINE und T._svg aus bausteine.js.

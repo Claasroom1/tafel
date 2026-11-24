@@ -2,7 +2,7 @@
 // 1) Animation (Mathe › 📘 Erklärungen › Zahlen & Runden): Zahl und Rundungsstelle wählen. Schritt für Schritt: Rundungsstelle gelb,
 //    Ziffer rechts daneben rot eingekreist, Regel 0–4 abrunden / 5–9 aufrunden, Zahlenstrahl zwischen den Nachbarzahlen
 //    (die Zahl gleitet zur näheren), dann wird das Ergebnis geschrieben – Ziffern rechts werden 0, bei 9 mit Übertrag.
-// 2) Vorlage „Runden – Stellenwerttafel“ (Einfügen › Mathe): Rundungsstelle wählbar (☰ ◀ ▶), gelb/rot markiert, eine oder mehrere
+// 2) Vorlage „Runden – Stellenwerttafel“ (Vorlagen › Mathe): Rundungsstelle wählbar (☰ ◀ ▶), gelb/rot markiert, eine oder mehrere
 //    Zahlen oder leere Zeilen zum Ausfüllen; Lösung verdeckt (☰ 👁). Weißes Blatt.
 'use strict';
 (function () {

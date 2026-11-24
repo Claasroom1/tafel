@@ -163,9 +163,9 @@ B.ln_karten = { name: 'Lernkarten (alle Fächer)', gruppe: 'Struktur', def: { th
   } };
 B.ln_karten.tippen = (o, id) => { const i = +String(id).replace('dreh', '');
   T.bausteinAendern(o, { f: dd => { const u = new Set(dd.umgedreht || []); u.has(i) ? u.delete(i) : u.add(i); return { d: { ...dd, umgedreht: [...u].sort((a, b) => a - b) } }; } }); };
-B.ln_karten.schnell = [{ l: '＋ 2 Karten', f: dd => ({ d: { ...dd, anzahl: String(Math.min(8, kartenAnz(dd) + 2)) } }) },
+B.ln_karten.schnell = d => [{ l: '＋ 2 Karten', f: dd => ({ d: { ...dd, anzahl: String(Math.min(8, kartenAnz(dd) + 2)) } }) },
   { l: '− 2 Karten', f: dd => ({ d: { ...dd, anzahl: String(Math.max(4, kartenAnz(dd) - 2)) } }) },
-  { l: '↻ Alle umdrehen / zurück', f: dd => dd.art === 'drehen' ? { d: { ...dd, umgedreht: (dd.umgedreht || []).length ? [] : Array.from({ length: kartenAnz(dd) }, (_, i) => i) } } : null },
+  ...(d.art === 'drehen' ? [{ l: '↻ Alle umdrehen / zurück', f: dd => ({ d: { ...dd, umgedreht: (dd.umgedreht || []).length ? [] : Array.from({ length: kartenAnz(dd) }, (_, i) => i) } }) }] : []),
   { l: 'Ansicht: nebeneinander / umdrehen', f: dd => ({ d: { ...dd, art: dd.art === 'drehen' ? 'neben' : 'drehen', kh: undefined } }) }];
 KV['ln_karten:drehen'] = { name: 'Lernkarten zum Umdrehen', d: { art: 'drehen' } };
 KV['ln_karten:leitner'] = { name: 'Lernkarten: Leitner-Kasten', d: { art: 'leitner' } };

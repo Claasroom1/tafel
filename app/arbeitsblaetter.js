@@ -1,7 +1,7 @@
 // Tafel-App – 📄 Arbeitsblätter: importierte Arbeitsblätter (PDF, Word, PowerPoint, Bilder – eine oder mehrere Seiten) ablegen
 // und später per Klick wieder einfügen. Sortiert nach Fach, Jahrgang und Thema.
 // SPEICHERN: nach einem Import im Hinweis „📄 Als Arbeitsblatt speichern“ – oder 💾 Speichern ▾ › „📄 Als Arbeitsblatt speichern“.
-// EINFÜGEN: Einfügen › 📄 Arbeitsblätter (Filter Fach/Jahrgang, Suche) › antippen = als neue Seite(n) hinter der aktuellen.
+// EINFÜGEN: Vorlagen › 📄 Arbeitsblätter (Filter Fach/Jahrgang, Suche) › antippen = als neue Seite(n) hinter der aktuellen.
 // Ablage: Ablageordner › Lehrkraft › „_Arbeitsblätter“ › Fach › „Jg 7 – Thema.ab.json“ (+ Vorschaubild „… .ab.jpg“).
 // Ohne Ablageordner (iPad): im Browser-Speicher (IndexedDB). Fremde Dateien werden nie überschrieben.
 'use strict';
@@ -104,7 +104,7 @@ T.alsArbeitsblatt = (von, bis) => {
     if (!e.bild && T.vorschauBild) { try { e.bild = await T.vorschauBild(seiten[0].items, seiten[0].bg); } catch (x) {} }
     try { await sichern(e, seiten); } catch (x) { T.toast('Nicht gespeichert: ' + (x.message || x), 5000); return; }
     T.closeDlg(); neuLaden();
-    T.toast(`📄 Arbeitsblatt „${e.thema}“ gespeichert – unter Einfügen › 📄 Arbeitsblätter.`, 3000, [['Öffnen', () => T.arbeitsblaetterFenster()]]);
+    T.toast(`📄 Arbeitsblatt „${e.thema}“ gespeichert – unter Vorlagen › 📄 Arbeitsblätter.`, 3000, [['Öffnen', () => T.arbeitsblaetterFenster()]]);
   };
   T.openDlg([h('h2', {}, '📄 Als Arbeitsblatt speichern'), bild,
     h('label', { class: 'fld' }, 'Thema', thema),
@@ -227,7 +227,7 @@ T.FAV_SONDER.push({ prefix: 'einfuegen:ab:', sym: '📄', name: rest => rest.sli
     if (e) einfuegen(e); else T.toast('Dieses Arbeitsblatt gibt es nicht mehr (gelöscht, umbenannt oder anderer Ablageordner).', 4000); } },
   { prefix: 'einfuegen:abfenster', sym: '📄', name: () => 'Arbeitsblätter', run: () => T.arbeitsblaetterFenster() });
 
-/* ---------- Eigenes Fenster (Einfügen › ☰ Alle › 📄 Arbeitsblätter) ---------- */
+/* ---------- Eigenes Fenster (Vorlagen › ☰ Alle › 📄 Arbeitsblätter) ---------- */
 T.arbeitsblaetterFenster = () => {
   T.openDlg([h('h2', {}, '📄 Arbeitsblätter'), T.arbeitsblaetterPanel(),
     h('p', { class: 'hint' }, 'Antippen fügt das Arbeitsblatt ein – vorher fragt die App: auf mehrere Seiten verteilen oder auf einer Seite untereinander.')], true);
@@ -252,7 +252,7 @@ T.arbeitsblaetterPanel = () => {
     const speichernKnopf = h('button', { class: 'big', title: 'Die aktuelle Seite (oder mehrere Seiten) als Arbeitsblatt ablegen', onclick: () => T.alsArbeitsblatt() }, '📄 Diese Seite als Arbeitsblatt speichern');
     box.append(h('div', { class: 'row', style: { flexWrap: 'wrap', gap: '6px' } }, speichernKnopf,
       alle.length ? h('button', { class: 'big' + (verwalten ? ' on' : ''), title: 'Löschen', onclick: () => { verwalten = !verwalten; zeichne(); } }, verwalten ? '✓ Fertig' : '✏️ Verwalten') : ''));
-    if (!alle.length) { box.append(h('p', { class: 'hint' }, 'Noch keine Arbeitsblätter. So geht’s: Arbeitsblatt importieren (Einfügen › 🖼️ Bilder & Text › PDF, Word oder PowerPoint) – danach im Hinweis „📄 Als Arbeitsblatt speichern“ antippen, Thema, Fach und Jahrgang wählen. Oder später über 💾 Speichern ▾ › „📄 Als Arbeitsblatt speichern“.')); return; }
+    if (!alle.length) { box.append(h('p', { class: 'hint' }, 'Noch keine Arbeitsblätter. So geht’s: Arbeitsblatt importieren (Vorlagen › 🖼️ Bilder & Text › PDF, Word oder PowerPoint) – danach im Hinweis „📄 Als Arbeitsblatt speichern“ antippen, Thema, Fach und Jahrgang wählen. Oder später über 💾 Speichern ▾ › „📄 Als Arbeitsblatt speichern“.')); return; }
     box.append(h('div', { class: 'row ma-filter', style: { flexWrap: 'wrap', gap: '6px', margin: '8px 0' } },
       auswahl(filter.fach, [['', 'alle Fächer'], ...faecher.map(f => [f, f])], v => { filter.fach = v; }, 'Fach'),
       auswahl(filter.jg, [[0, 'alle Jahrgänge'], ...JG.map(j => [j, 'Jg. ' + j])], v => { filter.jg = +v; }, 'Jahrgang'),

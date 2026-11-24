@@ -1,4 +1,4 @@
-// Tafel-App – 💼 Wirtschaft: Bildtafeln für den Wirtschaftsunterricht (Einfügen › 💼 Wirtschaft)
+// Tafel-App – 💼 Wirtschaft: Bildtafeln für den Wirtschaftsunterricht (Vorlagen › 💼 Wirtschaft)
 // Maslowsche Bedürfnispyramide · Bedürfnis – Bedarf – Nachfrage · Güterarten · Ökonomisches Prinzip ·
 // Einfacher Wirtschaftskreislauf · Preisbildung am Markt · Haushaltsplan. Alles selbst gezeichnet (SVG), Texte unter ✏️ Bearbeiten bzw. Optionen.
 'use strict';

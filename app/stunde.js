@@ -1,4 +1,4 @@
-// Tafel-App – 📋 Stunde & Rückmeldung: Vorlagen für Struktur und Rückmeldung (Einfügen › 📋 Stunde & Rückmeldung)
+// Tafel-App – 📋 Stunde & Rückmeldung: Vorlagen für Struktur und Rückmeldung (Vorlagen › 📋 Stunde & Rückmeldung)
 //   📋 Stundenablauf: Ziel, Schritte zum Abhaken (Zeile antippen), Hausaufgaben – schmal für den Tafelrand
 //   👍 Blitzlicht: 👍 👌 👎 (oder Smileys/Ampel) antippen = eine Stimme; Ergebnis erst verdeckt, dann als Balken
 //   🚪 Exit-Ticket: Satzanfänge mit Schreiblinien zum Ausfüllen

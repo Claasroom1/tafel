@@ -206,7 +206,7 @@ function wolkeAusZetteln() {
   T.toast('Wortwolke aus ' + zz.length + ' Zetteln – gleiche Begriffe und Punkte machen ein Wort größer.', 4000);
 }
 
-// Bereich in Einfügen › Strukturieren
+// Bereich in Vorlagen › Strukturieren
 T.zettelPanel = () => {
   const farben = h('div', { class: 'row zettel-farben' }, ...ZF.map(([id, n, p]) => h('button', { class: 'zf', style: { background: p }, title: 'Zettel ' + n, onclick: () => {
     const o = zettelNeu(id); T.snap(); T.addItem(o); T.opts.zettelFarbe = id; T.saveOpts();

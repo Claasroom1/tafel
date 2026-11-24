@@ -254,9 +254,10 @@ const q = (l, fn) => ({ l, f: d => ({ d: fn({ ...d }) }) });
 const zwText = v => String(Math.round(v * 1000) / 1000).replace('.', ',');
 const zw = (titel, key, werte, setz) => ({ el: akt => {
   const o = akt(); if (!o) return document.createElement('span');
-  const d = { ...((B[o.k] || {}).def || {}), ...o.d }, akt0 = +d[key], liste = [...new Set(werte(d).concat(isFinite(akt0) ? [akt0] : []))].sort((a, b) => a - b);
-  const s = T.h('select', { class: 'zw-sel', title: titel, onchange: e => { const cur = akt(); if (!cur) return; const v = +e.target.value; T.bausteinAendern(cur, { f: dd => ({ d: setz ? setz({ ...dd }, v) : { ...dd, [key]: v } }) }); } },
-    ...liste.map(v => T.h('option', { value: v, selected: v === akt0 }, zwText(v))));
+  const s = T.h('select', { class: 'zw-sel', title: titel, onchange: e => { const cur = akt(); if (!cur) return; const v = +e.target.value; T.bausteinAendern(cur, { f: dd => ({ d: setz ? setz({ ...dd }, v) : { ...dd, [key]: v } }) }); } });
+  const fuellen = () => { const cur = akt(); if (!cur) return; const d = { ...((B[cur.k] || {}).def || {}), ...cur.d }, akt0 = +d[key], liste = [...new Set(werte(d).concat(isFinite(akt0) ? [akt0] : []))].sort((a, b) => a - b);
+    const neu = liste.join('|'); if (s.dataset.liste === neu && +s.value === akt0) return; s.dataset.liste = neu; s.replaceChildren(...liste.map(v => T.h('option', { value: v, selected: v === akt0 }, zwText(v)))); };
+  fuellen(); ['pointerdown', 'focus', 'mousedown'].forEach(ev => s.addEventListener(ev, fuellen)); /* Auswahl immer nach dem aktuellen Stand füllen, z. B. Zähler bis zum gerade gewählten Nenner */
   return T.h('label', { class: 'zw' }, T.h('span', {}, titel), s); } });
 const reihe = (a, b, s) => { const r = []; for (let v = a; v <= b + 1e-9; v += s) r.push(Math.round(v * 1000) / 1000); return r; };
 const SCHRITTE = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
@@ -280,11 +281,11 @@ B.koord.schnell = [
   zw('x bis', 'xmax', () => reihe(1, 20, 1), (d, v) => { d.xmax = v; if (+d.xmin < 0) d.xmin = -v; return d; }), zw('y bis', 'ymax', () => reihe(1, 20, 1), (d, v) => { d.ymax = v; if (+d.ymin < 0) d.ymin = -v; return d; }),
   zw('Einheit (cm)', 'einheit', () => reihe(0.5, 5, 0.5)),
   q('▦ Raster ein/aus', d => { d.raster = !d.raster; return d; })];
-const TEILE = reihe(1, 24, 1).concat([30, 36, 40, 48, 50, 60, 100]);
+const TEILE = reihe(1, 40, 1).concat([100]); /* jede Teilung bis 40, dazu Hundertstel */
 B.bruchkreis.schnell = [q('◔ ▦ Kreis / Kästchen / beide', d => { d.darst = { kreis: 'kaestchen', kaestchen: 'beide', beide: 'kreis' }[d.darst || 'kreis']; return d; }),
   q('⇄ neben / unter', d => { d.lage = d.lage === 'unter' ? 'neben' : 'unter'; return d; }),
   zw('Teile (Nenner)', 'n', () => TEILE, (d, v) => { d.n = v; d.k = Math.min(+d.k, v); return d; }), zw('gefärbt (Zähler)', 'k', d => reihe(0, +d.n, 1)), q('Bruch zeigen', d => { d.zeigen = !d.zeigen; return d; })];
-B.bruchstreifen.schnell = [zw('Teile (Nenner)', 'n', () => TEILE.filter(v => v <= 40), (d, v) => { d.n = v; d.k = Math.min(+d.k, v); return d; }), zw('gefärbt (Zähler)', 'k', d => reihe(0, +d.n, 1)),
+B.bruchstreifen.schnell = [zw('Teile (Nenner)', 'n', () => TEILE, (d, v) => { d.n = v; d.k = Math.min(+d.k, v); return d; }), zw('gefärbt (Zähler)', 'k', d => reihe(0, +d.n, 1)),
   q('Bruch zeigen', d => { d.zeigen = !d.zeigen; return d; })];
 B.loesung.schnell = [q('👁 Aufdecken / zudecken', d => { d.offen = !d.offen; return d; })];
 B.uhr.schnell = [zw('Stunde', 'h', () => reihe(0, 23, 1)), zw('Minute', 'm', d => reihe(0, 55, 5).concat([+d.m])),
@@ -342,7 +343,7 @@ T.bausteinAendern = (o, akt) => {
   T.renderOver(); T.onSelChange && T.onSelChange();
 };
 
-// ---------- 🧱 Zahlenmauer (Einfügen › Mathe) ----------
+// ---------- 🧱 Zahlenmauer (Vorlagen › Mathe) ----------
 // Jeder Stein ist die Summe der beiden darunter. Grundsteine eintragen (leer = alles frei zum Ausfüllen), Anzeige wählen;
 // einzelne Steine antippen › „Stein leer / zeigen“. In jeden Stein lässt sich mit dem Stift schreiben (wandert mit).
 const zahl = s => { const v = parseFloat(String(s).replace(',', '.')); return isFinite(v) ? v : null; };

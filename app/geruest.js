@@ -1,4 +1,4 @@
-// Tafel-App – 📝 Gerüste als bearbeitbare Vorlagen (Einfügen › Mathe, Sprache, Naturwissenschaft)
+// Tafel-App – 📝 Gerüste als bearbeitbare Vorlagen (Vorlagen › Mathe, Sprache, Naturwissenschaft)
 // Ein Gerüst: Titel, Situation/Aufgabe, Zeilen „Schritt | Leitfrage | Satzanfang“ mit Schreibfeld, Wortspeicher und Checkliste.
 // Alles lässt sich mit „✏️ Bearbeiten“ ändern; Hilfen wählbar (★ Satzanfänge · ★★ Leitfragen · ★★★ ohne Hilfen).
 // In die Schreibfelder schreibt man mit dem Stift – die Schrift wandert beim Ändern mit (Felder = „teile“).

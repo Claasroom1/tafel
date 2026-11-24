@@ -430,7 +430,10 @@ function ruled(P, ed) {
 function instAction(P, ih, wx, wy) {
   const I = ih.I;
   if (ih.part === 'close') return { up() { const i = S.inst.indexOf(I); if (i >= 0) S.inst.splice(i, 1); T.renderOver(); T.onInst && T.onInst(); } };
-  if (ih.part === 'gear') return { up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) < 14 && T.angleDialog) T.angleDialog(I); } }; /* ⚙ Winkel, Größe, 🔒 Größe fixieren */
+  if (ih.part === 'gear') return { up(Q) { if (Math.hypot(Q.x - Q.sx, Q.y - Q.sy) >= 14) return; /* 🔒 Schloss antippen: Größe fixieren bzw. lösen (gilt auch für neu geöffnete Werkzeuge dieser Art) */
+    const fest = !(I.groesseFest || (I.groesseFest == null && T.opts.instFest && T.opts.instFest[I.kind]));
+    I.groesseFest = fest; T.opts.instFest = { ...(T.opts.instFest || {}) }; if (fest) T.opts.instFest[I.kind] = true; else delete T.opts.instFest[I.kind]; T.saveOpts && T.saveOpts();
+    T.renderOver(); T.toast && T.toast(fest ? '🔒 Größe fixiert – beim Drehen und Verschieben mit zwei Fingern bleibt sie gleich' : '🔓 Größe wieder frei – mit zwei Fingern aufziehen', 2200); } };
   if (ih.part === 'kreis') return { up() { zirkelArc(I, I.a, I.a + 2 * PI, true); } };
   if (ih.part === 'move') {
     const x0 = I.x, y0 = I.y;
@@ -527,9 +530,15 @@ function erase(P, e, diam) {
   if (hand) diam = Math.max(220, handD(e));
   const r = () => (diam || S.groesse.radierer) / 2 * px();
   const at = (x, y) => {
-    const res = T.eraseAt(T.page().items, x, y, r(), S.radModus === 'strich');
-    if (res) { if (!snapped) { T.snap(); snapped = true; } T.page().items = res; T.render(); }
+    const alt = T.page().items, res = T.eraseAt(alt, x, y, r(), S.radModus === 'strich');
+    if (!res) return;
+    if (!snapped) { T.snap(); snapped = true; }
+    /* nur den betroffenen Bereich neu zeichnen: Schwamm-Kreis + alle entfernten/geteilten Striche (mit Rand für Effekte) */
+    const rr = r(), neu = new Set(res); let b = { x0: x - rr, y0: y - rr, x1: x + rr, y1: y + rr };
+    for (const it of alt) if (!neu.has(it)) { const q = T.bbox(it); b = { x0: Math.min(b.x0, q.x0), y0: Math.min(b.y0, q.y0), x1: Math.max(b.x1, q.x1), y1: Math.max(b.y1, q.y1) }; }
+    const m = 24 * px(); T.page().items = res; T.renderTeil({ x0: b.x0 - m, y0: b.y0 - m, x1: b.x1 + m, y1: b.y1 + m }); geaendert = true;
   };
+  let geaendert = false;
   const go = (Q, ev) => {
     if (hand) diam = Math.max(diam, handD(ev));
     const [x, y] = world(Q.x, Q.y);
@@ -538,9 +547,9 @@ function erase(P, e, diam) {
     last = [x, y]; T.overlay.cursor = { x, y, r: r() }; T.renderOver();
   };
   go(P);
-  return { kind: 'erase', move: go, up(Q) { T.overlay.cursor = null; T.renderOver();
+  return { kind: 'erase', move: go, up(Q) { T.overlay.cursor = null; T.renderOver(); if (geaendert) T.render(); /* am Ende einmal alles (Übersichtskarte, Winkel …) */
       if (P.type === 'pen' && S.tool === 'radierer' && !diam && Q) doppeltipp(P, Q, { id: null }); }, /* ✌ auch mit dem Radierer: doppelt tippen = zurück zum Stift */
-    cancel() { T.overlay.cursor = null; T.renderOver(); } };
+    cancel() { T.overlay.cursor = null; T.renderOver(); if (geaendert) T.render(); } };
 }
 
 // ---------- Formen ----------

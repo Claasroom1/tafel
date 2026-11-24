@@ -66,9 +66,9 @@ const INSTR = [['lineal', 'Lineal'], ['geodreieck', 'Geodreieck'], ['winkelmesse
 // Reihenfolge der Werkzeugleiste – unter ⚙ Einstellungen anpassbar (T.opts.leiste); „|“ = Trennstrich
 /* „|“ trennt eigenständige Felder: 🖱 PC · Verlauf · Stift (mit Farbe und Stärke) · Inhalte · Seite (mit Zoom, Home, Folie) */
 const LEISTE_STD = ['pc', '|', 'seiten', '|', 'undo', 'wischen', 'redo', '|', 'stift', 'groessen', 'farben', 'radierer', 'auswahl', 'text', '|', 'hervor', '|',
-  'werkzeuge', 'einfuegen', '|', 'classroom']; /* Stift-Feld: Stift, Stärke, Farben, Schwamm, Auswahl, Text – Hervorheben eigenes Feld rechts daneben (wie Classroom) */ /* 🔤 Text fest neben Auswahl (nicht mehr nur unter 🖱 PC); rechts: Werkzeuge, Einfügen (darin fest ◇ Formen und 🧮 Aufgaben), dann Classroom eigenes Feld; Favoriten nur noch über ⚙ */
+  'werkzeuge', 'form', 'einfuegen', '|', 'classroom']; /* Stift-Feld: Stift, Stärke, Farben, Schwamm, Auswahl, Text – Hervorheben eigenes Feld rechts daneben (wie Classroom) */ /* 🔤 Text fest neben Auswahl (nicht mehr nur unter 🖱 PC); rechts: Werkzeuge, Einfügen (darin fest ◇ Formen und 🧮 Aufgaben), dann Classroom eigenes Feld; Favoriten nur noch über ⚙ */
 const LEISTE_NAME = { pc: 'Tafel verschieben', auswahl: 'Auswahl', stift: 'Stift', hervor: 'Hervorheben', radierer: 'Schwamm', undo: 'Zurück', redo: 'Vor', wischen: 'Wischen', hand: 'Tafel verschieben', form: 'Formen', text: 'Text', favoriten: 'Favoriten',
-  farben: 'Farben', groessen: 'Stärken', werkzeuge: 'Werkzeuge', einfuegen: 'Einfügen', aufgaben: 'Aufgaben', classroom: 'Classroom', seiten: 'Seiten ◀ 1/3 ▶ Neu', '|': '│' };
+  farben: 'Farben', groessen: 'Stärken', werkzeuge: 'Werkzeuge', einfuegen: 'Vorlagen', aufgaben: 'Aufgaben', classroom: 'Classroom', seiten: 'Seiten ◀ 1/3 ▶ Neu', '|': '│' };
 function leisteReihenfolge() {
   const o = Array.isArray(T.opts.leiste) ? T.opts.leiste.filter(id => id === '|' || LEISTE_STD.includes(id)) : [];
   if (!o.length) return LEISTE_STD.slice();
@@ -80,7 +80,8 @@ function buildToolbar() {
   if ((T.opts.leisteVersion || 1) < 7) { delete T.opts.leiste; delete T.opts.leisteAus; T.opts.leisteVersion = 7; T.saveOpts(); } /* neue Feld-Leiste: einmal auf den Standard */
   if (T.opts.leisteVersion < 8) { /* „🖱 PC“ ist jetzt direkt „Tafel verschieben“ – war das alte PC-Feld ausgeblendet, einmal wieder zeigen */
     if (Array.isArray(T.opts.leisteAus)) T.opts.leisteAus = T.opts.leisteAus.filter(x => x !== 'pc'); T.opts.leisteVersion = 8; T.saveOpts(); }
-  if (T.opts.leisteVersion < 9) { delete T.opts.leiste; T.opts.leisteVersion = 9; T.saveOpts(); } /* neue Reihenfolge im Stift-Feld, Hervorheben eigenes Feld – ausgeblendete Knöpfe bleiben ausgeblendet */
+  if (T.opts.leisteVersion < 9) { delete T.opts.leiste; T.opts.leisteVersion = 9; T.saveOpts(); }
+  if (T.opts.leisteVersion < 10) { if (Array.isArray(T.opts.leisteAus)) T.opts.leisteAus = T.opts.leisteAus.filter(x => x !== 'form'); T.opts.leisteVersion = 10; T.saveOpts(); } /* ◇ Formen wieder sichtbar zwischen Werkzeuge und Vorlagen */ /* neue Reihenfolge im Stift-Feld, Hervorheben eigenes Feld – ausgeblendete Knöpfe bleiben ausgeblendet */
   const tb = $('toolbar'), nav = $('nav');
   for (const id of NAV_IN) { const el = $(id); if (el && nav && el.parentNode !== nav) nav.append(el); } /* vor dem Neuaufbau zurücklegen */
   tb.innerHTML = ''; tb.classList.add('felder');
@@ -95,7 +96,7 @@ function buildToolbar() {
       case 'farben': return [h('div', { id: 'farben', class: 'row', style: { flexWrap: 'nowrap', gap: '5px' } }), h('button', { class: 'sw', id: 'mehrFarben', title: 'Weitere Farben', style: { background: 'conic-gradient(red,yellow,lime,cyan,blue,magenta,red)' }, onclick: ev => farbPop(ev.currentTarget) })];
       case 'groessen': return h('div', { id: 'groessen', class: 'row', style: { flexWrap: 'nowrap', gap: '0' } });
       case 'werkzeuge': return btn('werkzeuge', 'Werkzeuge', I.geodreieck, () => leisteOderDock('werkzeuge'), 'Lineal, Geodreieck, Zirkel, Rechner, Timer …');
-      case 'einfuegen': return btn('einfuegen', 'Einfügen', I.einfuegen, () => leisteOderDock('einfuegen'), 'Grafiken, Vorlagen, Karten, Bilder');
+      case 'einfuegen': return btn('einfuegen', 'Vorlagen', I.einfuegen, () => leisteOderDock('einfuegen'), 'Grafiken, Vorlagen, Karten, Bilder');
       case 'aufgaben': return btn('aufgaben', 'Aufgaben', I.aufgaben, e => leisteOderDock('aufgaben', e.currentTarget), 'Aufgaben des Fachs (Mathe, NaWi) – erscheint in Tafeln, für deren Fach es fertige Aufgaben gibt');
       case 'classroom': return btn('classroom', 'Classroom', I.classroom, () => leisteOderDock('classroom'), 'Phasentimer, Timer, Zufall, Würfel …');
       case 'undo': return btn('undo', 'Zurück', I.undo, T.undo, 'Rückgängig (Strg+Z)');
@@ -263,7 +264,7 @@ T.onInst = updateToolbar;
 // ---------- Seitenleiste (geteiltes Fenster: links Werkzeuge/Einfügen/Aufgaben, rechts die Tafel) ----------
 let dockArt = null, dockKnoepfe = []; // dockKnoepfe: Aktionsknöpfe eines Panels für die Kopfzeile neben dem ×
 T.dockKopf = (...els) => { dockKnoepfe = els.flat().filter(Boolean); };
-const DOCK_TITEL = { werkzeuge: '🛠 Werkzeuge', einfuegen: '🧩 Einfügen', classroom: '🎒 Classroom', 'mathe-rechenwege': '📘 Rechenwege',
+const DOCK_TITEL = { werkzeuge: '🛠 Werkzeuge', einfuegen: '🧩 Alle Vorlagen', classroom: '🎒 Classroom', 'mathe-rechenwege': '📘 Rechenwege',
   get aufgaben() { const f = fachAufgaben(); return f === 'nawi' ? '🧪 NaWi-Aufgaben' : f === 'englisch' ? '🇬🇧 Englisch-Aufgaben' : f === 'mathe' ? '🧮 Mathe-Aufgaben' : f === 'eigen' ? '⭐ Meine Aufgaben' : '🧮 Aufgaben'; } };
 // Aufgaben-Kategorien je Fach (Präfix der Kategorie-Kennung)
 const KAT_FACH = k => /^nawi/.test(k) ? 'nawi' : /^eng/.test(k) ? 'englisch' : 'mathe';
@@ -278,6 +279,14 @@ function fachAufgaben() {
 }
 // Schnelle Tafel (Fach „Sonstiges“): „Aufgaben“ öffnet nach oben ein Menü mit allen Fächern, für die es fertige Aufgaben gibt
 const AUF_FAECHER = [['mathe', '🧮 Mathe'], ['nawi', '🔬 NaWi · Physik · Chemie · Technik'], ['englisch', '🇬🇧 Englisch'], ['alle', '📚 Alle Fächer']];
+/* Aufgaben: gewähltes Fach je Tafel (Fach ▾ in der Liste) – „☰ Alle“ zeigt in der Seitenleiste zuerst die Fächerauswahl */
+const AUF_WAHL = new WeakMap(); let aufFachZuerst = false;
+function aufFachAkt() { const m = S.board && AUF_WAHL.get(S.board); if (m) return m; const f = fachAufgaben(); return f === 'mathe' || f === 'nawi' || f === 'englisch' ? f : 'alle'; }
+function aufFachSetzen(v) { if (S.board) AUF_WAHL.set(S.board, v); if (S.board && /^sonstiges/i.test(S.board.fach || '')) { S.aufFach = v; updateToolbar(); } }
+function aufFachPanel() {
+  return [h('h3', {}, 'Für welches Fach?'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch' } },
+    ...AUF_FAECHER.map(([v, l]) => h('button', { class: 'big' + (aufFachAkt() === v ? ' on' : ''), onclick: () => { aufFachSetzen(v); aufFachZuerst = false; zeigeDock('aufgaben'); } }, l)))];
+}
 function aufgabenKnopf(e) {
   const el = e.currentTarget;
   if (!S.board || !/^sonstiges/i.test(S.board.fach || '') || dockArt === 'aufgaben' || dockArt === 'mathe-rechenwege') { zeigeDock('aufgaben', true); return; }
@@ -288,7 +297,8 @@ function aufgabenKnopf(e) {
 const dockSchwebe = {}, zwScroll = {};
 function dockInhalt(art) {
   dockKnoepfe = [];
-  const inhalt = art === 'werkzeuge' ? werkzeugePanel() : art === 'einfuegen' ? einfuegenPanel() : art === 'classroom' ? classroomPanel() : art === 'mathe-rechenwege' ? T.rechenwegePanel() : aufgabenPanel();
+  const inhalt = art === 'werkzeuge' ? werkzeugePanel() : art === 'einfuegen' ? einfuegenPanel() : art === 'classroom' ? classroomPanel() : art === 'mathe-rechenwege' ? T.rechenwegePanel() : art === 'aufgaben' && aufFachZuerst ? aufFachPanel() : aufgabenPanel();
+  if (art === 'aufgaben' && !aufFachZuerst) { const akt = AUF_FAECHER.find(x => x[0] === aufFachAkt()); dockKnoepfe.unshift(h('button', { class: 'big', title: 'Anderes Fach wählen', onclick: () => { aufFachZuerst = true; zeigeDock('aufgaben'); } }, '‹ ' + (akt ? akt[1].replace(/ · .*/, '') : 'Fach'))); }
   // zweigeteilt (Einfügen, Mathe): links Kategorien untereinander, rechts die Inhalte – breitere Leiste
   const zwei = !!(inhalt && inhalt.links);
   const body = zwei ? h('div', { class: 'dbody zweiteilig' }, h('div', { class: 'zw-links' }, ...inhalt.links), h('div', { class: 'zw-rechts' }, ...[].concat(inhalt.rechts)))
@@ -357,8 +367,12 @@ T.zeigeDock = zeigeDock;
 function werkzeugePanel() {
   const inst = h('div', { class: 'tiles klein' }, ...INSTR.map(([id, l]) => h('button', { class: 'tile', 'data-inst': id, onclick: () => T.toggleInstrument(id), html: I[id] + `<span>${l === 'Winkel' ? 'Winkelmesser' : l}</span>` })));
   setTimeout(updateToolbar, 0);
-  return [h('h3', {}, 'Messen & Zeichnen'), inst, h('p', { class: 'hint' }, 'Antippen blendet ein/aus. Drehen am ↻, Größe mit zwei Fingern oder ↻ kurz antippen.'),
-    h('h3', {}, 'Wissenschaftlicher Rechner'), T.rechner()]; // Funktionsplotter: unter Mathe
+  const kachel = (em, n, fn) => h('button', { class: 'tile', onclick: () => { schliesseDock(); fn(); } }, h('div', { class: 'em' }, em), n);
+  const rechnen = h('div', { class: 'tiles klein' }, kachel('🧮', 'Rechner', () => taschenrechnerAufTafel()), T.plotter ? kachel('📈', 'Funktions­plotter', () => T.plotter()) : '',
+    ...(T.geogebra ? [['graphing', '📊', 'GeoGebra Grafik'], ['geometry', '📐', 'GeoGebra Geometrie'], ['3d', '🧊', 'GeoGebra 3D'], ['cas', '🔣', 'GeoGebra CAS']].map(([app, em, n]) => kachel(em, n, () => T.geogebra(app))) : []));
+  return [h('h3', {}, 'Rechnen & Funktionen'), rechnen, h('p', { class: 'hint' }, 'Der Rechner (wissenschaftlich) öffnet sich als Fenster auf der Tafel. GeoGebra braucht Internet.'),
+    h('hr', { style: { border: 'none', borderTop: '2px solid var(--line, #cbd5e1)', margin: '14px 0 6px' } }),
+    h('h3', {}, 'Messen & Zeichnen'), inst, h('p', { class: 'hint' }, 'Antippen blendet ein/aus. Drehen am ↻, Größe mit zwei Fingern oder ↻ kurz antippen.')]; /* Rechner, Plotter und GeoGebra oben, durch einen Strich von den Zeichenwerkzeugen getrennt */
 }
 // Classroom-Werkzeuge je Symbol – damit ein Werkzeug aus den Notizen wieder geöffnet werden kann (z. B. nach dem Neuladen)
 T.crOeffner = em => { const C = T.CR || {}; return ({ '📋': () => klassenliste(), '⏳': phasenWidget, '⏱': timerWidget, '🏁': C.stoppuhren, '🕘': C.uhr, '🤫': C.arbeit, '🚦': C.ampel, '🔊': C.laut,
@@ -787,7 +801,7 @@ T.formLeisteWeg = formLeisteWeg; T.formLeisteAuf = () => !!formLeisteEl; /* sola
 // Werkzeuge: alle Messwerkzeuge direkt; Classroom und Einfügen: ⭐ Favoriten (einzelne Punkte oder ganze Einfügen-Kategorien als ▾ Liste).
 // „☰ Alle“ öffnet die gewohnte Seitenleiste – dort mit ☆ Favoriten markieren. Abschaltbar: ⚙ › Leiste & Favoriten.
 var schnellEl = null, schnellArt = null, schnellOffen = null; /* var: updateToolbar kann vorher laufen */
-const SCHNELL_TITEL = { werkzeuge: '📐 Werkzeuge', einfuegen: '🧩 Einfügen', classroom: '⏱ Classroom', hervor: '🖍 Hervorheben', stift: '✏️ Stift', aufgaben: '🧮 Aufgaben', radierer: '🧽 Schwamm', wischen: '🧹 Wischen' };
+const SCHNELL_TITEL = { werkzeuge: '📐 Werkzeuge', einfuegen: '🧩 Vorlagen', classroom: '⏱ Classroom', hervor: '🖍 Hervorheben', stift: '✏️ Stift', aufgaben: '🧮 Aufgaben', radierer: '🧽 Schwamm', wischen: '🧹 Wischen' };
 function schnellWeg() { if (schnellEl) { schnellEl.remove(); schnellEl = null; schnellOffen = null; document.removeEventListener('pointerdown', schnellAussen, true); } schnellArt = null; updateToolbar(); }
 function schnellAussen(e) { /* daneben tippen: Liste zu (der eigene Knopf schaltet selbst um) */
   if (!schnellEl || schnellEl.contains(e.target)) return; const b = $('t_' + schnellArt); if (b && b.contains(e.target)) return;
@@ -859,20 +873,21 @@ function schnellZeichnen() {
     teile.push(w('✍ Nur Handschrift', schrift, it => it.t !== 's', 'Handschrift gewischt – Bausteine bleiben stehen.'),
       w('🧩 Nur Bausteine & Bilder', objekte, it => it.t === 's', 'Bausteine und Bilder entfernt – Handschrift bleibt.'),
       w('🗑 Alles', null, () => false, 'Seite komplett gewischt.'));
-  } else if (art === 'aufgaben') { /* 🧮 ★-Stufe wählen, Favoriten-Thema antippen = 8 Aufgaben auf die Tafel */
-    const stufe = +T.opts.aufStufe || 1;
-    if (S.board && /^sonstiges/i.test(S.board.fach || '')) { /* schnelle Tafel: Fach hier in der Liste wählen – danach öffnet „Alle“ als schwebendes Fenster */
-      const akt = AUF_FAECHER.find(x => x[0] === S.aufFach);
-      klapp('fach', akt ? akt[1] : '📚 Fach wählen', [h('div', { class: 'row' }, ...AUF_FAECHER.map(([v, l]) => h('button', { class: 'big' + (S.aufFach === v ? ' on' : ''),
-        onclick: () => { S.aufFach = v; updateToolbar(); schnellWeg(); if (dockSchwebe.aufgaben) dockSchwebe.aufgaben(); else zeigeDock('aufgaben'); } }, h('b', {}, l))))], 'Aufgaben für welches Fach?'); }
+  } else if (art === 'aufgaben') { /* 🧮 Fach ▾ · ★-Stufe · nur die Lieblingsthemen dieses Fachs – antippen = 8 Aufgaben auf die Tafel */
+    const stufe = +T.opts.aufStufe || 1, fa = aufFachAkt(), akt = AUF_FAECHER.find(x => x[0] === fa);
+    klapp('fach', akt ? akt[1].replace(/ · .*/, '') : '📚 Fach wählen', AUF_FAECHER.map(([v, l]) => knopf([h('span', {}, l)], () => { aufFachSetzen(v); schnellOffen = null; schnellZeichnen(); }, 'Lieblingsthemen dieses Fachs zeigen', v === fa)), 'Fach wählen');
     teile.push(h('div', { class: 'sl-reihe' }, ...[1, 2, 3].map(s => knopf([h('span', {}, '★'.repeat(s))], () => { T.opts.aufStufe = s; T.saveOpts(); schnellZeichnen(); }, 'Niveau', s === stufe))));
-    const f = leistenFavs('aufgaben').filter(id => T.AUFGABEN && T.AUFGABEN[id.slice(9)]);
-    for (const id of f) { const k = id.slice(9), A = T.AUFGABEN[k];
+    const f = leistenFavs('aufgaben').map(id => id.slice(9)).filter(k => T.AUFGABEN && T.AUFGABEN[k] && (fa === 'alle' || KAT_FACH(T.AUFGABEN[k].kat || '') === fa));
+    for (const k of f) { const A = T.AUFGABEN[k];
       teile.push(knopf([h('span', {}, A.name)], () => { schnellWeg(); try { aufgabenEinfuegen(T.erzeugeAufgaben(k, stufe, 8), T.opts.aufLoes || 'einzeln', T.opts.platz || 'mittel', { typ: k, stufe, anz: 8 }); } catch (e) { toast('Das ging nicht: ' + e.message, 3000); } }, '8 Aufgaben ' + '★'.repeat(stufe) + ' auf die Tafel')); }
-    if (!f.length) teile.push(h('span', { class: 'sl-hinweis' }, '⭐ Noch keine Lieblingsthemen – „☰ Alle“ öffnen und bei einem Thema ☆ antippen.'));
+    if (!f.length) teile.push(h('span', { class: 'sl-hinweis' }, '⭐ Noch keine Lieblingsthemen für dieses Fach – „☰ Alle“ öffnen und bei einem Thema ☆ antippen.'));
   } else if (art === 'werkzeuge') {
-    for (const it of leistenKacheln('werkzeuge')) { const inst = it.el.dataset && it.el.dataset.inst; teile.push(knopf([kachelSymbol(it.el), h('span', {}, it.name)], aufrufen(it), it.name, inst && S.inst.some(i => i.kind === inst))); }
-    teile.push(knopf([h('span', {}, '🧮 Rechner')], () => { schnellWeg(); zeigeDock('werkzeuge'); }, 'Wissenschaftlicher Rechner (Seitenleiste)'));
+    const alleK = leistenKacheln('werkzeuge'), istInst = it => !!(it.el.dataset && it.el.dataset.inst);
+    const kn = it => { const inst = it.el.dataset && it.el.dataset.inst; return knopf([kachelSymbol(it.el), h('span', {}, it.name)], aufrufen(it), it.name, inst && S.inst.some(i => i.kind === inst)); };
+    const istGgb = it => /^GeoGebra/.test(it.name), ggb = alleK.filter(istGgb);
+    teile.push(...alleK.filter(it => !istInst(it) && !istGgb(it)).map(kn));
+    if (ggb.length) klapp('ggb', [kachelSymbol(ggb[0].el), h('span', {}, 'GeoGebra')], ggb.map(it => { const b = kn(it); b.querySelector('span:last-child').textContent = it.name.replace(/^GeoGebra\s*/, ''); return b; }), 'GeoGebra: Grafik, Geometrie, 3D, CAS (braucht Internet)'); /* GeoGebra zusammengefasst: antippen klappt die vier Rechner auf */
+    teile.push(h('div', { class: 'sl-trenn', style: { height: '2px', margin: '6px 8px', background: 'rgba(148,163,184,.55)', borderRadius: '1px' } }), ...alleK.filter(istInst).map(kn)); /* oben Rechnen (Rechner, Plotter, GeoGebra), Strich, darunter Lineal, Geodreieck … */
   } else {
     const f = leistenFavs(art), cache = {};
     const finde = id => {
@@ -884,9 +899,8 @@ function schnellZeichnen() {
       if (id.startsWith('kat:')) { const kat = id.slice(4), b = knopf([h('span', {}, einfKatName(kat)), h('span', { class: 'fl-pf' }, ' ▾')], () => { schnellOffen = schnellOffen === id ? null : id; schnellZeichnen(); }, 'Kategorie ' + einfKatName(kat), schnellOffen === id); b.dataset.klapp = id; teile.push(b); continue; }
       const it = finde(id); if (it) teile.push(knopf([kachelSymbol(it.el), h('span', {}, it.name)], aufrufen(it), it.name));
     }
-    if (!f.length) teile.push(h('span', { class: 'sl-hinweis' }, '⭐ Noch keine Favoriten – „☰ Alle“ öffnen und beim Gewünschten ☆ antippen' + (art === 'einfuegen' ? ' (auch bei ganzen Kategorien).' : '.')));
-    if (art === 'einfuegen') teile.unshift( /* ◇ Formen und 🧮 Aufgaben immer als erste Punkte von Einfügen */
-      knopf([h('span', {}, '◇ Formen')], () => { schnellWeg(); toolClick('form', $('t_einfuegen')); }, 'Linien, Flächen, 3D-Körper, Winkel – die Formenleiste öffnet sich'),
+    if (!f.length) teile.push(h('span', { class: 'sl-hinweis' }, '⭐ Noch keine Favoriten – „☰ Alle' + (art === 'einfuegen' ? ' Vorlagen' : '') + '“ öffnen und beim Gewünschten ☆ antippen' + (art === 'einfuegen' ? ' (auch bei ganzen Kategorien).' : '.')));
+    if (art === 'einfuegen') teile.unshift( /* 🧮 Aufgaben immer als erster Punkt der Vorlagen (Formen hat einen eigenen Knopf) */
       knopf([h('span', {}, '🧮 Aufgaben ▸')], () => { schnellWeg(); leisteOderDock('aufgaben', $('t_einfuegen')); }, 'Aufgaben des Fachs: Niveau wählen, Lieblingsthemen, alle Aufgaben'),
       h('div', { class: 'sl-trenner' }));
     if (art === 'classroom') { /* ☰ Alle ▾: alle Werkzeuge als Liste nach Bereichen – antippen startet, ☆ merkt als Favorit */
@@ -902,7 +916,7 @@ function schnellZeichnen() {
   }
   /* schmale Liste: Titel · Einträge untereinander · ☰ Alle – ▾ klappt direkt darunter auf */
   const zeile = h('div', { class: 'fl-zeile' }, h('div', { class: 'sl-gruppe' }, SCHNELL_TITEL[art]), ...teile,
-    art === 'hervor' || art === 'stift' || art === 'werkzeuge' || art === 'classroom' || art === 'radierer' || art === 'wischen' ? '' : knopf([h('span', {}, '☰ Alle')], /* Classroom: ☰ Alle ▾ als Liste; Werkzeuge: alles steht schon in der Liste */ () => { const a = art; schnellWeg(); alleSchwebend(a); }, 'Alles als Seitenleiste (⧉ = Schwebemenü) – dort mit ☆ Favoriten wählen'));
+    art === 'hervor' || art === 'stift' || art === 'werkzeuge' || art === 'classroom' || art === 'radierer' || art === 'wischen' ? '' : knopf([h('span', {}, art === 'einfuegen' ? '☰ Alle Vorlagen' : '☰ Alle')], /* Classroom: ☰ Alle ▾ als Liste; Werkzeuge: alles steht schon in der Liste */ () => { const a = art; schnellWeg(); alleSchwebend(a); }, 'Alles als Seitenleiste (⧉ = Schwebemenü) – dort mit ☆ Favoriten wählen'));
   const st = schnellEl.querySelector('.fl-zeile'), scroll = st ? st.scrollTop : 0;
   schnellEl.innerHTML = ''; schnellEl.append(zeile);
   if (schnellOffen && (schnellOffen.startsWith('kat:') || auf[schnellOffen])) { /* ▾ Kategorie (alle Kacheln) bzw. Aufklappliste (Stift, Classroom „Alle“) */
@@ -916,7 +930,7 @@ function schnellZeichnen() {
 }
 /* „☰ Alle“: das ganze Menü als feste Seitenleiste (gegenüber von Notizen/Störungen) – ⧉ oben macht daraus ein Schwebemenü */
 function alleSchwebend(art) {
-  if (art === 'aufgaben' && S.board && /^sonstiges/i.test(S.board.fach || '') && !S.aufFach) { schnellOeffnen('aufgaben'); schnellOffen = 'fach'; schnellZeichnen(); return; } /* schnelle Tafel: erst das Fach – in der Liste aufgeklappt */
+  if (art === 'aufgaben') { aufFachZuerst = true; if (dockSchwebe.aufgaben) { dockSchwebe.aufgaben(); return; } zeigeDock('aufgaben'); return; } /* Aufgaben: Seitenleiste – zuerst die Fächerauswahl, dann die Aufgaben */
   if (dockSchwebe[art]) { dockSchwebe[art](); return; } /* schon als Schwebemenü offen */
   zeigeDock(art);
 }
@@ -1286,7 +1300,7 @@ function eigenZeichnen() {
       knopf(gk, '✂ Ausschneiden', () => kopierenSel(true), 'Ausschneiden – woanders einfügen (Strg+X)');
       if (S.board.pages.length > 0) knopf(gk, '➡ Auf Seite …', e => aufSeitePop(e.currentTarget), 'Auf eine andere Seite verschieben');
       if (T.inNotizen) knopf(gk, '📥 In Notizen', () => T.inNotizen(), 'Von der Tafel in die Ablage-Notiz legen – von dort jederzeit zurückholen');
-      if (T.alsVorlage) knopf(gk, '📌 Als Vorlage speichern', () => T.alsVorlage(), 'Das Markierte als eigene Vorlage speichern – später unter Einfügen › 📌 Meine Vorlagen');
+      if (T.alsVorlage) knopf(gk, '📌 Als Vorlage speichern', () => T.alsVorlage(), 'Das Markierte als eigene Vorlage speichern – später unter Vorlagen › 📌 Meine Vorlagen');
       const ga = gruppe('Anordnen');
       knopf(ga, '⬆ Nach vorne', () => orderSel(1)); knopf(ga, '⬇ Nach hinten', () => orderSel(-1));
       if (one && one.r) knopf(ga, '⟲ Drehung 0°', () => { T.snap(); T.replaceItem({ ...akt(), r: 0 }); T.renderOver(); });
@@ -1879,7 +1893,7 @@ function einfuegenInhaltKat() {
   }
   tiles = kachelListe(einfKat, tile);
   const schwebbar = einfKat === 'Medien' || EINF_TEILE[einfKat];
-  /* 📘 Erklärungen (Rechenwege): zweiter Zugang direkt unter Einfügen › Mathe – dieselben Kacheln wie Mathe › 📘 Erklärungen */
+  /* 📘 Erklärungen (Rechenwege): zweiter Zugang direkt unter Vorlagen › Mathe – dieselben Kacheln wie Mathe › 📘 Erklärungen */
   const erkl = einfKat === 'Mathe' && T.rechenwegePanel ? h('button', { class: 'big prim', style: { width: '100%', justifyContent: 'flex-start', margin: '0 0 8px' }, title: 'Erweitern, Kürzen, Zahlenstrahl einteilen, schriftlich rechnen, Kopfrechnen, Prozent, Terme … – Schritt für Schritt',
     onclick: () => { T.rwZurueck = 'einfuegen'; zeigeDock('mathe-rechenwege'); } }, '📘 Erklärungen / Rechenwege – Schritt für Schritt') : '';
   if (erkl) T.favStern('einfuegen:rwalle', erkl); /* ☆ auch für den ganzen Erklärungen-Zugang */
@@ -2024,7 +2038,7 @@ const bruchHTML = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>
   .replace(/(\d+)\s*\/\s*(\d+)/g, '<span class="fr"><span>$1</span><span>$2</span></span>');
 function aufgabenPanel() {
   // nur die Aufgaben des Fachs: NaWi-Tafel → NaWi, Mathe-Tafel → Mathe, schnelle Tafel → alle
-  const fa = fachAufgaben(), nawiTafel = fa !== 'mathe' && fa !== 'alle'; // NaWi/Englisch: nur Aufgaben, ohne Rechenwege/Plotter/GeoGebra
+  const fa = aufFachAkt(), nawiTafel = fa !== 'mathe' && fa !== 'alle'; // NaWi/Englisch: nur Aufgaben, ohne Rechenwege/Plotter/GeoGebra
   const passtFach = k => fa === 'alle' || KAT_FACH((T.AUFGABEN[k] || {}).kat || '') === fa;
   let typ = T.AUFGABEN[T.opts.aufTyp] && passtFach(T.opts.aufTyp) ? T.opts.aufTyp : fa === 'nawi' ? 'nwEinheit' : fa === 'englisch' ? 'enVerben' : 'plus', jg = T.opts.aufJg || 0, stufe = 1, anz = 8, loes = T.opts.aufLoes || 'einzeln', platz = T.opts.platz || 'mittel';
   // Jahrgangsfilter + Liste nach Kategorien (untereinander)
@@ -2074,7 +2088,7 @@ function aufgabenPanel() {
     else if (matheWahl === 'ggb') rechts.append(h('h3', { style: { marginTop: '2px' } }, 'GeoGebra (mit Internet)'), ggb);
     else if (matheWahl === 'plot') rechts.append(h('h3', { style: { marginTop: '2px' } }, 'Funktionsplotter'),
       h('div', { class: 'tiles klein' }, h('button', { class: 'tile', onclick: () => T.plotter() }, h('div', { class: 'em' }, '📈'), 'Funktions­plotter öffnen')),
-      h('p', { class: 'hint' }, 'Funktionen eingeben (z. B. 2x+1 oder 0,5x^2−3), zeichnen lassen und mit „⤴ Auf die Tafel“ einfügen – auch mit Wertetabelle. Ein Koordinatensystem mit Funktionen gibt es außerdem unter Einfügen › Mathe.'));
+      h('p', { class: 'hint' }, 'Funktionen eingeben (z. B. 2x+1 oder 0,5x^2−3), zeichnen lassen und mit „⤴ Auf die Tafel“ einfügen – auch mit Wertetabelle. Ein Koordinatensystem mit Funktionen gibt es außerdem unter Vorlagen › Mathe.'));
     else {
       const satz = T.page().aufgabenSatz, aufTafel = satz && T.page().items.some(i => i.ag === satz.ag);
       rechts.append(h('h2', { style: { margin: '2px 0 4px', fontSize: '20px' } }, T.AUFGABEN[typ].name),
@@ -2101,7 +2115,14 @@ let matheWahl = 'gen';
 // 🧮 Taschenrechner als Fenster auf der Tafel (verschiebbar, mit „⤴ Rechnung auf die Tafel“)
 function taschenrechnerAufTafel() {
   const alt = document.querySelector('.widget.w-rechner'); if (alt) { alt.style.zIndex = ++wz; return; }
-  widget('🧮 Taschenrechner', [T.rechner()], Math.max(20, innerWidth / 2 - 180), 80).classList.add('w-rechner');
+  const w = widget('🧮 Taschenrechner', [T.rechner()], Math.max(20, innerWidth / 2 - 180), 80), wb = w.querySelector('.wb'), BREITE = 342;
+  w.classList.add('w-rechner'); wb.style.zoom = String(T.opts.rechnerZoom || 1);
+  /* Größe ändern (Ecken/Lasche) skaliert den ganzen Rechner mit, statt ihn abzuschneiden; die Größe wird gemerkt */
+  let warte = null;
+  new ResizeObserver(() => { if (!w.classList.contains('groesse') || !w.style.width) return;
+    const k = Math.round(T.clamp(parseFloat(w.style.width) / BREITE, 0.5, 2.5) * 100) / 100;
+    wb.style.zoom = String(k); w.style.width = ''; w.style.height = ''; w.classList.remove('groesse');
+    clearTimeout(warte); warte = setTimeout(() => { T.opts.rechnerZoom = k; T.saveOpts(); }, 300); }).observe(w);
 }
 // Aufgaben einzeln auf die Tafel – auf karierten Seiten in Kästchenschrift, am Raster ausgerichtet
 // meta: { typ, stufe, anz } zum Neu-Erzeugen; x0/yTop/ohneSnap beim Ersetzen eines vorhandenen Satzes
@@ -2208,21 +2229,16 @@ function neueAufgaben() {
 }
 T.alleLoesungen = alleLoesungen; T.neueAufgaben = neueAufgaben;
 
-// Winkel genau eingeben (Tippen auf ↻)
+// Tippen auf ↻: nur noch 🔒 Größe fixieren (feste Winkel und Größenknöpfe braucht man nicht – drehen und vergrößern mit zwei Fingern)
 T.angleDialog = I => {
-  const D = T.INSTR[I.kind]; let deg = Math.round(-I.a * 180 / Math.PI); deg = ((deg % 360) + 360) % 360;
-  const inp = h('input', { type: 'text', value: deg, inputmode: 'decimal', style: { fontSize: '30px', width: '160px' } });
-  const set = v => { T.setAngleAbout(I, -v * Math.PI / 180, D.center[0], D.center[1]); T.renderOver(); };
-  openDlg([h('h2', {}, D.name + ': Winkel und Größe'), h('label', { class: 'fld' }, 'Winkel in Grad (gegen den Uhrzeigersinn)', inp),
-    h('div', { class: 'row' }, ...[0, 15, 30, 45, 60, 90, 120, 135, 180, 270].map(v => h('button', { class: 'big', onclick: () => { set(v); closeDlg(); } }, v + '°'))),
+  const D = T.INSTR[I.kind];
+  openDlg([h('h2', {}, D.name),
     (() => { /* 🔒 Größe fixieren: beim Drehen mit zwei Fingern bleibt die Größe gleich (gilt auch für neu geöffnete Werkzeuge dieser Art) */
       const i = h('input', { type: 'checkbox', style: { width: '24px', height: '24px' }, onchange: e => { I.groesseFest = e.target.checked; T.opts.instFest = { ...(T.opts.instFest || {}), [I.kind]: e.target.checked }; if (!e.target.checked) delete T.opts.instFest[I.kind]; T.saveOpts(); T.renderOver(); } });
       i.checked = I.groesseFest != null ? !!I.groesseFest : !!(T.opts.instFest && T.opts.instFest[I.kind]); return h('label', { class: 'fld check', style: { marginTop: '10px' } }, i, '🔒 Größe fixieren – beim Drehen und Verschieben mit zwei Fingern ändert sich die Größe nicht'); })(),
+    h('p', { class: 'hint' }, 'Drehen: am ↻ ziehen oder mit zwei Fingern. Größer/kleiner: mit zwei Fingern aufziehen.'),
     I.kind === 'geodreieck' && T.geoErklMenue ? h('button', { class: 'big', style: { marginTop: '8px' }, onclick: () => { closeDlg(); T.geoErklMenue(); } }, '📘 So geht’s – Erklärung zum Geodreieck einfügen') : '',
-    h('h3', {}, 'Größe (auch mit zwei Fingern aufziehen)'),
-    h('div', { class: 'row' }, ...[[0.75, '75 %'], [1, '100 %'], [1.5, '150 %'], [2, '200 %'], [3, '300 %']].map(([k, l]) => h('button', { class: 'big' + (Math.abs((I.s || 1) - k) < 0.01 ? ' on' : ''), onclick: () => { T.setScaleAbout(I, k, D.center[0], D.center[1]); T.renderOver(); closeDlg(); } }, l))),
-    h('div', { class: 'acts' }, h('button', { class: 'big', onclick: closeDlg }, 'Abbrechen'), h('button', { class: 'big prim', onclick: () => { const v = parseFloat(String(inp.value).replace(',', '.')); if (!isNaN(v)) set(v); closeDlg(); } }, 'Drehen'))]);
-  setTimeout(() => inp.select(), 50);
+    h('div', { class: 'acts' }, h('button', { class: 'big prim', onclick: closeDlg }, 'Fertig'))]);
 };
 
 // ---------- Einstellungen ----------
@@ -3414,7 +3430,7 @@ $('bArchiv').onclick = e => {
       zeile('💾 Speichern (Strg+S)', () => speichern(true)),
       zeile('📤 Speichern unter … (als Datei)', speichernUnter, 'Als Datei an einem Ort Ihrer Wahl sichern (USB-Stick, IServ, OneDrive, am iPad: „In Dateien sichern“)'),
       zeile('⭐ Zu „Meine Aufgaben“ …', () => $('bSave').onclick({ currentTarget: el }), 'Diese Seite oder die Auswahl als eigene Aufgabe speichern'),
-      T.alsVorlage ? zeile('📌 Als Vorlage speichern …', () => $('bSave').onclick({ currentTarget: el }), 'Diese Seite oder die Auswahl als Vorlage speichern – später unter Einfügen › 📌 Meine Vorlagen') : '',
+      T.alsVorlage ? zeile('📌 Als Vorlage speichern …', () => $('bSave').onclick({ currentTarget: el }), 'Diese Seite oder die Auswahl als Vorlage speichern – später unter Vorlagen › 📌 Meine Vorlagen') : '',
       zeile('⇅ Import / Export …', () => exportPop(el), 'Import: PowerPoint, Word, PDF, Bilder · Export: PNG, PDF, Tafel-Datei'),
       an && T.tafelTeilen && (F.root || F.gemRoot) ? zeile('👥 Tafel teilen …', () => T.tafelTeilen(), 'Eine Kopie dieser Tafel für Kolleginnen und Kollegen in den gemeinsamen Ordner legen') : '',
       h('h4', { style: { marginTop: '6px' } }, 'Tafel'),
@@ -3445,15 +3461,15 @@ $('bSave').onclick = e => {
   openPop(e.currentTarget, h('div', { class: 'sp-kasten' }, h('h4', {}, '💾 Speichern'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch' } },
     h('button', { class: 'big', onclick: zu(() => speichern(true)) }, '💾 Tafel speichern (Strg+S)'),
     h('button', { class: 'big', title: 'Als Datei an einem Ort Ihrer Wahl sichern (z. B. USB-Stick, IServ, OneDrive, am iPad: „In Dateien sichern“)', onclick: zu(speichernUnter) }, '📤 Speichern unter … (als Datei)'),
-        T.alsArbeitsblatt ? h('button', { class: 'big', title: 'Diese Seite (oder mehrere Seiten) nach Fach, Jahrgang und Thema ablegen – später unter Einfügen › 📄 Arbeitsblätter', onclick: zu(() => T.alsArbeitsblatt()) }, '📄 Als Arbeitsblatt speichern') : '')),
+        T.alsArbeitsblatt ? h('button', { class: 'big', title: 'Diese Seite (oder mehrere Seiten) nach Fach, Jahrgang und Thema ablegen – später unter Vorlagen › 📄 Arbeitsblätter', onclick: zu(() => T.alsArbeitsblatt()) }, '📄 Als Arbeitsblatt speichern') : '')),
     h('div', { class: 'ma-kasten' }, /* eigener, farbig eingerahmter Bereich – hebt sich vom normalen Speichern ab */
       h('h4', {}, '⭐ Zu „Meine Aufgaben“ hinzufügen'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch' } },
         h('button', { class: 'big', title: 'Alles auf dieser Seite (getippte Aufgaben, Bilder, Bausteine, Handschrift)', onclick: zu(() => T.seiteZuMeinenAufgaben(false)) }, '📄 Diese Seite'),
         h('button', { class: 'big', disabled: !n, title: n ? 'Nur die ausgewählten Elemente' : 'Erst auf der Tafel etwas auswählen', onclick: zu(() => T.seiteZuMeinenAufgaben(true)) }, '☑ Auswahl' + (n ? ` (${n})` : ' – erst etwas auswählen'))),
       h('div', { class: 'row', style: { marginTop: '10px' } }, h('button', { class: 'big prim', onclick: zu(() => { matheWahl = 'meine'; zeigeDock('aufgaben'); }) }, '⭐ Meine Aufgaben öffnen'))),
-    T.alsVorlage ? h('div', { class: 'ma-kasten vl-kasten' }, /* 📌 Vorlage: Tafelbild zum Wiederverwenden (keine Aufgabe) – landet in Einfügen › 📌 Meine Vorlagen */
+    T.alsVorlage ? h('div', { class: 'ma-kasten vl-kasten' }, /* 📌 Vorlage: Tafelbild zum Wiederverwenden (keine Aufgabe) – landet in Vorlagen › 📌 Meine Vorlagen */
       h('h4', {}, '📌 Als Vorlage speichern'), h('div', { class: 'row', style: { flexDirection: 'column', alignItems: 'stretch' } },
-        h('button', { class: 'big', title: 'Die ganze Seite – kommt später als neue Seite (Einfügen › 📌 Meine Vorlagen › 📄 Ganze Seiten)', onclick: zu(() => T.alsVorlage(true)) }, '📄 Diese Seite als Vorlage'),
+        h('button', { class: 'big', title: 'Die ganze Seite – kommt später als neue Seite (Vorlagen › 📌 Meine Vorlagen › 📄 Ganze Seiten)', onclick: zu(() => T.alsVorlage(true)) }, '📄 Diese Seite als Vorlage'),
         h('button', { class: 'big', disabled: !n, title: n ? 'Nur die ausgewählten Elemente – kommen später in die Mitte der Seite' : 'Erst auf der Tafel etwas auswählen', onclick: zu(() => T.alsVorlage(false)) }, '☑ Auswahl als Vorlage' + (n ? ` (${n})` : ' – erst etwas auswählen'))),
       h('div', { class: 'row', style: { marginTop: '10px' } }, h('button', { class: 'big prim', onclick: zu(() => T.einfuegenKategorie('Vorlagen')) }, '📌 Meine Vorlagen öffnen'))) : '');
 };
@@ -3518,11 +3534,16 @@ $('bThema').onclick = () => { const n = { auto: 'hell', hell: 'dunkel', dunkel: 
 /* Werkzeugleiste unten / oben / links / rechts (senkrecht) – gehört zum Board */
 function leisteLage() { const s = T.opts.leisteSeite, b = document.body;
   b.classList.toggle('leisteOben', !s && !!T.opts.leisteOben); b.classList.toggle('leisteLinks', s === 'links'); b.classList.toggle('leisteRechts', s === 'rechts'); if (schnellEl) schnellWeg(); }
+/* Start – die Startseite (⚡ Leere Tafel / 👤 Anmelden) muss IMMER erscheinen: Auch wenn der Browser-Speicher am Schul-PC nicht
+   antwortet (gesperrt, gerade bereinigt, Netzlaufwerk weg) oder ein Teil beim Aufbau scheitert, geht es nach spätestens 3 s weiter. */
 (async function start() {
-  T.setThema(T.opts.thema || 'auto');
-  leisteLage();
-  T.initCanvas(); T.initInput(); buildToolbar();
-  await F.init();
-  archiv();
+  const versuch = fn => { try { fn(); } catch (e) { console.warn('Tafel-App Start:', e); } };
+  versuch(() => T.setThema(T.opts.thema || 'auto'));
+  versuch(leisteLage);
+  versuch(() => T.initCanvas()); versuch(() => T.initInput()); versuch(buildToolbar);
+  try { await Promise.race([F.init(), new Promise(r => setTimeout(r, 3000))]); } catch (e) { console.warn('Tafel-App Ablage:', e); }
+  try { await archiv(); } catch (e) { console.warn('Tafel-App Startseite:', e); try { const A = $('archiv'); A.style.display = 'block'; A.innerHTML = ''; await startSeite(A); } catch (x) {} }
 })();
+/* Sicherheitsnetz: steht nach 6 s weder eine Tafel noch die Startseite da, die Startseite erzwingen */
+setTimeout(() => { const A = $('archiv'); if (!S.board && A && (getComputedStyle(A).display === 'none' || !A.children.length)) { try { archiv(); } catch (e) {} } }, 6000);
 })();

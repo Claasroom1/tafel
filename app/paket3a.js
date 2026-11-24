@@ -403,7 +403,7 @@ function faltRegler(akt) {
   regler = r;
   return h('label', { class: 'falt-zeile' }, h('span', {}, 'flach'), r, h('span', {}, 'gefaltet'));
 }
-// Kacheln unter Einfügen › 3D-Körper: zu jedem Netz die animierte Fassung (Name, voreingestellte Werte, Vorschau-Werte)
+// Kacheln unter Vorlagen › 3D-Körper: zu jedem Netz die animierte Fassung (Name, voreingestellte Werte, Vorschau-Werte)
 const KV = T.KACHEL_VARIANTEN = T.KACHEL_VARIANTEN || {};
 [['quader', 'Quader', { a: 3, b: 2, c: 1.5 }, 'Quadernetz'], ['prisma', 'Dreiecksprisma', { a: 3, b: 2.5, c: 4 }, 'Prismennetz'], ['pyramide', 'Pyramide', { a: 3, h: 4 }, 'Pyramidennetz'],
   ['tetraeder', 'Tetraeder', { a: 3 }, 'Tetraedernetz'], ['zylinder', 'Zylinder', { r: 1.5, h: 4 }, 'Zylindernetz'], ['kegel', 'Kegel', { r: 1.5, h: 4 }, 'Kegelnetz']].forEach(([k, name, m, netz]) => {

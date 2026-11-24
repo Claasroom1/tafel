@@ -1,6 +1,6 @@
 // Tafel-App – 📝 Mitschrift- und Lernvorlagen + 🗂 Vokabeltrainer (gemeinsam für Lehrkräfte- und Schüler-Version, braucht vorlagen-kern.js)
 //   Cornell-Notizen, Hefteintrag, Begriffe, Stichpunkte, Mindmap (mit Unterpunkten), Stundenplan, Lernplan, Versuchsprotokoll, Lesetagebuch, Buchvorstellung.
-//   Einfügen › 📋 Stunde & Rückmeldung (Schüler-Version: „📝 Mitschrift & Lernen“). Seitengriffe ↔ ↕ über T.VL.dehnen.
+//   Vorlagen › 📋 Stunde & Rückmeldung (Schüler-Version: „📝 Mitschrift & Lernen“). Seitengriffe ↔ ↕ über T.VL.dehnen.
 'use strict';
 (function () {
 const B = T.BAUSTEINE; if (!B || !T._svg) return;
@@ -164,7 +164,7 @@ Object.assign(DEHNEN, {
 for (const k of ['ms_versuch', 'ms_lesetagebuch', 'ms_buch']) DEHNEN[k] = (d, dy) => ({ mehr: Math.max(0, (+d.mehr || 0) + Math.round(dy / ABST)) });
 
 
-// Einfügen › 📋 Stunde & Rückmeldung: die Vorlagen stehen vorn (dazu 📒 Heft und 🗂 Vokabeltrainer)
+// Vorlagen › 📋 Stunde & Rückmeldung: die Vorlagen stehen vorn (dazu 📒 Heft und 🗂 Vokabeltrainer)
 nachDemZeichnen.push(() => document.querySelectorAll('.tiles').forEach(box => {
   if (T.MS_KATEGORIE) return; /* Lehrkräfte-Version: eigene Kategorie „📝 Mitschrift & Lernen“ in oberflaeche.js */
   if (box.querySelector('.ms-tile') || ![...box.children].some(c => /^(Blitzlicht|Exit-Ticket)/.test(c.textContent.trim()))) return;

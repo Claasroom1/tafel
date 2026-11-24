@@ -1,4 +1,4 @@
-// Tafel-App – 🎵 Musik · 🎨 Kunst · ⚽ Sport: Bildtafeln (Einfügen › Musik / Kunst / Sport)
+// Tafel-App – 🎵 Musik · 🎨 Kunst · ⚽ Sport: Bildtafeln (Vorlagen › Musik / Kunst / Sport)
 // Notenwerte · Klaviatur · Rhythmusraster · Takt und Tempo · Instrumentengruppen · Farbkreis nach Itten · Perspektive · Bildanalyse · Drittelregel ·
 // Spielfelder (maßstäblich) · Stationenkreis · Mannschaftseinteilung (mit Klassenliste) · Turnierplan. Alles selbst gezeichnet (SVG), Texte unter ✏️ Bearbeiten bzw. Optionen.
 'use strict';

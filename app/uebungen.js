@@ -717,7 +717,7 @@ B.diagramm.ziehen = (d, id, sxp, syp, ende) => {
 const dq = (l, fn) => ({ l, f: d => ({ d: fn({ ...d }) }) });
 B.diagramm.schnell = ['saeulen', 'balken', 'linie', 'punkte', 'kreis'].map((a, i) => dq(['▮ Säulen', '▬ Balken', '📈 Linie', '✕ Punkte', '◔ Kreis'][i], d => { d.art = a; return d; }))
   .concat([dq('Ausgleichsgerade', d => { d.ausgleich = !d.ausgleich; return d; }), dq('📋 Tabelle ein/aus', d => { d.tabelle = !d.tabelle; return d; }), { l: '✏️ Werte ändern', aus: o => T.editObj && T.editObj(o) }]);
-// Einfügen › 📊 Diagramme: je Art eine Vorlage mit Beispielwerten – die Wertetabelle steht daneben (✏️ Werte ändern)
+// Vorlagen › 📊 Diagramme: je Art eine Vorlage mit Beispielwerten – die Wertetabelle steht daneben (✏️ Werte ändern)
 { const KV = T.KACHEL_VARIANTEN = T.KACHEL_VARIANTEN || {};
   KV['diagramm:saeulen'] = { name: 'Säulendiagramm', d: { art: 'saeulen', tabelle: true, titel: 'Lieblingsfächer der Klasse', daten: 'Fach;Anzahl\nMathe;6\nDeutsch;4\nSport;9\nKunst;5\nBiologie;3' } };
   KV['diagramm:balken'] = { name: 'Balkendiagramm', d: { art: 'balken', tabelle: true, titel: 'So kommen wir zur Schule', daten: 'Verkehrsmittel;Anzahl\nzu Fuß;5\nFahrrad;8\nBus;10\nAuto;3' } };

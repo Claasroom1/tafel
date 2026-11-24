@@ -150,9 +150,11 @@ function drawInstrument(ctx, I, px) {
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p[0], p[1], hr, 0, 2 * PI); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = `600 ${hr}px Segoe UI`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, p[0], p[1] + 1);
   };
-  btn(D.knob, 'rgba(30,111,217,.9)', '↻'); btn(D.close, 'rgba(200,50,50,.85)', '×'); if (D.gear) btn(D.gear, 'rgba(70,80,100,.85)', '⚙'); /* ⚙ Winkel, Größe, 🔒 fixieren */
+  const fest = I.groesseFest || (I.groesseFest == null && T.opts.instFest && T.opts.instFest[I.kind]);
+  btn(D.knob, 'rgba(30,111,217,.9)', '↻'); btn(D.close, 'rgba(200,50,50,.85)', '×');
+  if (D.gear) btn(D.gear, fest ? 'rgba(217,119,6,.92)' : 'rgba(70,80,100,.85)', fest ? '🔒' : '🔓'); /* Schloss: antippen = Größe fixieren / lösen */
   ctx.font = `600 ${15 * px}px Segoe UI`; ctx.fillStyle = '#123'; ctx.textAlign = 'center';
-  ctx.fillText(degText(-I.a) + (k !== 1 ? '  ·  ' + Math.round(k * 100) + ' %' : '') + (I.groesseFest || (I.groesseFest == null && T.opts.instFest && T.opts.instFest[I.kind]) ? '  🔒' : ''), D.knob[0], D.knob[1] + hr + 14 * px);
+  ctx.fillText(degText(-I.a) + (k !== 1 ? '  ·  ' + Math.round(k * 100) + ' %' : '') + (fest ? '  🔒' : ''), D.knob[0], D.knob[1] + hr + 14 * px);
   ctx.restore();
 }
 

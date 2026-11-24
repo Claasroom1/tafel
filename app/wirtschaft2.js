@@ -1,6 +1,6 @@
 // Tafel-App – 💼 Wirtschaft (Ergänzung): Erweiterter Wirtschaftskreislauf (Haushalte, Unternehmen, Staat, Banken, Ausland) – nur Geldströme.
 // Wahlweise mit Betragstabelle zum Rechnen (Mrd. €; vorgegeben oder leer) und Kontrolle „Einnahmen = Ausgaben“ je Sektor.
-// Einfügen › 💼 Wirtschaft. 🙈 Erarbeiten und 🔢 Zahlen anpassen über erarbeiten.js / zahlen.js (Präfix wi_).
+// Vorlagen › 💼 Wirtschaft. 🙈 Erarbeiten und 🔢 Zahlen anpassen über erarbeiten.js / zahlen.js (Präfix wi_).
 'use strict';
 (function () {
 const B = T.BAUSTEINE;

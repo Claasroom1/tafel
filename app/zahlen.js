@@ -34,7 +34,7 @@ function anwenden(svg, tx, zl, markieren) {
     const w = tx && tx[i]; if (w && w.alt === t) neu = w.neu;
     else if (zl) { let ni = 0; neu = t.replace(ZAHL, alt => { const z = zl[i + '.' + ni++]; return z && z.alt === alt ? z.neu : alt; }); }
     const a = a0 + (markieren ? `data-ti="${i}" ` : '') + a1;
-    return neu === t && !markieren ? all : a + esc(neu) + e;
+    return neu === t && !markieren ? all : a + esc(markieren && !neu.trim() ? '···' : neu) + e; /* weggelassene Zeile bleibt im Direkt-Modus antippbar */
   });
 }
 /* ✏️ Direkt ändern: Lage der Texte schätzen (wie in erarbeiten.js) */
@@ -56,6 +56,7 @@ function direktFeld(o, i) {
   if (offenesFeld) offenesFeld.fertig(true);
   const cur = T.page().items.find(x => x.id === o.id) || o, g = T.genObj(o.k, cur.d, false), L = textLagen(g.svg).find(q => q.i === i); if (!L) return;
   const orig = texteFinden(roh(cur))[i]; if (orig == null) return;
+  if (gesperrt(cur.k, cur.d || {}).has(i)) { T.toast && T.toast(SPERR_HINWEIS, 3500); return; }
   const v = T.page().view, [ax, ay] = T.svgZuWelt(cur, g, L.x0, L.y0), [bx, by] = T.svgZuWelt(cur, g, L.x0 + L.w, L.y0 + L.h);
   const sx = T.ox + v.x + Math.min(ax, bx) * v.z, sy = v.y + Math.min(ay, by) * v.z, sw = Math.abs(bx - ax) * v.z, sh = Math.abs(by - ay) * v.z;
   const jetzt = L.t, inp = h('input', { class: 'direkt-text', value: jetzt });
@@ -81,13 +82,22 @@ function direktFeld(o, i) {
 const MARK = '⟦m⟧';
 function datenStellen(Bk, d, alt) {
   const a = String(alt).trim(), out = []; if (!a || !Array.isArray(Bk.felder)) return out;
+  /* Wert c steht in der Zeile a – ganz („Einstieg“) oder als Teil („1. Einstieg“, „a = 10 cm“, Grenzen: kein Buchstabe/keine Ziffer daneben).
+     teil(neu) holt aus der geänderten Zeile den neuen Wert: Vorspann und Nachspann bleiben, wenn sie noch dastehen. */
+  const passt = c => { c = String(c).trim(); if (!c) return null; if (c === a) return neu => neu;
+    const i = a.indexOf(c); if (i < 0 || a.indexOf(c, i + 1) >= 0) return null;
+    const vor = a.slice(0, i), nach = a.slice(i + c.length), w = /[0-9A-Za-zÄÖÜäöüß]/;
+    if ((vor && w.test(vor.slice(-1)) && w.test(c[0])) || (nach && w.test(nach[0]) && w.test(c.slice(-1))) || (/\d/.test(c[0]) && /[\d,.]$/.test(vor)) || (/\d$/.test(c) && /^[,.]?\d/.test(nach))) return null;
+    return neu => { let n = String(neu); if (n === MARK) return n; if (vor && n.startsWith(vor)) n = n.slice(vor.length); if (nach && n.endsWith(nach)) n = n.slice(0, n.length - nach.length); return n.trim(); }; };
+  const alsZahl = (fd, n) => fd.typ === 'zahl' && n !== MARK && !isNaN(+String(n).replace(',', '.')) && String(n).trim() !== '' ? +String(n).replace(',', '.') : n;
   for (const fd of Bk.felder) {
     const v = d[fd.k]; if (v == null || typeof v === 'object') continue;
-    if (fd.typ === 'zahl' || fd.typ === 'text') { if (String(v).trim() === a) out.push({ setze: (dd, neu) => ({ ...dd, [fd.k]: fd.typ === 'zahl' && !isNaN(+String(neu).replace(',', '.')) ? +String(neu).replace(',', '.') : neu }) }); continue; }
+    if (fd.typ === 'zahl' || fd.typ === 'text') { const p = passt(fd.typ === 'zahl' ? String(v).replace('.', ',') : v) || (fd.typ === 'zahl' ? passt(v) : null); const pv = typeof v === 'number' ? v + (Number.isInteger(v) ? 3 : 1) : null, pt = pv == null ? null : [String(pv), String(pv).replace('.', ',')];
+      if (p) out.push({ pruef: fd.typ === 'zahl' && pv != null ? x => pt.some(s => x === a.replace(String(v).replace('.', ','), s) || x === a.replace(String(v), s)) : null, probe: dd => ({ ...dd, [fd.k]: fd.typ === 'zahl' && pv != null ? pv : MARK }), setze: (dd, neu) => ({ ...dd, [fd.k]: alsZahl(fd, p(neu)) }) }); continue; }
     if (fd.typ !== 'tabelle' && fd.typ !== 'liste') continue;
     const zeilen = String(v).split(/(\r?\n)/);
-    zeilen.forEach((z, zi) => { if (zi % 2) return; z.split(/(;|\t)/).forEach((c, ci) => { if (ci % 2 || c.trim() !== a) return;
-      out.push({ setze: (dd, neu) => { const zs = String(dd[fd.k]).split(/(\r?\n)/), ts = zs[zi].split(/(;|\t)/); ts[ci] = ts[ci].replace(a, neu); zs[zi] = ts.join(''); return { ...dd, [fd.k]: zs.join('') }; } }); }); });
+    zeilen.forEach((z, zi) => { if (zi % 2) return; z.split(/(;|\t)/).forEach((c, ci) => { if (ci % 2) return; const p = passt(c); if (!p) return; const ct = c.trim();
+      out.push({ setze: (dd, neu) => { const zs = String(dd[fd.k]).split(/(\r?\n)/), ts = zs[zi].split(/(;|\t)/); ts[ci] = ts[ci].replace(ct, p(neu)); zs[zi] = ts.join(''); return { ...dd, [fd.k]: zs.join('') }; } }); }); });
   }
   return out;
 }
@@ -95,7 +105,7 @@ function datenStelle(o, i, alt) {
   const Bk = B[o.k]; if (!Bk || !Bk.__genT) return null;
   const d = { ...Bk.def, ...o.d, texte: {}, zahlen: {} }, P = T.palette ? T.palette(false) : {};
   for (const st of datenStellen(Bk, d, alt)) {
-    try { const t = texteFinden(Bk.__genT(st.setze(d, MARK), P).svg); if (t[i] != null && t[i].includes(MARK)) return st; } catch (e) {}
+    try { const t = texteFinden(Bk.__genT(st.probe ? st.probe(d) : st.setze(d, MARK), P).svg); if (t[i] != null && (st.pruef ? st.pruef(t[i]) : t[i].includes(MARK))) return st; } catch (e) {} /* Zahlfelder: Probe mit einer etwas anderen Zahl (Text ergäbe NaN) – dieselbe Zeile muss sie an derselben Stelle zeigen */
   }
   return null;
 }
@@ -107,6 +117,34 @@ function aendernMitDaten(o, tx, zl) {
   T.bausteinAendern(o, { f: () => ({ d: { ...d, texte: tRest, zahlen: zRest } }) });
 }
 const roh = (o, extra) => { const Bk = B[o.k]; return Bk.__genT({ ...Bk.def, ...o.d, texte: {}, zahlen: {}, ...(extra || {}) }, T.palette ? T.palette(false) : {}).svg; };
+/* 🔒 Berechnete Angaben: Zahlen, die sich aus den Eingaben ergeben (Seitenlängen einer Figur, Ergebnis, Prozentwerte, Bits, Digitaluhr …),
+   und die nicht selbst als Wert in einem Feld stehen, sind gesperrt – sonst stimmten Anzeige und Zeichnung bzw. Lösung nicht mehr überein.
+   Ermittelt wird das, indem jedes Zahl-/Textfeld probeweise verändert wird: welcher Text ändert sich mit? */
+const sperrSpeicher = new Map();
+const FEST_GEKOPPELT = new Set(['ma_bdp']); /* feste Zahlen, die zueinander passen müssen (½ = 0,5 = 50 %) */
+function gesperrt(k, d0) {
+  const Bk = B[k]; if (!Bk || !Bk.__genT || !Array.isArray(Bk.felder)) return new Set();
+  const d = { ...Bk.def, ...d0, texte: {}, zahlen: {} }; delete d.texteDirekt;
+  let schl; try { schl = k + JSON.stringify(d); } catch (e) { return new Set(); }
+  if (sperrSpeicher.has(schl)) return sperrSpeicher.get(schl);
+  const P = T.palette ? T.palette(false) : {}, g = dd => { try { return texteFinden(Bk.__genT(dd, P).svg); } catch (e) { return null; } };
+  const t = g(d) || [], abh = new Set();
+  /* Proben je Feld: Zahl ±1; Text: alle Ziffern bzw. Buchstaben verschoben und jede Ziffer einzeln (z. B. 123 → 223, 133, 124) */
+  const schieb = (s, nur) => s.replace(nur, c => /\d/.test(c) ? String((+c + 1) % 10) : c === 'z' ? 'a' : c === 'Z' ? 'A' : /[a-yA-Y]/.test(c) ? String.fromCharCode(c.charCodeAt(0) + 1) : c);
+  for (const f of Bk.felder) {
+    const v = d[f.k], proben = [];
+    if (f.typ === 'zahl' && typeof v === 'number') proben.push(v + 1, v - 1, v * 1.1);
+    else if (['text', 'tabelle', 'liste'].includes(f.typ) && typeof v === 'string' && v.trim()) {
+      proben.push(schieb(v, /\d/g), schieb(v, /[a-zA-Z]/g));
+      [...v.matchAll(/\d/g)].slice(0, 12).forEach(m => proben.push(v.slice(0, m.index) + String((+m[0] + 1) % 10) + v.slice(m.index + 1)));
+    }
+    for (const p of proben) { if (p === v) continue; const t2 = g({ ...d, [f.k]: p }); if (!t2 || t2.length !== t.length) continue; t.forEach((x, i) => { if (t2[i] !== x) abh.add(i); }); }
+  }
+  if (FEST_GEKOPPELT.has(k)) t.forEach((x, i) => { if (/\d/.test(x)) abh.add(i); });
+  const s = new Set(); abh.forEach(i => { if (/\d/.test(t[i]) && !datenStelle({ k, d }, i, t[i])) s.add(i); });
+  if (sperrSpeicher.size > 200) sperrSpeicher.clear(); sperrSpeicher.set(schl, s); return s;
+}
+const SPERR_HINWEIS = '🔒 Diese Angabe wird aus den Eingaben berechnet – bitte über ✏️ Bearbeiten ändern, dann stimmt alles zusammen.';
 const uebernehmen = (o, feld, wert) => T.bausteinAendern(o, { f: dd => ({ d: { ...dd, [feld]: wert } }) });
 const knoepfe = (o, feld, werte) => h('div', { class: 'acts' }, h('button', { class: 'big', onclick: T.closeDlg }, 'Abbrechen'),
   !leer((o.d || {})[feld]) ? h('button', { class: 'big', onclick: () => { T.closeDlg(); uebernehmen(o, feld, {}); } }, '↺ Alle wie in der Vorlage') : '',
@@ -114,10 +152,11 @@ const knoepfe = (o, feld, werte) => h('div', { class: 'acts' }, h('button', { cl
     if (feld === 'texte') aendernMitDaten(o, { ...werte }, d0.zahlen); else aendernMitDaten(o, d0.texte, { ...werte }); } }, 'Übernehmen'));
 
 function texteDialog(o) {
-  const liste = texteFinden(roh(o)), tx = { ...((o.d || {}).texte || {}) };
+  const liste = texteFinden(roh(o)), tx = { ...((o.d || {}).texte || {}) }, sp = gesperrt(o.k, o.d || {});
   if (!liste.length) { T.toast && T.toast('Auf dieser Tafel stehen keine Texte.', 2000); return; }
   const felder = liste.map((t, i) => {
     const jetzt = tx[i] && tx[i].alt === t ? tx[i].neu : t;
+    if (sp.has(i)) return h('label', { class: 'fld', style: { display: 'block' }, title: SPERR_HINWEIS }, h('span', { style: { color: 'var(--muted)', fontSize: '13px' } }, 'Zeile ' + i + ' 🔒 berechnet – über ✏️ Bearbeiten'), h('input', { class: 'feld', value: t, disabled: true, style: { width: '100%', boxSizing: 'border-box', opacity: .6 } }));
     const inp = h('input', { class: 'feld', value: jetzt, style: { width: '100%', boxSizing: 'border-box' }, oninput: e => { const v = e.target.value; if (v === t) delete tx[i]; else tx[i] = { alt: t, neu: v }; } });
     return h('label', { class: 'fld', style: { display: 'block' } }, h('span', { style: { color: 'var(--muted)', fontSize: '13px' } }, i === 0 ? 'Überschrift' : 'Zeile ' + i + (jetzt !== t ? ' (geändert)' : '')), inp);
   });
@@ -125,8 +164,8 @@ function texteDialog(o) {
     h('div', { style: { maxHeight: '60vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' } }, ...felder), knoepfe(o, 'texte', tx)]);
 }
 function zahlenDialog(o) {
-  const liste = zahlenFinden(roh(o)), z = { ...((o.d || {}).zahlen || {}) };
-  if (!liste.length) { T.toast && T.toast('Auf dieser Tafel stehen keine Zahlen.', 2000); return; }
+  const sp = gesperrt(o.k, o.d || {}), liste = zahlenFinden(roh(o)).filter(e => !sp.has(+e.key.split('.')[0])), z = { ...((o.d || {}).zahlen || {}) };
+  if (!liste.length) { T.toast && T.toast(sp.size ? SPERR_HINWEIS : 'Auf dieser Tafel stehen keine Zahlen.', 3000); return; }
   const felder = liste.map(e => {
     const jetzt = z[e.key] && z[e.key].alt === e.alt ? z[e.key].neu : e.alt;
     const inp = h('input', { class: 'feld', value: jetzt, style: { width: '110px' }, onchange: ev => { const v = ev.target.value.trim(); if (!v || v === e.alt) delete z[e.key]; else z[e.key] = { alt: e.alt, neu: v }; } });
@@ -145,7 +184,7 @@ function einrichten(k) {
   Bk[feld] = (d, P) => {
     const g = kern(d, P); if (!g || !g.svg) return g;
     if (d.texteDirekt) { /* ✏️ Direkt ändern: jeder Text gestrichelt umrandet und antippbar (Teil x<Nummer>) */
-      const svg = anwenden(g.svg, d.texte, d.zahlen, true), L = textLagen(svg);
+      const sp = gesperrt(k, d), svg = anwenden(g.svg, d.texte, d.zahlen, true), L = textLagen(svg).filter(q => !sp.has(q.i)); /* berechnete Angaben: kein Rahmen */
       const rahmen = L.map(q => `<rect x="${(q.x0 - 4).toFixed(1)}" y="${q.y0.toFixed(1)}" width="${(q.w + 8).toFixed(1)}" height="${q.h.toFixed(1)}" rx="5" fill="rgba(30,136,229,.07)" stroke="#1e88e5" stroke-width="1.5" stroke-dasharray="5 4"/>`).join('');
       return { ...g, svg: svg.replace(/<\/svg>\s*$/, rahmen + '</svg>'), teile: (g.teile || []).concat(L.map(q => ({ id: 'x' + q.i, x: q.x0 - 4, y: q.y0, w: q.w + 8, h: q.h }))) };
     }
@@ -156,10 +195,17 @@ function einrichten(k) {
   Bk.tippen = (o, id) => { if (/^x\d+$/.test(id)) return direktFeld(o, +id.slice(1)); return tAlt && tAlt(o, id); };
   Bk.tippenFuer = id => /^[xt]\d+$/.test(id) || (!!tAlt && (!fuerAlt || fuerAlt(id))); /* t<Nr> = 🙈 Erarbeiten (erarbeiten.js) */
   const sAlt = Bk.schnell;
-  Bk.schnell = d => (d.texteDirekt ? [{ l: '✔ Texte fertig', f: dd => { const n = { ...dd }; delete n.texteDirekt; return { d: n }; } }] : [])
+  /* nur anbieten, was es auf dieser Tafel gibt: Texte nur bei Text, Zahlen nur bei Zahlen */
+  const inhalt = d => { try { const s = roh({ k, d }), t = texteFinden(s), sp = gesperrt(k, d); return { text: t.some((z, i) => !sp.has(i)), zahl: t.some((z, i) => /\d/.test(z) && !sp.has(i)), gedreht: /<text [^>]*transform="[^"]*rotate\(/.test(s) }; } catch (e) { return { text: true, zahl: true }; } };
+  /* Figuren und Körper: Längen/Winkel gut sichtbar eingeben (sonst nur über das kleine ✏️ in der Leiste) */
+  const masse = k !== 'uhr' && (Bk.felder || []).some(f => f.typ === 'zahl' && /^(a|b|c|h|r|g|hd|l|t|alpha|beta)$/.test(f.k));
+  const zurueck = d => leer(d.texte) && leer(d.zahlen) ? [] : [{ l: '↺ Texte/Zahlen wie in der Vorlage', f: dd => ({ d: { ...dd, texte: {}, zahlen: {} } }) }];
+  Bk.schnell = d => { const da = d.texteDirekt ? { text: true, zahl: false } : inhalt(d); return (d.texteDirekt ? [{ l: '✔ Texte fertig', f: dd => { const n = { ...dd }; delete n.texteDirekt; return { d: n }; } }] : [])
     .concat(typeof sAlt === 'function' ? sAlt(d) : (sAlt || []),
-      d.texteDirekt ? [] : [{ l: '✏️ Texte direkt ändern', f: dd => { T.toast && T.toast('Eine Zeile mit dem Finger oder der Maus antippen – dort tippen, Enter speichert, Esc bricht ab. Fertig: „✔ Texte fertig“.', 4500); return { d: { ...dd, texteDirekt: true, erarbeiten: false } }; } }],
-      [{ l: '📋 Texte als Liste', aus: o => texteDialog(o) }], OHNE_ZAHLEN.has(k) ? [] : [{ l: '🔢 Zahlen anpassen', aus: o => zahlenDialog(o) }]);
+      masse && !d.texteDirekt ? [{ l: '📏 Maße eingeben …', aus: o => T.editObj && T.editObj(o) }] : [],
+      d.texteDirekt || !da.text ? [] : [{ l: '✏️ Texte direkt ändern', f: dd => { T.toast && T.toast('Eine Zeile mit dem Finger oder der Maus antippen – dort tippen, Enter speichert, Esc bricht ab. Fertig: „✔ Texte fertig“.', 4500); return { d: { ...dd, texteDirekt: true, erarbeiten: false } }; } }],
+      da.gedreht ? [{ l: '📋 Texte als Liste', aus: o => texteDialog(o) }] : [], /* schräge Beschriftungen lassen sich nicht direkt antippen */
+      OHNE_ZAHLEN.has(k) || !da.zahl ? [] : [{ l: '🔢 Zahlen anpassen', aus: o => zahlenDialog(o) }], zurueck(d)); };
 }
 const alle = () => Object.keys(B).forEach(einrichten);
 alle(); addEventListener('load', alle); setTimeout(alle, 2000);

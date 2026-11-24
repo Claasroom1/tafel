@@ -3,7 +3,7 @@
 (function () {
 const T = window.T = window.T || {};
 
-T.VERSION = '2026-11-23a';        // wie in sw.js (bei jeder neuen Fassung mit hochzählen) – steht unten in ⚙ Einstellungen
+T.VERSION = '2026-11-24g';        // wie in sw.js (bei jeder neuen Fassung mit hochzählen) – steht unten in ⚙ Einstellungen
 T.CM = 40;                       // Weltpixel pro Zentimeter
 /* Schreiben hat Vorrang: Nebenarbeiten (Sicherung, Seitenbilder, Autospeichern) erst, wenn gerade kein Stift/Finger aufliegt
    und seit „ruhe“ ms nichts geschrieben wurde – dann im Leerlauf des Browsers. Gleicher Schlüssel = nur der letzte Auftrag zählt. */
@@ -760,20 +760,29 @@ function resize() {
 /* vor jedem Strich: hat sich der sichtbare Bereich still verändert (Safari-Leiste, Tastatur), erst anpassen */
 T.leinwandPruefen = () => { if (innerWidth !== T.W || innerHeight !== T.H || devicePixelRatio !== T.dpr || window.scrollY || window.scrollX) resize(); };
 T.lives = new Set(); // Striche, die gerade geschrieben werden (je Stift/Finger einer)
-const need = { main: false, live: false, over: false }; let raf = 0;
+const need = { main: false, live: false, over: false }; let raf = 0, teil = null;
 const req = k => { need[k] = true; if (!raf) raf = requestAnimationFrame(frame); };
 T.render = () => req('main'); T.renderLive = () => req('live'); T.renderOver = () => req('over');
+/* nur einen Ausschnitt neu zeichnen (Weltkoordinaten) – z. B. beim Radieren: viel schneller als die ganze Seite mit allen Bildern */
+T.renderTeil = r => { if (!r) { T.render(); return; } teil = teil ? { x0: Math.min(teil.x0, r.x0), y0: Math.min(teil.y0, r.y0), x1: Math.max(teil.x1, r.x1), y1: Math.max(teil.y1, r.y1) } : { ...r }; if (!raf) raf = requestAnimationFrame(frame); };
 // T.ox: Breite der Seitenleiste links – die Tafel beginnt dann rechts davon (geteiltes Fenster)
 T.ox = 0;
 T.viewRect = () => { const v = T.page().view; return { x0: -v.x / v.z, y0: -v.y / v.z, x1: (T.W - T.ox - v.x) / v.z, y1: (T.H - v.y) / v.z }; };
 T.setViewTf = ctx => { const v = T.page().view, d = T.dpr; ctx.setTransform(d * v.z, 0, 0, d * v.z, d * (v.x + T.ox), d * v.y); };
 function frame() {
   raf = 0; if (!T.S.board) return;
-  const n = { ...need }; need.main = need.live = need.over = false;
-  if (n.main) { const ctx = cv.cMainX; T.setViewTf(ctx);
-    if (T.folieMalen && T.folieAktiv && T.folieAktiv()) T.folieMalen(ctx); /* 🗒 Folie: Tafel darunter, Folie darüber */
+  const n = { ...need }, t = teil; need.main = need.live = need.over = false; teil = null;
+  const folie = T.folieMalen && T.folieAktiv && T.folieAktiv();
+  if (n.main || (t && (folie || T.liveHg))) { const ctx = cv.cMainX; T.setViewTf(ctx);
+    if (folie) T.folieMalen(ctx); /* 🗒 Folie: Tafel darunter, Folie darüber */
     else T.paintPage(ctx, T.page(), T.viewRect(), 1 / T.page().view.z);
     T.miniKarte && T.miniKarte(); }
+  else if (t) { /* Ausschnitt: auf ganze Bildschirmpixel gerundet ausschneiden, nur dort Hintergrund und Elemente neu zeichnen */
+    const ctx = cv.cMainX, v = T.page().view, d = T.dpr, sx0 = Math.floor((t.x0 * v.z + v.x + T.ox) * d), sy0 = Math.floor((t.y0 * v.z + v.y) * d), sx1 = Math.ceil((t.x1 * v.z + v.x + T.ox) * d), sy1 = Math.ceil((t.y1 * v.z + v.y) * d);
+    const w = { x0: (sx0 / d - T.ox - v.x) / v.z, y0: (sy0 / d - v.y) / v.z, x1: (sx1 / d - T.ox - v.x) / v.z, y1: (sy1 / d - v.y) / v.z };
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.beginPath(); ctx.rect(sx0, sy0, sx1 - sx0, sy1 - sy0); ctx.clip(); ctx.clearRect(sx0, sy0, sx1 - sx0, sy1 - sy0);
+    T.setViewTf(ctx); T.paintPage(ctx, T.page(), w, 1 / v.z); ctx.restore();
+  }
   if (n.live) zeichneLive();
   if (n.over && T.drawOverlay) T.drawOverlay();
 }

@@ -488,7 +488,7 @@ T.rechenwegePanel = () => {
   for (const x of EXTRA) if (x.da()) dazu(x.gruppe, h('div', { class: 'tile rw-tile', role: 'button', 'data-rw': x.id, title: x.name, onclick: () => x.run() },
     x.k && T.thumb ? h('img', { src: T.thumb(x.k), alt: '' }) : h('div', { class: 'em' }, x.em || '📘'), x.name));
   gruppen.sort((a, b) => rang(a[0]) - rang(b[0]));
-  const zurueck = T.rwZurueck === 'einfuegen' ? 'einfuegen' : 'aufgaben'; /* geöffnet über Einfügen › Mathe bzw. Mathe › 📘 Erklärungen */
+  const zurueck = T.rwZurueck === 'einfuegen' ? 'einfuegen' : 'aufgaben'; /* geöffnet über Vorlagen › Mathe bzw. Mathe › 📘 Erklärungen */
   return [h('button', { class: 'big', onclick: () => T.zeigeDock(zurueck) }, zurueck === 'einfuegen' ? '← Einfügen' : '← Mathe'),
     ...gruppen.flatMap(([titel, liste]) => [h('h3', {}, titel), h('div', { class: 'tiles rw-tiles' }, ...liste)]),
     h('p', { class: 'hint' }, 'Kachel antippen: Erklärung Schritt für Schritt durchklicken (Weiter ▶, Pfeiltasten). ⤴ Auf die Tafel legt den gezeigten Stand groß auf die Tafel, 📝 legt sie in die Notizen – dort über den Reiter am rechten Rand ein- und ausblenden und durchblättern. ☆ = in die Einfügen-Leiste. Alle Beispiele sind nachgerechnet.')];

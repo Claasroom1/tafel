@@ -138,7 +138,7 @@ function seiteEinsetzen(e, neueSeite) {
 }
 
 // ---------- 📌 Meine Vorlagen: markierte Objekte (Bild, Tabelle, Bausteine, Text, Handschrift …) als eigene Vorlage ----------
-// Speichern: Kontextmenü „📌 Als Vorlage speichern“ · Einsetzen: Einfügen › 📌 Meine Vorlagen (Lehrkraft › _Meine Vorlagen › vorlagen.json)
+// Speichern: Kontextmenü „📌 Als Vorlage speichern“ · Einsetzen: Vorlagen › 📌 Meine Vorlagen (Lehrkraft › _Meine Vorlagen › vorlagen.json)
 let vorlagen = null, vorlagenFuer = null;
 async function vorlagenLaden() {
   if (vorlagen && vorlagenFuer === lk()) return vorlagen;
@@ -195,15 +195,15 @@ T.alsVorlage = ganzeSeite => {
   const speichern = async () => {
     if (!e.name.trim()) { T.toast('Bitte einen Namen eingeben.'); name.focus(); return; }
     e.name = e.name.trim(); e.datum = new Date().toISOString(); if (!e.bild) e.bild = await vorschauBild(kopie, pg.bg);
-    if (teilen.checked) { e.autor = lk(); if (await gemeinsamSichern(e)) { T.closeDlg(); T.toast('👥 Für alle freigegeben – unter „Einfügen › 📌 Meine Vorlagen › Gemeinsam“.', 3000); vorlagenNeu && vorlagenNeu(); } return; }
+    if (teilen.checked) { e.autor = lk(); if (await gemeinsamSichern(e)) { T.closeDlg(); T.toast('👥 Für alle freigegeben – unter „Vorlagen › 📌 Meine Vorlagen › Gemeinsam“.', 3000); vorlagenNeu && vorlagenNeu(); } return; }
     await vorlagenLaden(); vorlagen.unshift(e);
-    if (await vorlagenSichern()) { T.closeDlg(); T.toast('📌 Als Vorlage gespeichert – unter „Einfügen › 📌 Meine Vorlagen“.', 2800); vorlagenNeu && vorlagenNeu(); }
+    if (await vorlagenSichern()) { T.closeDlg(); T.toast('📌 Als Vorlage gespeichert – unter „Vorlagen › 📌 Meine Vorlagen“.', 2800); vorlagenNeu && vorlagenNeu(); }
   };
   T.openDlg([h('h2', {}, ganzeSeite ? '📌 Ganze Seite als Vorlage speichern' : `📌 Als Vorlage speichern (${items.length} ${items.length === 1 ? 'Element' : 'Elemente'})`), bild,
     h('label', { class: 'fld' }, 'Name', name), h('label', { class: 'fld' }, 'Fach (zum Sortieren)', fach),
     h('label', { class: 'row', style: { alignItems: 'center', gap: '10px', margin: '6px 0' } }, teilen, h('span', {}, '👥 Für alle Lehrkräfte freigeben'),
       h('span', { class: 'hint' }, F && F.gemRoot ? '(liegt dann im gemeinsamen Ordner' + (F.gemName ? ' „' + F.gemName() + '“' : '') + ')' : kannTeilen() ? '(liegt dann im Ablageordner)' : '(geht nur mit verbundenem Ablageordner)')),
-    h('p', { class: 'hint' }, ganzeSeite ? 'Gespeichert wird die ganze Seite – Hintergrund, Bilder, Bausteine (mit angepassten Texten), Text und Handschrift. Später: Einfügen › 📌 Meine Vorlagen › 📄 Ganze Seiten (kommt als neue Seite).'
+    h('p', { class: 'hint' }, ganzeSeite ? 'Gespeichert wird die ganze Seite – Hintergrund, Bilder, Bausteine (mit angepassten Texten), Text und Handschrift. Später: Vorlagen › 📌 Meine Vorlagen › 📄 Ganze Seiten (kommt als neue Seite).'
       : 'Gespeichert wird alles Markierte so, wie es ist – Bilder, Tabellen, Bausteine, Text und Handschrift.'),
     h('div', { class: 'acts' }, h('button', { class: 'big prim', onclick: speichern }, '📌 Speichern'))]);
   setTimeout(() => name.focus(), 50);

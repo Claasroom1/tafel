@@ -1,4 +1,4 @@
-// Tafel-App – 📐 Figur mit einstellbaren Winkeln (Einfügen › Mathe): Dreieck, Trapez, Parallelogramm, Raute, Rechteck.
+// Tafel-App – 📐 Figur mit einstellbaren Winkeln (Vorlagen › Mathe): Dreieck, Trapez, Parallelogramm, Raute, Rechteck.
 // Winkel antippen › ＋/− (ohne Tastatur); die übrigen Winkel rechnet die Figur fachlich richtig mit
 // (Dreieck: γ = 180° − α − β · Trapez: α + δ = β + γ = 180° · Parallelogramm/Raute: gegenüberliegende Winkel gleich).
 // Je Winkel wählbar: Wert, „?“, nur Name (α) oder leer – z. B. für „Berechne den fehlenden Winkel“.
