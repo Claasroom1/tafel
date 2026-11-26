@@ -326,13 +326,21 @@ function masse() {
       T.closeDlg(); anordnen(p, p.modus); sichern(); zeichnen(); } }, 'Übernehmen'))]);
 }
 function aufTafel() {
-  const g = svgPlan(plan, true), r = T.viewRect ? T.viewRect() : { x0: 0, y0: 0, x1: 1200, y1: 800 }, fz = Math.min((r.x1 - r.x0) * 0.85 / g.w, (r.y1 - r.y0) * 0.85 / g.h);
+  const g0 = svgPlan(plan, true), g = T.BAUSTEINE.sitzplanbild.gen({ svg: g0.svg, w: g0.w, h: g0.h, klasse }, T.palette ? T.palette(false) : null), r = T.viewRect ? T.viewRect() : { x0: 0, y0: 0, x1: 1200, y1: 800 }, fz = Math.min((r.x1 - r.x0) * 0.85 / g.w, (r.y1 - r.y0) * 0.85 / g.h);
   const [cx, cy] = T.viewCenter ? T.viewCenter() : [600, 400];
-  T.snap && T.snap(); T.addItem({ t: 'o', id: T.uid(), k: 'sitzplanbild', d: { svg: g.svg, w: g.w, h: g.h, klasse }, x: cx - g.w * fz / 2, y: cy - g.h * fz / 2, w: g.w * fz, h: g.h * fz, r: 0 });
+  T.snap && T.snap(); T.addItem({ t: 'o', id: T.uid(), k: 'sitzplanbild', d: { svg: g0.svg, w: g0.w, h: g0.h, klasse, karte: true }, x: cx - g.w * fz / 2, y: cy - g.h * fz / 2, w: g.w * fz, h: g.h * fz, r: 0 });
   T.render && T.render(); schliessen(); T.toast && T.toast('Sitzplan liegt auf der Tafel.', 2000);
 }
 T.BAUSTEINE.sitzplanbild = { name: 'Sitzplan (Bild)', gruppe: 'Struktur', def: { svg: '', w: 400, h: 300 }, felder: [],
-  gen: d => d.svg ? { svg: d.svg, w: d.w, h: d.h } : { svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#fafaf7" stroke="#37474f" stroke-width="4"/><text x="200" y="150" text-anchor="middle" font-size="28">🪑 Sitzplan</text></svg>', w: 400, h: 300 } };
+  /* Karte wie bei den übrigen Vorlagen: weiße Fläche, blauer Rand, Überschrift „🪑 Sitzplan – Klasse“; der Plan selbst liegt darin (gilt auch für schon eingefügte Pläne) */
+  gen: (d, P) => {
+    const pap = (P && P.papier) || '#ffffff', ink = (P && P.ink) || '#1a1a1a', RAND = '#3a6d99', esc2 = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const iw = d.svg ? d.w : 600, ih = d.svg ? d.h : 260, gr = Math.max(30, Math.round(iw * 0.032)), rand = Math.round(gr * 0.8), kopf = Math.round(gr * 2.1), W = iw + 2 * rand, H = ih + kopf + rand;
+    const titel = '🪑 Sitzplan' + (d.klasse ? ' – ' + d.klasse : ''), innen = d.svg ? d.svg.replace('<svg ', `<svg x="${rand}" y="${kopf}" `)
+      : `<text x="${W / 2}" y="${kopf + ih / 2 - 20}" font-size="26" text-anchor="middle" fill="#64748b">Noch kein Plan.</text><text x="${W / 2}" y="${kopf + ih / 2 + 22}" font-size="22" text-anchor="middle" fill="#64748b">Im Sitzplan-Fenster anlegen, dann „⤓ Auf die Tafel“.</text>`;
+    return { svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Segoe UI, Arial, sans-serif"><rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="18" fill="${pap}" stroke="${RAND}" stroke-width="2"/>` +
+      `<text x="${rand}" y="${Math.round(kopf * 0.58)}" font-size="${gr}" font-weight="700" fill="${ink}" dominant-baseline="central">${esc2(titel)}</text>${innen}</svg>`, w: W, h: H };
+  } };
 function schliessen() { sichern(); if (spKann() && spMein()) spSchreiben().catch(() => {}); geteilt = { klasse: null, liste: [] }; /* geteilter Plan: neuen Stand mitnehmen */
   if (aufBox) { aufBox.remove(); aufBox = null; } document.removeEventListener('keydown', tasten); }
 
@@ -422,4 +430,11 @@ T.sitzplan = async () => {
   if (!namenListe().length) T.toast && T.toast(`Für Klasse ${klasse} gibt es noch keine Klassenliste – die Tische sind nummeriert. Namen: Classroom › 📋 Klassenliste.`, 4500);
 };
 T._sitzplan = { anordnen, neuerPlan, svgPlan, get plan() { return plan; } }; /* für Tests */
+/* Ältere Tafeln: Sitzplan-Bilder ohne Karte – Bildgröße an die Karte mit Überschrift anpassen (Breite bleibt, Höhe passend), damit nichts verzerrt */
+if (T.checkBoard) { const altCB = T.checkBoard; T.checkBoard = b => { const r = altCB(b);
+  for (const p of r.pages) p.items.forEach((o, i) => { try {
+    if (o.t !== 'o' || o.k !== 'sitzplanbild' || !o.d || o.d.karte || !(o.w > 0 && o.h > 0)) return;
+    const g = T.BAUSTEINE.sitzplanbild.gen(o.d, null); p.items[i] = { ...o, h: o.w * g.h / g.w, d: { ...o.d, karte: true } };
+  } catch (e) {} });
+  return r; }; }
 })();
