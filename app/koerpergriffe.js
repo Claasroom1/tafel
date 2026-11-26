@@ -30,7 +30,11 @@ const KANTEN = {
   quader: d => [{ t: 'a', v: d.a, p1: [0, 0], p2: [d.a * CM, 0], n: [0, 1] }, { t: 'c', v: d.c, p1: [0, 0], p2: [0, -d.c * CM], n: [-1, 0] },
     { t: 'b', v: d.b, p1: [d.a * CM, 0], p2: [(d.a + d.b * Z) * CM, -d.b * Z * CM], n: [D, D] }],
   pyramide: d => [{ t: 'a', v: d.a, p1: [0, 0], p2: [d.a * CM, 0], n: [0, 1] },
-    { t: 'h', v: d.h, p1: [(d.a / 2 + d.a / 2 * Z) * CM, -d.a / 2 * Z * CM], p2: [(d.a / 2 + d.a / 2 * Z) * CM, -(d.h + d.a / 2 * Z) * CM], n: [1, 0], gestr: true }],
+    { t: 'h', v: d.h, p1: [(d.a / 2 + d.a / 2 * Z) * CM, -d.a / 2 * Z * CM], p2: [(d.a / 2 + d.a / 2 * Z) * CM, -(d.h + d.a / 2 * Z) * CM], n: [-1, 0], gestr: true },
+    /* Hilfslinien für die rechtwinkligen Dreiecke: Fußpunkt F → Mitte M der rechten Grundkante (a/2, waagerecht) und Seitenhöhe hₛ von der Spitze S nach M; rechte Winkel bei F und M */
+    { t: 'a/2', bruch: ['a', '2'], p1: [(d.a / 2 + d.a / 2 * Z) * CM, -d.a / 2 * Z * CM], p2: [(d.a + d.a / 2 * Z) * CM, -d.a / 2 * Z * CM], n: [0, 1], gestr: true, off: -8, at: 0.32 },
+    { t: 'hₛ', nurName: true, p1: [(d.a + d.a / 2 * Z) * CM, -d.a / 2 * Z * CM], p2: [(d.a / 2 + d.a / 2 * Z) * CM, -(d.h + d.a / 2 * Z) * CM], n: [-1, 0], gestr: true, off: -20, at: 0.35 },
+    { rw: [[(d.a / 2 + d.a / 2 * Z) * CM, -d.a / 2 * Z * CM], [0, -1], [1, 0]] }, { rw: [[(d.a + d.a / 2 * Z) * CM, -d.a / 2 * Z * CM], [Z, -Z], [-d.a / 2, -d.h]] }],
   prisma: d => [{ t: 'g', v: d.g, p1: [0, 0], p2: [d.g * CM, 0], n: [0, 1] }, { t: 'h', v: d.hd, p1: [d.g / 2 * CM, 0], p2: [d.g / 2 * CM, -d.hd * CM], n: [1, 0], gestr: true },
     { t: 'l', v: d.l, p1: [d.g * CM, 0], p2: [(d.g + d.l * Z) * CM, -d.l * Z * CM], n: [D, D] }],
   zylinder: d => [{ t: 'r', v: d.r, p1: [0, -d.h * CM], p2: [d.r * CM, -d.h * CM], n: [0, -1], off: d.r * CM * 0.38 }, { t: 'h', v: d.h, p1: [d.r * CM, 0], p2: [d.r * CM, -d.h * CM], n: [1, 0] }],
@@ -65,28 +69,28 @@ const F3 = {
   prisma: (d, w, V, O) => { /* gleichschenkliges Dreieck: Grundseite g, Dreieckshöhe h (Feld hd), Länge l; s = Schenkel des Dreiecks */
     const g = r2(d.g), h = r2(d.hd), l = r2(d.l), G = r2(g * h / 2), sw = Math.sqrt(g * g / 4 + h * h), s = r2(sw), M = r2((g + 2 * s) * l), ca = Math.abs(sw - s) > 1e-9;
     return [
-      w('G', 2, 'Grundfläche (Dreieck)', [['g · h : 2', `${cm(g)} · ${cm(h)} : 2`], ['½ · g · h', `½ · ${cm(g)} · ${cm(h)}`]], g * h / 2, 'cm²'),
+      w('G', 2, 'Grundfläche (Dreieck)', [['⟦g · h|2⟧', `⟦${cm(g)} · ${cm(h)}|2⟧`], ['⟦1|2⟧ · g · h', `⟦1|2⟧ · ${cm(g)} · ${cm(h)}`]], g * h / 2, 'cm²'),
       V && w('V', 0, '', [['G · l', `${T.zahl(G, 2)} cm² · ${cm(l)}`]], G * l, 'cm³'),
-      O && w('s', 3, 'Dreiecksseite s', [['√((g : 2)² + h²)', `√(${qu(g / 2)}² + ${qu(h)}²)`]], sw, 'cm'),
+      O && w('s', 3, 'Dreiecksseite s', [['√((⟦g|2⟧)² + h²)', `√(${qu(g / 2)}² + ${qu(h)}²)`]], sw, 'cm'),
       O && w('M', 4, 'Mantelfläche', [['(g + 2 · s) · l', `(${cm(g)} + 2 · ${cm(s)}) · ${cm(l)}`], ['(g + s + s) · l', `(${cm(g)} + ${cm(s)} + ${cm(s)}) · ${cm(l)}`]], (g + 2 * s) * l, 'cm²', ca),
       O && w('O', 1, '', [['2 · G + M', `2 · ${T.zahl(G, 2)} cm² + ${T.zahl(M, 2)} cm²`]], 2 * G + M, 'cm²', ca)]; },
   pyramide: (d, w, V, O) => { /* quadratische Grundfläche a, Höhe h; Seitenhöhe hₛ = √(h² + (a/2)²) */
     const a = r2(d.a), h = r2(d.h), hw = Math.sqrt(h * h + a * a / 4), hs = r2(hw), ca = Math.abs(hw - hs) > 1e-9;
     return [
-      w('V', 0, '', [['⅓ · a² · h', `⅓ · ${qu(a)}² · ${cm(h)}`], ['a² · h : 3', `${qu(a)}² · ${cm(h)} : 3`]], a * a * h / 3, 'cm³'),
-      O && w('hₛ', 3, 'Seitenhöhe hₛ', [['√(h² + (a : 2)²)', `√(${qu(h)}² + ${qu(a / 2)}²)`]], hw, 'cm'),
-      O && w('O', 1, '', [['a² + 4 · (½ · a · hₛ)', `${qu(a)}² + 4 · (½ · ${cm(a)} · ${cm(hs)})`], ['a² + 2 · a · hₛ', `${qu(a)}² + 2 · ${cm(a)} · ${cm(hs)}`]], a * a + 2 * a * hs, 'cm²', ca)]; },
+      w('V', 0, '', [['⟦1|3⟧ · a² · h', `⟦1|3⟧ · ${qu(a)}² · ${cm(h)}`], ['⟦a² · h|3⟧', `⟦${qu(a)}² · ${cm(h)}|3⟧`]], a * a * h / 3, 'cm³'),
+      O && w('hₛ', 3, 'Seitenhöhe hₛ', [['√(h² + (⟦a|2⟧)²)', `√(${qu(h)}² + ${qu(a / 2)}²)`]], hw, 'cm'),
+      O && w('O', 1, '', [['a² + 4 · ⟦a · hₛ|2⟧', `${qu(a)}² + 4 · ⟦${cm(a)} · ${cm(hs)}|2⟧`], ['a² + 2 · a · hₛ', `${qu(a)}² + 2 · ${cm(a)} · ${cm(hs)}`]], a * a + 2 * a * hs, 'cm²', ca)]; },
   zylinder: (d, w) => { const r = r2(d.r), h = r2(d.h); return [
     w('V', 0, '', [['π · r² · h', `π · ${qu(r)}² · ${cm(h)}`]], PI * r * r * h, 'cm³', true),
     w('O', 1, '', [['2 · π · r² + 2 · π · r · h', `2 · π · ${qu(r)}² + 2 · π · ${cm(r)} · ${cm(h)}`], ['2 · π · r · (r + h)', `2 · π · ${cm(r)} · (${cm(r)} + ${cm(h)})`]], 2 * PI * r * r + 2 * PI * r * h, 'cm²', true)]; },
   kegel: (d, w, V, O) => { /* Mantellinie s = √(r² + h²) */
     const r = r2(d.r), h = r2(d.h), sw = Math.sqrt(r * r + h * h), s = r2(sw);
     return [
-      w('V', 0, '', [['⅓ · π · r² · h', `⅓ · π · ${qu(r)}² · ${cm(h)}`], ['π · r² · h : 3', `π · ${qu(r)}² · ${cm(h)} : 3`]], PI * r * r * h / 3, 'cm³', true),
+      w('V', 0, '', [['⟦1|3⟧ · π · r² · h', `⟦1|3⟧ · π · ${qu(r)}² · ${cm(h)}`], ['⟦π · r² · h|3⟧', `⟦π · ${qu(r)}² · ${cm(h)}|3⟧`]], PI * r * r * h / 3, 'cm³', true),
       O && w('s', 3, 'Mantellinie s', [['√(r² + h²)', `√(${qu(r)}² + ${qu(h)}²)`]], sw, 'cm'),
       O && w('O', 1, '', [['π · r² + π · r · s', `π · ${qu(r)}² + π · ${cm(r)} · ${cm(s)}`], ['π · r · (r + s)', `π · ${cm(r)} · (${cm(r)} + ${cm(s)})`]], PI * r * r + PI * r * s, 'cm²', true)]; },
   kugel: (d, w) => { const r = r2(d.r); return [
-    w('V', 0, '', [['⁴⁄₃ · π · r³', `⁴⁄₃ · π · ${qu(r)}³`], ['4 · π · r³ : 3', `4 · π · ${qu(r)}³ : 3`]], 4 / 3 * PI * r ** 3, 'cm³', true),
+    w('V', 0, '', [['⟦4|3⟧ · π · r³', `⟦4|3⟧ · π · ${qu(r)}³`], ['⟦4 · π · r³|3⟧', `⟦4 · π · ${qu(r)}³|3⟧`]], 4 / 3 * PI * r ** 3, 'cm³', true),
     w('O', 1, '', [['4 · π · r²', `4 · π · ${qu(r)}²`]], 4 * PI * r * r, 'cm²', true)]; }
 };
 T.hatKoerperFormeln = o => !!(o && o.t === 'o' && F3[o.k] && T.BAUSTEINE[o.k]);
@@ -163,10 +167,20 @@ if (T._svg) for (const k of Object.keys(VO)) {
     if (d.kanten) {
       const A = KG[k].anker(dd, g);
       for (const q of KANTEN[k](dd)) {
+        if (q.rw) { /* ∟ rechter Winkel: Ecke P, Richtungen u und v (werden auf 14 px gekürzt) */
+          const [p0, u0, v0] = q.rw, e = (w => { const l = Math.hypot(w[0], w[1]) || 1; return [w[0] / l * 14, w[1] / l * 14]; }), u = e(u0), v = e(v0), X = L + A[0] + p0[0], Y = A[1] + p0[1];
+          s += `<path d="M${(X + u[0]).toFixed(1)},${(Y + u[1]).toFixed(1)} L${(X + u[0] + v[0]).toFixed(1)},${(Y + u[1] + v[1]).toFixed(1)} L${(X + v[0]).toFixed(1)},${(Y + v[1]).toFixed(1)}" fill="none" stroke="${P.acc}" stroke-width="2"/><circle cx="${(X + (u[0] + v[0]) / 2).toFixed(1)}" cy="${(Y + (u[1] + v[1]) / 2).toFixed(1)}" r="2" fill="${P.acc}"/>`;
+          continue;
+        }
         const a = [L + A[0] + q.p1[0], A[1] + q.p1[1]], b = [L + A[0] + q.p2[0], A[1] + q.p2[1]], o = 30 + (q.off || 0);
         if (q.gestr) s += ln(a[0], a[1], b[0], b[1], P.acc, 2.5, 'stroke-dasharray="7 5"');
-        const x = (a[0] + b[0]) / 2 + q.n[0] * o, y = (a[1] + b[1]) / 2 + q.n[1] * o;
-        s += tx(x, y, q.t + ' = ' + z(q.v) + ' cm', P.acc, 23, q.n[0] > 0.3 ? 'start' : q.n[0] < -0.3 ? 'end' : 'middle', 'font-weight="700"');
+        const at = q.at == null ? 0.5 : q.at, x = a[0] + (b[0] - a[0]) * at + q.n[0] * o, y = a[1] + (b[1] - a[1]) * at + q.n[1] * o, rand = ` paint-order="stroke" stroke="${P.papier || '#fff'}" stroke-width="5" stroke-linejoin="round"`; /* heller Rand: Linien kreuzen die Schrift nicht */
+        const anker = q.n[0] > 0.3 ? 'start' : q.n[0] < -0.3 ? 'end' : 'middle';
+        if (q.bruch) { const bx = anker === 'start' ? x + 10 : anker === 'end' ? x - 10 : x; /* kleiner Bruch mit Bruchstrich */
+          s += tx(bx, y - 10, q.bruch[0], P.acc, 18, 'middle', 'font-weight="700" font-style="italic"' + rand) + ln(bx - 10, y - 1, bx + 10, y - 1, P.acc, 2) + tx(bx, y + 12, q.bruch[1], P.acc, 18, 'middle', 'font-weight="700"' + rand); }
+        else { const txt = q.nurName ? q.t : q.t + ' = ' + z(q.v) + ' cm', bw = txt.length * 23 * 0.56 + 10, bx0 = anker === 'start' ? x - 5 : anker === 'end' ? x - bw + 5 : x - bw / 2;
+          if (!q.nurName) s += `<rect x="${bx0.toFixed(1)}" y="${(y - 15).toFixed(1)}" width="${bw.toFixed(1)}" height="30" rx="6" fill="${P.papier || '#fff'}" fill-opacity=".85"/>`; /* Schild hinter der Beschriftung: gestrichelte Kanten laufen nicht durch */
+          s += tx(x, y, txt, P.acc, 23, anker, 'font-weight="700"' + (q.nurName ? ' font-style="italic"' : '') + rand); }
       }
     }
     const W = Math.max(g.w + 2 * L, 300), H = g.h + unten;

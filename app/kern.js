@@ -3,7 +3,7 @@
 (function () {
 const T = window.T = window.T || {};
 
-T.VERSION = '2026-11-24g';        // wie in sw.js (bei jeder neuen Fassung mit hochzählen) – steht unten in ⚙ Einstellungen
+T.VERSION = '2026-11-26a';        // wie in sw.js (bei jeder neuen Fassung mit hochzählen) – steht unten in ⚙ Einstellungen
 T.CM = 40;                       // Weltpixel pro Zentimeter
 /* Schreiben hat Vorrang: Nebenarbeiten (Sicherung, Seitenbilder, Autospeichern) erst, wenn gerade kein Stift/Finger aufliegt
    und seit „ruhe“ ms nichts geschrieben wurde – dann im Leerlauf des Browsers. Gleicher Schlüssel = nur der letzte Auftrag zählt. */
@@ -424,13 +424,13 @@ T.formFormeln = (it, W) => {
     if (P.length === 3) {
       namen = ['a', 'b', 'c']; const F = fuss(P[0], P[1], P[2]), h = r1(cm(d(P[0], F))); H.push({ a: P[0], b: F, t: 'h' });
       Z.push(zeile('u', 'a + b + c', `${z(s[0])} + ${z(s[1])} + ${z(s[2])}`, s[0] + s[1] + s[2], 'cm'));
-      Z.push(wahl('A', [['b · h : 2', `${z(s[1])} · ${z(h)} : 2`], ['½ · b · h', `½ · ${z(s[1])} · ${z(h)}`], ['(b · h) : 2', `(${z(s[1])} · ${z(h)}) : 2`]], s[1] * h / 2, 'cm²'));
+      Z.push(wahl('A', [['⟦b · h|2⟧', `⟦${z(s[1])} · ${z(h)}|2⟧`], ['⟦1|2⟧ · b · h', `⟦1|2⟧ · ${z(s[1])} · ${z(h)}`]], s[1] * h / 2, 'cm²'));
     } else {
       const gleich = Math.max(...s) - Math.min(...s) <= Math.max(0.1, Math.max(...s) * 0.02);
       if (it.fz === 'raute' && gleich && par(P[0], P[1], P[3], P[2])) {
         namen = ['a', 'a', 'a', 'a']; const e = r1(cm(d(P[0], P[2]))), f = r1(cm(d(P[1], P[3]))); H.push({ a: P[0], b: P[2], t: 'e' }, { a: P[1], b: P[3], t: 'f' });
         Z.push(wahl('u', [['4 · a', `4 · ${z(s[0])}`], ['a + a + a + a', [0, 0, 0, 0].map(() => z(s[0])).join(' + ')]], 4 * s[0], 'cm'));
-        Z.push(wahl('A', [['e · f : 2', `${z(e)} · ${z(f)} : 2`], ['½ · e · f', `½ · ${z(e)} · ${z(f)}`]], e * f / 2, 'cm²'));
+        Z.push(wahl('A', [['⟦e · f|2⟧', `⟦${z(e)} · ${z(f)}|2⟧`], ['⟦1|2⟧ · e · f', `⟦1|2⟧ · ${z(e)} · ${z(f)}`]], e * f / 2, 'cm²'));
       } else if (rw(P[3], P[0], P[1]) && rw(P[0], P[1], P[2]) && rw(P[1], P[2], P[3])) {
         namen = ['a', 'b', 'c', 'd'];
         Z.push(wahl('u', [['2 · a + 2 · b', `2 · ${z(s[0])} + 2 · ${z(s[1])}`], ['2 · (a + b)', `2 · (${z(s[0])} + ${z(s[1])})`], ['a + b + a + b', `${z(s[0])} + ${z(s[1])} + ${z(s[0])} + ${z(s[1])}`]], 2 * s[0] + 2 * s[1], 'cm'));
@@ -442,7 +442,7 @@ T.formFormeln = (it, W) => {
       } else if (par(P[0], P[1], P[3], P[2])) {
         namen = ['a', 'b', 'c', 'd']; const F = fuss(P[3], P[0], P[1]), h = r1(cm(d(P[3], F))); H.push({ a: P[3], b: F, t: 'h' });
         Z.push(zeile('u', 'a + b + c + d', `${z(s[0])} + ${z(s[1])} + ${z(s[2])} + ${z(s[3])}`, s[0] + s[1] + s[2] + s[3], 'cm'));
-        Z.push(wahl('A', [['(a + c) : 2 · h', `(${z(s[0])} + ${z(s[2])}) : 2 · ${z(h)}`], ['(a + c) · h : 2', `(${z(s[0])} + ${z(s[2])}) · ${z(h)} : 2`], ['½ · (a + c) · h', `½ · (${z(s[0])} + ${z(s[2])}) · ${z(h)}`]], (s[0] + s[2]) / 2 * h, 'cm²'));
+        Z.push(wahl('A', [['⟦a + c|2⟧ · h', `⟦${z(s[0])} + ${z(s[2])}|2⟧ · ${z(h)}`], ['⟦(a + c) · h|2⟧', `⟦(${z(s[0])} + ${z(s[2])}) · ${z(h)}|2⟧`], ['⟦1|2⟧ · (a + c) · h', `⟦1|2⟧ · (${z(s[0])} + ${z(s[2])}) · ${z(h)}`]], (s[0] + s[2]) / 2 * h, 'cm²'));
       } else { namen = ['a', 'b', 'c', 'd']; Z.push(zeile('u', 'a + b + c + d', `${z(s[0])} + ${z(s[1])} + ${z(s[2])} + ${z(s[3])}`, s[0] + s[1] + s[2] + s[3], 'cm')); } /* allgemeines Viereck: Fläche nur über Zerlegen */
     }
   } else if (W.art === 'kreis') {
@@ -451,9 +451,9 @@ T.formFormeln = (it, W) => {
     Z.push(wahl('A', [['π · r²', `π · (${z(r)})²`], ['π · r · r', `π · ${z(r)} · ${z(r)}`]], Math.PI * r * r, 'cm²', true));
   } else if (W.art === 'kreiswinkel' && it.kw) {
     const r = r1(W.r), al = Math.round(it.kw.th), b = Math.round(2 * Math.PI * r * al / 360 * 100) / 100;
-    Z.push(zeile('b', '2 · π · r · α : 360°', `2 · π · ${z(r)} · ${al}° : 360°`, 2 * Math.PI * r * al / 360, 'cm', true));
+    Z.push(zeile('b', '2 · π · r · ⟦α|360°⟧', `2 · π · ${z(r)} · ⟦${al}°|360°⟧`, 2 * Math.PI * r * al / 360, 'cm', true));
     Z.push(zeile('u', '2 · r + b', `2 · ${z(r)} + ${T.zahl(b, 2)} cm`, 2 * r + b, 'cm'));
-    Z.push(zeile('A', 'π · r² · α : 360°', `π · (${z(r)})² · ${al}° : 360°`, Math.PI * r * r * al / 360, 'cm²', true));
+    Z.push(zeile('A', 'π · r² · ⟦α|360°⟧', `π · (${z(r)})² · ⟦${al}°|360°⟧`, Math.PI * r * r * al / 360, 'cm²', true));
   } else if (W.art === 'ellipse' && !W.sektor) {
     const a = r1(W.a), b = r1(W.b);
     Z.push(zeile('A', 'π · a · b', `π · ${z(a)} · ${z(b)}`, Math.PI * a * b, 'cm²', true));
@@ -522,6 +522,26 @@ T.masseMalen = (ctx, pg, dark, px, drag) => {
 /* eingefärbt (it.fkc), am Kasten verschiebbar (it.fk = Versatz), Zeilen aus: it.fa = { f, r, e } */
 T.FK_FARBEN = ['#fef3c7', '#dcfce7', '#dbeafe', '#fce7f3', '#ede9fe', '#e5e7eb'];
 const FK_TITEL = { u: 'Umfang', A: 'Flächeninhalt', b: 'Bogenlänge', V: 'Volumen', O: 'Oberfläche' };
+/* ➗ Brüche in Formeln: ⟦Zähler|Nenner⟧ wird mit echtem Bruchstrich gezeichnet (statt „: 2“ oder „½“) */
+const BRUCH = /⟦([^|⟧]*)\|([^⟧]*)⟧/g;
+const bruchTeile = s => { const out = []; let i = 0, m; BRUCH.lastIndex = 0; while ((m = BRUCH.exec(s))) { if (m.index > i) out.push({ t: s.slice(i, m.index) }); out.push({ z: m[1], n: m[2] }); i = m.index + m[0].length; } if (i < s.length) out.push({ t: s.slice(i) }); return out; };
+T.hatBruch = s => /⟦[^⟧]*\|[^⟧]*⟧/.test(String(s));
+T.bruchText = s => String(s).replace(BRUCH, (a, z, n) => (/[ +−-]/.test(z.trim()) ? '(' + z + ')' : z) + ' / ' + n); /* als einfacher Text */
+T.bruchKnoten = s => bruchTeile(String(s)).map(p => p.t != null ? document.createTextNode(p.t) : T.h('span', { style: { display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'middle', fontSize: '.85em', lineHeight: 1.05, margin: '0 2px' } },
+  T.h('span', { style: { borderBottom: '1.5px solid currentColor', padding: '0 2px' } }, p.z), T.h('span', { style: { padding: '0 2px' } }, p.n)));
+const bruchFont = (font, f) => font.replace(/([\d.]+)px/, (a, n) => (n * f) + 'px');
+T.bruchBreite = (ctx, s, fs) => { const f0 = ctx.font; let w = 0; for (const p of bruchTeile(s)) { if (p.t != null) w += ctx.measureText(p.t).width; else { ctx.font = bruchFont(f0, 0.8); w += Math.max(ctx.measureText(p.z).width, ctx.measureText(p.n).width) + fs * 0.3; ctx.font = f0; } } return w; };
+T.bruchMalen = (ctx, s, x, y, fs) => { /* links ab x, y = Mitte; Schrift und Farbe wie eingestellt */
+  const f0 = ctx.font, al = ctx.textAlign; ctx.textAlign = 'left';
+  for (const p of bruchTeile(s)) {
+    if (p.t != null) { ctx.fillText(p.t, x, y); x += ctx.measureText(p.t).width; continue; }
+    ctx.font = bruchFont(f0, 0.8); const bz = ctx.measureText(p.z).width, bn = ctx.measureText(p.n).width, b = Math.max(bz, bn) + fs * 0.3;
+    ctx.fillText(p.z, x + (b - bz) / 2, y - fs * 0.5); ctx.fillText(p.n, x + (b - bn) / 2, y + fs * 0.52);
+    ctx.save(); ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = Math.max(1, fs * 0.08); ctx.beginPath(); ctx.moveTo(x + fs * 0.06, y); ctx.lineTo(x + b - fs * 0.06, y); ctx.stroke(); ctx.restore();
+    ctx.font = f0; x += b;
+  }
+  ctx.textAlign = al; return x;
+};
 T.formelKasten = (ctx, pg, it, FF, dark, px, fk, drag) => {
   const fs = 18 * px, lh = fs * 1.55, pad = fs * 0.75, aus = it.fa || {}, gruppen = [];
   FF.Z.forEach((zl, j0) => {
@@ -538,7 +558,7 @@ T.formelKasten = (ctx, pg, it, FF, dark, px, fk, drag) => {
   let br = 0, ho = 0;
   for (const g of gruppen) {
     ctx.font = fT; br = Math.max(br, ctx.measureText(g.titel.toUpperCase()).width); ho += fs * 1.05;
-    for (const z of g.zeilen) { ctx.font = fZ; z.ein = z.l ? ctx.measureText(z.l + ' ').width : 0; ctx.font = z.fett ? fE : fZ; br = Math.max(br, z.ein + ctx.measureText(z.txt).width); ho += lh; }
+    for (const z of g.zeilen) { ctx.font = fZ; z.ein = z.l ? ctx.measureText(z.l + ' ').width : 0; ctx.font = z.fett ? fE : fZ; z.lh = T.hatBruch(z.txt) ? lh * 1.45 : lh; br = Math.max(br, z.ein + T.bruchBreite(ctx, z.txt, fs)); ho += z.lh; }
     ho += fs * 0.45;
   }
   ho -= fs * 0.45;
@@ -555,8 +575,8 @@ T.formelKasten = (ctx, pg, it, FF, dark, px, fk, drag) => {
   for (const g of gruppen) {
     ctx.font = fT; ctx.fillStyle = dark ? '#cbd5e1' : '#64748b'; ctx.fillText(g.titel.toUpperCase(), x0 + pad, y + fs * 0.45); y += fs * 1.05;
     for (const z of g.zeilen) {
-      ctx.font = z.fett ? fE : fZ; ctx.fillStyle = z.fett ? (dark ? '#fcd34d' : '#9a3412') : (dark ? '#f1f5f9' : '#1e293b'); ctx.fillText(z.txt, x0 + pad + z.ein, y + lh / 2);
-      zeilen.push({ key: z.key, y0: y + (drag ? drag.dy : 0), y1: y + lh + (drag ? drag.dy : 0) }); y += lh;
+      ctx.font = z.fett ? fE : fZ; ctx.fillStyle = z.fett ? (dark ? '#fcd34d' : '#9a3412') : (dark ? '#f1f5f9' : '#1e293b'); T.bruchMalen(ctx, z.txt, x0 + pad + z.ein, y + z.lh / 2, fs);
+      zeilen.push({ key: z.key, y0: y + (drag ? drag.dy : 0), y1: y + z.lh + (drag ? drag.dy : 0) }); y += z.lh;
     }
     y += fs * 0.45;
   }

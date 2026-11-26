@@ -630,7 +630,7 @@ function bemassTabelle(ids, nachher, ohneTitel) {
     const akt = Math.min(vs.length - 1, (sel[0].fv && sel[0].fv[l]) || 0);
     teile.push(h('div', { class: 'fk-schreib' }, h('span', { class: 'bm-name' }, '✏️ ' + l + ' ='),
       ...vs.map((f, i) => h('button', { class: 'fk-sw' + (i === akt ? ' on' : ''), title: 'Schreibweise der Formel', onclick: e => { e.stopPropagation(); T.snap();
-        sel.forEach(it => { const o = pg.items.find(x => x.id === it.id) || it, fv = { ...(o.fv || {}) }; if (i) fv[l] = i; else delete fv[l]; const n = { ...o, fv }; if (!Object.keys(fv).length) delete n.fv; T.replaceItem(n); }); fertig(); } }, f))));
+        sel.forEach(it => { const o = pg.items.find(x => x.id === it.id) || it, fv = { ...(o.fv || {}) }; if (i) fv[l] = i; else delete fv[l]; const n = { ...o, fv }; if (!Object.keys(fv).length) delete n.fv; T.replaceItem(n); }); fertig(); } }, ...T.bruchKnoten(f)))));
   }
   if (moAn && mitAuswahl) { /* 🎨 Farbe des Formelkastens · Kasten zurück neben die Form */
     const akt = sel[0].fkc || T.FK_FARBEN[0];
@@ -674,7 +674,7 @@ function koerperBemass(ids, nachher) {
       const ak = Math.min(vs.length - 1, (sel[0].fv && sel[0].fv[l]) || 0);
       teile.push(h('div', { class: 'fk-schreib' }, h('span', { class: 'bm-name' }, '✏️ ' + l + ' ='),
         ...vs.map((f, i) => h('button', { class: 'fk-sw' + (i === ak ? ' on' : ''), title: 'Schreibweise der Formel', onclick: e => { e.stopPropagation(); T.snap();
-          sel.forEach(it => { const o = akt(it), fv = { ...(o.fv || {}) }; if (i) fv[l] = i; else delete fv[l]; const n = { ...o, fv }; if (!Object.keys(fv).length) delete n.fv; T.replaceItem(n); }); fertig(); } }, f))));
+          sel.forEach(it => { const o = akt(it), fv = { ...(o.fv || {}) }; if (i) fv[l] = i; else delete fv[l]; const n = { ...o, fv }; if (!Object.keys(fv).length) delete n.fv; T.replaceItem(n); }); fertig(); } }, ...T.bruchKnoten(f)))));
     }
     const kf = sel[0].fkc || T.FK_FARBEN[0]; /* 🎨 Farbe des Formelkastens · Kasten zurück neben den Körper */
     teile.push(h('div', { class: 'fk-farben', title: 'Farbe des Formelkastens' }, h('span', { class: 'bm-name' }, '🎨 Kasten'),
